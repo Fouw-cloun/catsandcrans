@@ -1,0 +1,90 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: "\u044C\u0444\u0448\u0442\u0435"
+  m_Shader: {fileID: 4800000, guid: 6920796dd6d8ce64eaf963fc72b6da7d, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords:
+  - _OUTLINE_FROM_POSITION
+  m_InvalidKeywords:
+  - _USE_TEXTURES
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _BaseMap:
+        m_Texture: {fileID: 2800000, guid: 3e06ff05f8e611741b1d274f0f5b60d4, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _BumpMap:
+        m_Texture: {fileID: 2800000, guid: 067e03cc7baa29943bbcba83e35f54d6, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MaskMap:
+        m_Texture: {fileID: 2800000, guid: 2d7f4703d5e7c764b83a4ba5e6c172f6, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _AmbientBoost: 2.29
+    - _BandInfluence: 0
+    - _BandNoise: 0.5
+    - _BandSteps: 5.25
+    - _BumpScale: 3
+    - _GrassBlend: 0.036
+    - _GrassLine: 0
+    - _GrassSlope: 0.277
+    - _HazeEnd: 900
+    - _HazeHeightFalloff: 0.004
+    - _HazeMax: 0.694
+    - _HazeStart: 150
+    - _HeightMax: 380.01
+    - _HeightMin: 0
+    - _LightBoost: 0.77
+    - _LightWrap: 0.237
+    - _MaskAO: 0.404
+    - _NoiseScale: 0.035
+    - _OutlineFadeEnd: 1400
+    - _OutlineFadeStart: 400
+    - _OutlineFromPos: 1
+    - _OutlineWidth: 3.99
+    - _RimPower: 3.41
+    - _RimStrength: 0.39
+    - _RimSunOnly: 0.456
+    - _ShadeFloor: 0
+    - _ShadeSteps: 3.81
+    - _ShadowStrength: 0.235
+    - _SnowBlend: 0.093
+    - _SnowLine: 0.557
+    - _SnowSlope: 0.285
+    - _SpecStrength: 0
+    - _TriplanarScale: 0.08
+    - _TriplanarSharp: 6.07
+    - _UseTextures: 1
+    - _UseTriplanar: 0
+    m_Colors:
+    - _BaseTint: {r: 0.828, g: 0.828, b: 0.828, a: 1}
+    - _ColorHigh: {r: 1, g: 1, b: 1, a: 0}
+    - _ColorLow: {r: 0.619, g: 0.619, b: 0.619, a: 0}
+    - _ColorMid: {r: 1, g: 1, b: 1, a: 0}
+    - _GrassColor: {r: 0.37999994, g: 0.45, b: 0.25999996, a: 1}
+    - _HazeColor: {r: 0.91349995, g: 0.9555, b: 0.87149996, a: 1}
+    - _OutlineColor: {r: 0.17999998, g: 0.15999997, b: 0.19999996, a: 1}
+    - _RimColor: {r: 1, g: 0.93, b: 0.75, a: 1}
+    - _ShadowTint: {r: 0.5853, g: 0.69439995, b: 0.8758, a: 0.965}
+    - _SnowColor: {r: 0.94, g: 0.95, b: 0.96999997, a: 1}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1
