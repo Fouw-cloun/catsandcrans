@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d3b916a9f921b24bac8dd77aa0a049c, type: 3}
+  m_Name: "Food_\u042F\u0439\u0446\u043E"
+  m_EditorClassIdentifier: Assembly-CSharp::CatCooks.Food.ProductDef
+  Id: 16
+  Title: "\u042F\u0439\u0446\u043E"
+  Group: {fileID: 11400000, guid: b29c2fcf9ef44d74a92b66903deaa09f, type: 2}
+  Overrides: []
+  BaseColor: {r: 0.94, g: 0.88, b: 0.76, a: 1}
+  BurntColor: {r: 0.22, g: 0.16, b: 0.11, a: 1}
+  DebrisColor: {r: 0, g: 0, b: 0, a: 0}
+  SolidMesh: {fileID: 0}
+  PieceMeshes: []
+  Size: 0.03
+  Looks: []
+  MadeByRecipe: 0
+  HardensInto: {fileID: 0}
+  HardenSeconds: 90
+  Solid: 0

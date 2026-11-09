@@ -1,0 +1,64 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 0}
+  m_Name: CX_W6_DustStorm
+  m_EditorClassIdentifier: Assembly-CSharp::CatCooksWeatherPreset
+  title: "\u041A\u043E\u043C\u0438\u043A\u0441 \u2014 \u043F\u044B\u043B\u044C\u043D\u0430\u044F
+    \u0431\u0443\u0440\u044F"
+  note: "\u041F\u0435\u0441\u043E\u043A \u0443 \u0437\u0435\u043C\u043B\u0438, \u0432\u0441\u0451
+    \u0436\u0451\u043B\u0442\u043E-\u043E\u0440\u0430\u043D\u0436\u0435\u0432\u043E\u0435,
+    \u0441\u0438\u043B\u044C\u043D\u044B\u0439 \u0432\u0435\u0442\u0435\u0440."
+  severity: 0.55
+  coverage: 0.4
+  skyCoverage: 0.6
+  darkness: 0.1
+  overcast: 0.3
+  cloudHeight: 221.5
+  cloudStretch: 1.235
+  cloudWisp: 0.14
+  cloudWidth: 1.2
+  cloudBodyScale: 1
+  cloudPopulation: 0.73
+  cloudSway: 0.2
+  hazeEnabled: 1
+  hazeDensity: 0.27400002
+  fogEnabled: 1
+  fogDensity: 0.5
+  fogStart: 100.5
+  fogEnd: 500
+  fogHeightTop: 386.82523
+  rayIntensity: 0.3
+  cloudShadows: 1
+  shadowStrength: 0.2
+  rain: 0
+  lightning: 0
+  exposureShift: -0.05
+  saturationShift: -10
+  contrastShift: -3.3000002
+  temperatureShift: 15
+  vignetteAdd: 0.055000003
+  bloomAdd: 0
+  sunDim: 0.7
+  screenFrame: 0.1
+  frameColor: {r: 0.18039216, g: 0.16470589, b: 0.21960784, a: 1}
+  edgeDesaturate: 0.165
+  wetnessRate: 1
+  wind: 1
+  windStreaks: 1
+  cloudEvolve: 0.12
+  leaves: 0.5
+  dust: 1
+  sunDust: 0.3
+  difficulty: 0.65
+  hazards: 50
+  unlockDay: 3
+  transitionSeconds: 40

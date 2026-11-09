@@ -30,7 +30,7 @@ using UnityEngine;
 /// Требует на объекте: NetworkObject, NetworkTransform (Client Authoritative),
 /// Collider, Rigidbody (как у обычного предмета — чтобы падал/брался в руку).
 /// </summary>
-public class AngleGrinderItem : InteractableItem
+public class AngleGrinderItem : InteractableItem, ISpinningTool
 {
     [Header("Болгарка — диск (визуал)")]
     [Tooltip("Дочерний меш вращающегося диска. Крутится вокруг своей оси.")]
@@ -62,6 +62,34 @@ public class AngleGrinderItem : InteractableItem
     [SerializeField] private float _breakLaunchSpeed = 7f;
     [Tooltip("Случайный разброс скорости выброса (±)")]
     [SerializeField] private float _breakLaunchSpeedRandom = 3f;
+
+    [Header("Искры при слёте диска")]
+    [Tooltip("Сколько искр вылетает в момент слёта")]
+    [SerializeField] private int _sparkCount = 120;
+
+    [Tooltip("Скорость разлёта искр")]
+    [SerializeField] private float _sparkSpeed = 7f;
+
+    [Tooltip("Цвет сердцевины — раскалённый жёлтый")]
+    [SerializeField] private Color _sparkHot = new Color(1f, 0.95f, 0.4f);
+
+    [Tooltip("Цвет остывающего хвоста — оранжевый")]
+    [SerializeField] private Color _sparkCool = new Color(1f, 0.42f, 0.05f);
+
+    [Tooltip("Наклон струи искр вверх от горизонта, градусы")]
+    [Range(0f, 80f)][SerializeField] private float _sparkElevation = 35f;
+
+    [Tooltip("Разброс струи, градусы. Маленький — узкий сноп, большой — веер.")]
+    [Range(3f, 90f)][SerializeField] private float _sparkSpread = 20f;
+
+    [Tooltip("Сторона вылета выбирается случайно. Выключи — всегда вправо " +
+             "относительно инструмента.")]
+    [SerializeField] private bool _sparkRandomSide = true;
+
+    [Tooltip("Пиковая яркость искр. Выше 1 уводит цвет в HDR — с Bloom в " +
+             "пост-обработке искры начинают светиться. Без Bloom всё, что " +
+             "выше 1, просто упрётся в белый.")]
+    [Range(0.2f, 8f)][SerializeField] private float _sparkIntensity = 2.5f;
 
     [Header("Положение в руке (регулировка под модель)")]
     [Tooltip("Смещение относительно точки кисти (в системе координат руки)")]
@@ -229,8 +257,35 @@ public class AngleGrinderItem : InteractableItem
         _spinning.Value = false;
         _hasDisc.Value = false;
 
+        // Искры — отдельным RPC, а не реакцией на смену _hasDisc. Через
+        // OnChange залп мог бы сыграть у того, кто подключился уже после слёта:
+        // для него первичная синхронизация выглядит как переход true -> false.
+        // Разовое событие надо и слать разово.
+        Vector3 at = _disc != null ? _disc.position : transform.position;
+
+        // Струя вбок и вверх — как от настоящей шлифовки. Сторону выбирает
+        // СЕРВЕР и шлёт готовое направление: если бы каждый клиент кидал
+        // кубик сам, искры полетели бы у всех в разные стороны.
+        float side = _sparkRandomSide && Random.value < 0.5f ? -1f : 1f;
+        Vector3 dir = (transform.right * side
+                     + Vector3.up * Mathf.Tan(_sparkElevation * Mathf.Deg2Rad)).normalized;
+
+        RpcDiscBrokeSparks(at, dir);
+
         if (_discProjectilePrefab != null && _disc != null)
             SpawnBrokenDisc();
+    }
+
+    /// <summary>
+    /// Залп искр у ВСЕХ клиентов. Чистый визуал: частицы считаются локально,
+    /// по сети летит только сам факт события и точка.
+    /// </summary>
+    [ObserversRpc]
+    private void RpcDiscBrokeSparks(Vector3 position, Vector3 direction)
+    {
+        SparkBurst.Play(position, direction, _sparkSpread,
+                        _sparkCount, _sparkSpeed, _sparkHot, _sparkCool,
+                        _sparkIntensity);
     }
 
     private void SpawnBrokenDisc()
@@ -297,4 +352,15 @@ public class AngleGrinderItem : InteractableItem
         Quaternion rot = handAnchor.rotation * Quaternion.Euler(_holdEulerOffset);
         transform.SetPositionAndRotation(pos, rot);
     }
+
+    // ─── ISpinningTool: для GrinderFoodProcessor ───
+
+    /// <summary>Крутится и диск на месте — значит можно обрабатывать еду.</summary>
+    public bool IsActive => _spinning.Value && _hasDisc.Value;
+
+    /// <summary>Раскрутка 0..1. Идёт в качество обработки.</summary>
+    public float Power01 => _currentSpinScale;
+
+    /// <summary>Рабочая точка — центр диска.</summary>
+    public Transform WorkPoint => _disc;
 }

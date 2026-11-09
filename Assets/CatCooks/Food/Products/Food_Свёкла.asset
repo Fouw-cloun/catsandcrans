@@ -1,0 +1,71 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d3b916a9f921b24bac8dd77aa0a049c, type: 3}
+  m_Name: "Food_\u0421\u0432\u0451\u043A\u043B\u0430"
+  m_EditorClassIdentifier: Assembly-CSharp::CatCooks.Food.ProductDef
+  Id: 126
+  Title: "\u0421\u0432\u0451\u043A\u043B\u0430"
+  Group: {fileID: 11400000, guid: 5975e66943c91ab4ca94714d3d110ce7, type: 2}
+  Overrides:
+  - From: 4
+    Process: 42
+    To: 42
+    Seconds: 40
+    Window: 0.35
+    TooEarly: 46
+    TooLate: 47
+  - From: 3
+    Process: 42
+    To: 42
+    Seconds: 45
+    Window: 0.35
+    TooEarly: 46
+    TooLate: 47
+  - From: 46
+    Process: 42
+    To: 42
+    Seconds: 20
+    Window: 0.35
+    TooEarly: 0
+    TooLate: 47
+  - From: 47
+    Process: 42
+    To: 48
+    Seconds: 12
+    Window: 0
+    TooEarly: 0
+    TooLate: 0
+  - From: 42
+    Process: 21
+    To: 21
+    Seconds: 2.5
+    Window: 0
+    TooEarly: 0
+    TooLate: 0
+  - From: 42
+    Process: 20
+    To: 20
+    Seconds: 2
+    Window: 0
+    TooEarly: 0
+    TooLate: 0
+  BaseColor: {r: 0.5, g: 0.07, b: 0.2, a: 1}
+  BurntColor: {r: 0.14, g: 0.04, b: 0.06, a: 1}
+  DebrisColor: {r: 0.55, g: 0.05, b: 0.22, a: 1}
+  SolidMesh: {fileID: 0}
+  PieceMeshes: []
+  Size: 0.12
+  Looks: []
+  MadeByRecipe: 0
+  HardensInto: {fileID: 0}
+  HardenSeconds: 90
+  Solid: 0

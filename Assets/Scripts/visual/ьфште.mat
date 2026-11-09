@@ -81,10 +81,10 @@ Material:
     - _ColorLow: {r: 0.619, g: 0.619, b: 0.619, a: 0}
     - _ColorMid: {r: 1, g: 1, b: 1, a: 0}
     - _GrassColor: {r: 0.37999994, g: 0.45, b: 0.25999996, a: 1}
-    - _HazeColor: {r: 0.91349995, g: 0.9555, b: 0.87149996, a: 1}
+    - _HazeColor: {r: 0.84411764, g: 0.95941174, b: 0.9470588, a: 1}
     - _OutlineColor: {r: 0.17999998, g: 0.15999997, b: 0.19999996, a: 1}
     - _RimColor: {r: 1, g: 0.93, b: 0.75, a: 1}
-    - _ShadowTint: {r: 0.5853, g: 0.69439995, b: 0.8758, a: 0.965}
+    - _ShadowTint: {r: 0.56431377, g: 0.7295098, b: 0.9304412, a: 1}
     - _SnowColor: {r: 0.94, g: 0.95, b: 0.96999997, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

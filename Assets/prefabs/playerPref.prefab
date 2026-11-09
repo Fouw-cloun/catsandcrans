@@ -242,6 +242,18 @@ GameObject:
   - component: {fileID: 5307745187665542950}
   - component: {fileID: 5506241229002752688}
   - component: {fileID: 8935731050116245592}
+  - component: {fileID: 2381418178619727722}
+  - component: {fileID: 5664509032167362961}
+  - component: {fileID: 9119435925317072163}
+  - component: {fileID: -4124274836171128364}
+  - component: {fileID: -8133983000357061406}
+  - component: {fileID: -2238400124428783537}
+  - component: {fileID: 6242356609048162340}
+  - component: {fileID: -2575712288941183648}
+  - component: {fileID: -8161208570537983600}
+  - component: {fileID: 2863629359192984022}
+  - component: {fileID: 7164141221823763388}
+  - component: {fileID: 1810071224995546713}
   m_Layer: 0
   m_Name: playerPref
   m_TagString: Untagged
@@ -314,6 +326,14 @@ MonoBehaviour:
   - {fileID: 8600112747940857657}
   - {fileID: 5307745187665542950}
   - {fileID: 5506241229002752688}
+  - {fileID: 8935731050116245592}
+  - {fileID: 2381418178619727722}
+  - {fileID: 5664509032167362961}
+  - {fileID: 9119435925317072163}
+  - {fileID: -2238400124428783537}
+  - {fileID: 6242356609048162340}
+  - {fileID: -2575712288941183648}
+  - {fileID: -8161208570537983600}
   InitializedParentNetworkBehaviour: {fileID: 0}
   InitializedNestedNetworkObjects: []
   RuntimeParentNetworkBehaviour: {fileID: 0}
@@ -324,7 +344,7 @@ MonoBehaviour:
   _initializeOrder: 0
   _preventDespawnOnDisconnect: 0
   _defaultDespawnType: 0
-  _initializedTimestamp: -8584182496015001483
+  _initializedTimestamp: -8584135794697594483
   _localLevelOfDetailCalculationType: 0
   _useLevelOfDetail: 0
   _useRootLevelOfDetail: 1
@@ -343,7 +363,7 @@ MonoBehaviour:
   _spectatorInterpolation: 2
   _enableTeleport: 0
   _teleportThreshold: 1
-  <PrefabId>k__BackingField: 7
+  <PrefabId>k__BackingField: 21
   <SpawnableCollectionId>k__BackingField: 0
   <AssetPathHash>k__BackingField: 12758770995670091373
   SceneId: 0
@@ -420,6 +440,13 @@ MonoBehaviour:
   _minPitch: -80
   _maxPitch: 80
   _knockbackDrag: 8
+  _jumpEnabled: 1
+  _jumpHeight: 1.1
+  _jumpKey: 32
+  _climbSpeed: 2.6
+  _climbSideFactor: 0.5
+  _climbPushOff: 4
+  _climbJumpKey: 32
 --- !u!114 &5307745187665542950
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -457,8 +484,9 @@ MonoBehaviour:
   _reach: 5
   _interactMask:
     serializedVersion: 2
-    m_Bits: 64
+    m_Bits: 960
   _maxChargeSeconds: 3
+  _debugRaycast: 0
 --- !u!114 &8935731050116245592
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -471,15 +499,284 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 472d98205507aa745bcae3eedbfcb3cc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RopeGrabber
-  _componentIndexCache: 255
+  _componentIndexCache: 4
   _addedNetworkObject: {fileID: 6479941761066047188}
-  _networkObjectCache: {fileID: 0}
+  _networkObjectCache: {fileID: 6479941761066047188}
   hand: {fileID: 1998342093202509262}
   grabRadius: 0.6
   grabKey: 101
   ropeLayer:
     serializedVersion: 2
     m_Bits: 4294967295
+--- !u!114 &2381418178619727722
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7345008397519214144}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 39b0f8968085fbd4b97fc5d2d91da217, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FoodDebugTool
+  _componentIndexCache: 5
+  _addedNetworkObject: {fileID: 6479941761066047188}
+  _networkObjectCache: {fileID: 6479941761066047188}
+  _slot1: {fileID: 11400000, guid: f4909f13ba33b7d4ab96a7c1a69935e7, type: 2}
+  _slot2: {fileID: 11400000, guid: c07a5f36342843f4d97b5e750038e967, type: 2}
+  _slot3: {fileID: 11400000, guid: 74aa99818b0fd344e9046d798b1a7937, type: 2}
+  _reach: 3
+  _mask:
+    serializedVersion: 2
+    m_Bits: 192
+  _quality: 1
+--- !u!114 &5664509032167362961
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7345008397519214144}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: de4916d653e39934eb3f8f14ad73835a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CarryGrabber
+  _componentIndexCache: 6
+  _addedNetworkObject: {fileID: 6479941761066047188}
+  _networkObjectCache: {fileID: 6479941761066047188}
+  _key: 102
+  _placeKey: 114
+  _reach: 2.5
+  _potMask:
+    serializedVersion: 2
+    m_Bits: 256
+--- !u!114 &9119435925317072163
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7345008397519214144}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7b8c935df0c77dc4280e4e2f7f61194c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LidRemover
+  _componentIndexCache: 7
+  _addedNetworkObject: {fileID: 6479941761066047188}
+  _networkObjectCache: {fileID: 6479941761066047188}
+  _key: 101
+  _reach: 3
+  _potMask:
+    serializedVersion: 2
+    m_Bits: 256
+--- !u!114 &-4124274836171128364
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7345008397519214144}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 966c072f4a2abd140843118435db6fbe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WeldingMask
+  _toggleKey: 109
+  _tint: 0.75
+  _down: 0
+--- !u!114 &-8133983000357061406
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7345008397519214144}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0bbad609352031248a769757d0eddd6d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WeldingFlashOverlay
+  _buildRate: 2.2
+  _fadeRate: 0.55
+  _range: 14
+  _angle: 110
+  _maskProtection: 0.97
+  _flashColor: {r: 0.85, g: 0.92, b: 1, a: 1}
+  _maskColor: {r: 0.05, g: 0.08, b: 0.06, a: 1}
+--- !u!114 &-2238400124428783537
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7345008397519214144}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5b5aecf43a414364fb9d8b7545f23b7a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ValveTurner
+  _componentIndexCache: 8
+  _addedNetworkObject: {fileID: 6479941761066047188}
+  _networkObjectCache: {fileID: 6479941761066047188}
+  _key: 114
+  _reach: 3
+  _mask:
+    serializedVersion: 2
+    m_Bits: 64
+  _debugHud: 1
+--- !u!114 &6242356609048162340
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7345008397519214144}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: be7f7071808c299468996c7ae738e5d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::StoveKnobUser
+  _componentIndexCache: 9
+  _addedNetworkObject: {fileID: 6479941761066047188}
+  _networkObjectCache: {fileID: 6479941761066047188}
+  _reach: 2.5
+  _mask:
+    serializedVersion: 2
+    m_Bits: 64
+  _useKey: 323
+  _degreesPerMouse: 34
+  _snapStep: 5
+  _sendRate: 20
+  _dialRadius: 110
+  _dialTicks: 33
+  _labelEvery: 8
+  _dialOffsetY: 130
+  _debugHud: 1
+--- !u!114 &-2575712288941183648
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7345008397519214144}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d7c9a5a0d2d7e964eadda1b124e2d76c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CatPawCrosshair
+  _componentIndexCache: 10
+  _addedNetworkObject: {fileID: 6479941761066047188}
+  _networkObjectCache: {fileID: 6479941761066047188}
+  _aimOrigin: {fileID: 0}
+  _reach: 3
+  _interactMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  _scanRate: 20
+  _clenchOnLeftMouse: 1
+  _clenchOnInteractKey: 1
+  _interactKey: 102
+  _clenchHold: 0.22
+  _useHotState: 1
+  _useBlockedState: 0
+  _idleColor: {r: 1, g: 0.6862745, b: 0.20392157, a: 1}
+  _openColor: {r: 1, g: 0.84705883, b: 0.3019608, a: 1}
+  _grabColor: {r: 0.6784314, g: 0.25490198, b: 0, a: 1}
+  _hotColor: {r: 0.99607843, g: 0.23137255, b: 0.35686275, a: 1}
+  _blockedColor: {r: 0.5568628, g: 0.6392157, b: 0.72156864, a: 1}
+  _emptyColor: {r: 0.3529412, g: 0.33333334, b: 0.44313726, a: 1}
+  _fadeSpeed: 16
+  _colorSpeed: 12
+  _popScale: 0.16
+  _popSpeed: 15
+  _hotShake: 1.6
+  _driveHighlight: 1
+  _verboseSetup: 1
+  _buildForEveryone: 0
+--- !u!114 &-8161208570537983600
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7345008397519214144}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 80a0e28ad713cea4e98f7ea3745b39f1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GameClockUI
+  _componentIndexCache: 11
+  _addedNetworkObject: {fileID: 6479941761066047188}
+  _networkObjectCache: {fileID: 6479941761066047188}
+  _showDigital: 1
+  _showDayNumber: 1
+  _showSecondHand: 0
+  _digitalColor: {r: 1, g: 0.84705883, b: 0.3019608, a: 1}
+  _dayColor: {r: 0.81960785, g: 0.88235295, b: 0.93333334, a: 1}
+  _lateColor: {r: 0.99607843, g: 0.23137255, b: 0.35686275, a: 1}
+  _housingTint: {r: 1, g: 1, b: 1, a: 1}
+  _alarmHours: 1
+  _verboseSetup: 1
+  _runWithoutGameClock: 0
+  _buildForEveryone: 0
+--- !u!114 &2863629359192984022
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7345008397519214144}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4ce3629f5c151b4499989ae5bb806b95, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CatCooksRainAnchor
+  onlyIfOwner: 1
+  offset: {x: 0, y: 1.6, z: 0}
+  driveRain: 1
+  driveWindStreaks: 1
+  driveWeatherFX: 1
+  ownerWaitSeconds: 6
+--- !u!114 &7164141221823763388
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7345008397519214144}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 46d77cbbf7a6510fb3bd19134441dcc1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CraneRider
+  _componentIndexCache: 255
+  _addedNetworkObject: {fileID: 6479941761066047188}
+  _networkObjectCache: {fileID: 0}
+  _harnessLocal: {x: 0, y: 1.6, z: 0}
+  _mass: 70
+  _swingAcceleration: 2
+  _followTime: 0.045
+  _proxyLayer: -1
+--- !u!114 &1810071224995546713
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7345008397519214144}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6878781ad5355af6934bb530e2cdeb14, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CranePlayerInteractor
+  _componentIndexCache: 255
+  _addedNetworkObject: {fileID: 6479941761066047188}
+  _networkObjectCache: {fileID: 0}
+  _interactKey: 104
+  _showHint: 1
 --- !u!1 &8063596054927569925
 GameObject:
   m_ObjectHideFlags: 0
@@ -546,9 +843,9 @@ Camera:
     y: 0
     width: 1
     height: 1
-  near clip plane: 0.2
-  far clip plane: 1000
-  field of view: 45
+  near clip plane: 0.08
+  far clip plane: 2000
+  field of view: 60
   orthographic: 0
   orthographic size: 5
   m_Depth: -1
@@ -591,14 +888,14 @@ MonoBehaviour:
   m_RequiresOpaqueTextureOption: 2
   m_CameraType: 0
   m_Cameras: []
-  m_RendererIndex: -1
+  m_RendererIndex: 0
   m_VolumeLayerMask:
     serializedVersion: 2
     m_Bits: 1
   m_VolumeTrigger: {fileID: 0}
   m_VolumeFrameworkUpdateModeOption: 2
   m_RenderPostProcessing: 1
-  m_Antialiasing: 0
+  m_Antialiasing: 2
   m_AntialiasingQuality: 2
   m_StopNaN: 0
   m_Dithering: 0

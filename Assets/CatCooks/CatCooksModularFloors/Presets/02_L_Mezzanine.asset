@@ -1,0 +1,795 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e167bbea83225e1da9ae45ecd3437d71, type: 3}
+  m_Name: 02_L_Mezzanine
+  m_EditorClassIdentifier: 
+  Title: "Г-образный настил"
+  Description: "Готовый верхний настил вдоль двух сторон."
+  Width: 8
+  Depth: 8
+  DeckLevels: 3
+  Cells:
+  - X: 0
+    Z: 0
+    Level: 0
+    State: 1
+  - X: 1
+    Z: 0
+    Level: 0
+    State: 1
+  - X: 2
+    Z: 0
+    Level: 0
+    State: 1
+  - X: 3
+    Z: 0
+    Level: 0
+    State: 1
+  - X: 4
+    Z: 0
+    Level: 0
+    State: 1
+  - X: 5
+    Z: 0
+    Level: 0
+    State: 1
+  - X: 6
+    Z: 0
+    Level: 0
+    State: 1
+  - X: 7
+    Z: 0
+    Level: 0
+    State: 1
+  - X: 0
+    Z: 1
+    Level: 0
+    State: 1
+  - X: 1
+    Z: 1
+    Level: 0
+    State: 1
+  - X: 2
+    Z: 1
+    Level: 0
+    State: 1
+  - X: 3
+    Z: 1
+    Level: 0
+    State: 1
+  - X: 4
+    Z: 1
+    Level: 0
+    State: 1
+  - X: 5
+    Z: 1
+    Level: 0
+    State: 1
+  - X: 6
+    Z: 1
+    Level: 0
+    State: 1
+  - X: 7
+    Z: 1
+    Level: 0
+    State: 1
+  - X: 0
+    Z: 2
+    Level: 0
+    State: 1
+  - X: 1
+    Z: 2
+    Level: 0
+    State: 1
+  - X: 2
+    Z: 2
+    Level: 0
+    State: 1
+  - X: 3
+    Z: 2
+    Level: 0
+    State: 1
+  - X: 4
+    Z: 2
+    Level: 0
+    State: 1
+  - X: 5
+    Z: 2
+    Level: 0
+    State: 1
+  - X: 6
+    Z: 2
+    Level: 0
+    State: 1
+  - X: 7
+    Z: 2
+    Level: 0
+    State: 1
+  - X: 0
+    Z: 3
+    Level: 0
+    State: 1
+  - X: 1
+    Z: 3
+    Level: 0
+    State: 1
+  - X: 2
+    Z: 3
+    Level: 0
+    State: 1
+  - X: 3
+    Z: 3
+    Level: 0
+    State: 1
+  - X: 4
+    Z: 3
+    Level: 0
+    State: 1
+  - X: 5
+    Z: 3
+    Level: 0
+    State: 1
+  - X: 6
+    Z: 3
+    Level: 0
+    State: 1
+  - X: 7
+    Z: 3
+    Level: 0
+    State: 1
+  - X: 0
+    Z: 4
+    Level: 0
+    State: 1
+  - X: 1
+    Z: 4
+    Level: 0
+    State: 1
+  - X: 2
+    Z: 4
+    Level: 0
+    State: 1
+  - X: 3
+    Z: 4
+    Level: 0
+    State: 1
+  - X: 4
+    Z: 4
+    Level: 0
+    State: 1
+  - X: 5
+    Z: 4
+    Level: 0
+    State: 1
+  - X: 6
+    Z: 4
+    Level: 0
+    State: 1
+  - X: 7
+    Z: 4
+    Level: 0
+    State: 1
+  - X: 0
+    Z: 5
+    Level: 0
+    State: 1
+  - X: 1
+    Z: 5
+    Level: 0
+    State: 1
+  - X: 2
+    Z: 5
+    Level: 0
+    State: 1
+  - X: 3
+    Z: 5
+    Level: 0
+    State: 1
+  - X: 4
+    Z: 5
+    Level: 0
+    State: 1
+  - X: 5
+    Z: 5
+    Level: 0
+    State: 1
+  - X: 6
+    Z: 5
+    Level: 0
+    State: 1
+  - X: 7
+    Z: 5
+    Level: 0
+    State: 1
+  - X: 0
+    Z: 6
+    Level: 0
+    State: 1
+  - X: 1
+    Z: 6
+    Level: 0
+    State: 1
+  - X: 2
+    Z: 6
+    Level: 0
+    State: 1
+  - X: 3
+    Z: 6
+    Level: 0
+    State: 1
+  - X: 4
+    Z: 6
+    Level: 0
+    State: 1
+  - X: 5
+    Z: 6
+    Level: 0
+    State: 1
+  - X: 6
+    Z: 6
+    Level: 0
+    State: 1
+  - X: 7
+    Z: 6
+    Level: 0
+    State: 1
+  - X: 0
+    Z: 7
+    Level: 0
+    State: 1
+  - X: 1
+    Z: 7
+    Level: 0
+    State: 1
+  - X: 2
+    Z: 7
+    Level: 0
+    State: 1
+  - X: 3
+    Z: 7
+    Level: 0
+    State: 1
+  - X: 4
+    Z: 7
+    Level: 0
+    State: 1
+  - X: 5
+    Z: 7
+    Level: 0
+    State: 1
+  - X: 6
+    Z: 7
+    Level: 0
+    State: 1
+  - X: 7
+    Z: 7
+    Level: 0
+    State: 1
+  - X: 0
+    Z: 0
+    Level: 1
+    State: 1
+  - X: 1
+    Z: 0
+    Level: 1
+    State: 1
+  - X: 2
+    Z: 0
+    Level: 1
+    State: 0
+  - X: 3
+    Z: 0
+    Level: 1
+    State: 0
+  - X: 4
+    Z: 0
+    Level: 1
+    State: 0
+  - X: 5
+    Z: 0
+    Level: 1
+    State: 0
+  - X: 6
+    Z: 0
+    Level: 1
+    State: 0
+  - X: 7
+    Z: 0
+    Level: 1
+    State: 0
+  - X: 0
+    Z: 1
+    Level: 1
+    State: 1
+  - X: 1
+    Z: 1
+    Level: 1
+    State: 1
+  - X: 2
+    Z: 1
+    Level: 1
+    State: 0
+  - X: 3
+    Z: 1
+    Level: 1
+    State: 0
+  - X: 4
+    Z: 1
+    Level: 1
+    State: 0
+  - X: 5
+    Z: 1
+    Level: 1
+    State: 0
+  - X: 6
+    Z: 1
+    Level: 1
+    State: 0
+  - X: 7
+    Z: 1
+    Level: 1
+    State: 0
+  - X: 0
+    Z: 2
+    Level: 1
+    State: 1
+  - X: 1
+    Z: 2
+    Level: 1
+    State: 1
+  - X: 2
+    Z: 2
+    Level: 1
+    State: 0
+  - X: 3
+    Z: 2
+    Level: 1
+    State: 0
+  - X: 4
+    Z: 2
+    Level: 1
+    State: 0
+  - X: 5
+    Z: 2
+    Level: 1
+    State: 0
+  - X: 6
+    Z: 2
+    Level: 1
+    State: 0
+  - X: 7
+    Z: 2
+    Level: 1
+    State: 0
+  - X: 0
+    Z: 3
+    Level: 1
+    State: 1
+  - X: 1
+    Z: 3
+    Level: 1
+    State: 1
+  - X: 2
+    Z: 3
+    Level: 1
+    State: 0
+  - X: 3
+    Z: 3
+    Level: 1
+    State: 0
+  - X: 4
+    Z: 3
+    Level: 1
+    State: 0
+  - X: 5
+    Z: 3
+    Level: 1
+    State: 0
+  - X: 6
+    Z: 3
+    Level: 1
+    State: 0
+  - X: 7
+    Z: 3
+    Level: 1
+    State: 0
+  - X: 0
+    Z: 4
+    Level: 1
+    State: 1
+  - X: 1
+    Z: 4
+    Level: 1
+    State: 1
+  - X: 2
+    Z: 4
+    Level: 1
+    State: 3
+  - X: 3
+    Z: 4
+    Level: 1
+    State: 0
+  - X: 4
+    Z: 4
+    Level: 1
+    State: 0
+  - X: 5
+    Z: 4
+    Level: 1
+    State: 0
+  - X: 6
+    Z: 4
+    Level: 1
+    State: 0
+  - X: 7
+    Z: 4
+    Level: 1
+    State: 0
+  - X: 0
+    Z: 5
+    Level: 1
+    State: 1
+  - X: 1
+    Z: 5
+    Level: 1
+    State: 1
+  - X: 2
+    Z: 5
+    Level: 1
+    State: 3
+  - X: 3
+    Z: 5
+    Level: 1
+    State: 0
+  - X: 4
+    Z: 5
+    Level: 1
+    State: 0
+  - X: 5
+    Z: 5
+    Level: 1
+    State: 0
+  - X: 6
+    Z: 5
+    Level: 1
+    State: 0
+  - X: 7
+    Z: 5
+    Level: 1
+    State: 0
+  - X: 0
+    Z: 6
+    Level: 1
+    State: 1
+  - X: 1
+    Z: 6
+    Level: 1
+    State: 1
+  - X: 2
+    Z: 6
+    Level: 1
+    State: 1
+  - X: 3
+    Z: 6
+    Level: 1
+    State: 1
+  - X: 4
+    Z: 6
+    Level: 1
+    State: 1
+  - X: 5
+    Z: 6
+    Level: 1
+    State: 1
+  - X: 6
+    Z: 6
+    Level: 1
+    State: 1
+  - X: 7
+    Z: 6
+    Level: 1
+    State: 1
+  - X: 0
+    Z: 7
+    Level: 1
+    State: 1
+  - X: 1
+    Z: 7
+    Level: 1
+    State: 1
+  - X: 2
+    Z: 7
+    Level: 1
+    State: 1
+  - X: 3
+    Z: 7
+    Level: 1
+    State: 1
+  - X: 4
+    Z: 7
+    Level: 1
+    State: 1
+  - X: 5
+    Z: 7
+    Level: 1
+    State: 1
+  - X: 6
+    Z: 7
+    Level: 1
+    State: 1
+  - X: 7
+    Z: 7
+    Level: 1
+    State: 1
+  - X: 0
+    Z: 0
+    Level: 2
+    State: 0
+  - X: 1
+    Z: 0
+    Level: 2
+    State: 0
+  - X: 2
+    Z: 0
+    Level: 2
+    State: 0
+  - X: 3
+    Z: 0
+    Level: 2
+    State: 0
+  - X: 4
+    Z: 0
+    Level: 2
+    State: 0
+  - X: 5
+    Z: 0
+    Level: 2
+    State: 0
+  - X: 6
+    Z: 0
+    Level: 2
+    State: 0
+  - X: 7
+    Z: 0
+    Level: 2
+    State: 0
+  - X: 0
+    Z: 1
+    Level: 2
+    State: 0
+  - X: 1
+    Z: 1
+    Level: 2
+    State: 0
+  - X: 2
+    Z: 1
+    Level: 2
+    State: 0
+  - X: 3
+    Z: 1
+    Level: 2
+    State: 0
+  - X: 4
+    Z: 1
+    Level: 2
+    State: 0
+  - X: 5
+    Z: 1
+    Level: 2
+    State: 0
+  - X: 6
+    Z: 1
+    Level: 2
+    State: 0
+  - X: 7
+    Z: 1
+    Level: 2
+    State: 0
+  - X: 0
+    Z: 2
+    Level: 2
+    State: 0
+  - X: 1
+    Z: 2
+    Level: 2
+    State: 0
+  - X: 2
+    Z: 2
+    Level: 2
+    State: 0
+  - X: 3
+    Z: 2
+    Level: 2
+    State: 0
+  - X: 4
+    Z: 2
+    Level: 2
+    State: 0
+  - X: 5
+    Z: 2
+    Level: 2
+    State: 0
+  - X: 6
+    Z: 2
+    Level: 2
+    State: 0
+  - X: 7
+    Z: 2
+    Level: 2
+    State: 0
+  - X: 0
+    Z: 3
+    Level: 2
+    State: 0
+  - X: 1
+    Z: 3
+    Level: 2
+    State: 0
+  - X: 2
+    Z: 3
+    Level: 2
+    State: 0
+  - X: 3
+    Z: 3
+    Level: 2
+    State: 0
+  - X: 4
+    Z: 3
+    Level: 2
+    State: 0
+  - X: 5
+    Z: 3
+    Level: 2
+    State: 0
+  - X: 6
+    Z: 3
+    Level: 2
+    State: 0
+  - X: 7
+    Z: 3
+    Level: 2
+    State: 0
+  - X: 0
+    Z: 4
+    Level: 2
+    State: 0
+  - X: 1
+    Z: 4
+    Level: 2
+    State: 0
+  - X: 2
+    Z: 4
+    Level: 2
+    State: 0
+  - X: 3
+    Z: 4
+    Level: 2
+    State: 0
+  - X: 4
+    Z: 4
+    Level: 2
+    State: 0
+  - X: 5
+    Z: 4
+    Level: 2
+    State: 0
+  - X: 6
+    Z: 4
+    Level: 2
+    State: 0
+  - X: 7
+    Z: 4
+    Level: 2
+    State: 0
+  - X: 0
+    Z: 5
+    Level: 2
+    State: 0
+  - X: 1
+    Z: 5
+    Level: 2
+    State: 0
+  - X: 2
+    Z: 5
+    Level: 2
+    State: 0
+  - X: 3
+    Z: 5
+    Level: 2
+    State: 0
+  - X: 4
+    Z: 5
+    Level: 2
+    State: 0
+  - X: 5
+    Z: 5
+    Level: 2
+    State: 0
+  - X: 6
+    Z: 5
+    Level: 2
+    State: 0
+  - X: 7
+    Z: 5
+    Level: 2
+    State: 0
+  - X: 0
+    Z: 6
+    Level: 2
+    State: 0
+  - X: 1
+    Z: 6
+    Level: 2
+    State: 0
+  - X: 2
+    Z: 6
+    Level: 2
+    State: 0
+  - X: 3
+    Z: 6
+    Level: 2
+    State: 0
+  - X: 4
+    Z: 6
+    Level: 2
+    State: 0
+  - X: 5
+    Z: 6
+    Level: 2
+    State: 0
+  - X: 6
+    Z: 6
+    Level: 2
+    State: 0
+  - X: 7
+    Z: 6
+    Level: 2
+    State: 0
+  - X: 0
+    Z: 7
+    Level: 2
+    State: 0
+  - X: 1
+    Z: 7
+    Level: 2
+    State: 0
+  - X: 2
+    Z: 7
+    Level: 2
+    State: 0
+  - X: 3
+    Z: 7
+    Level: 2
+    State: 0
+  - X: 4
+    Z: 7
+    Level: 2
+    State: 0
+  - X: 5
+    Z: 7
+    Level: 2
+    State: 0
+  - X: 6
+    Z: 7
+    Level: 2
+    State: 0
+  - X: 7
+    Z: 7
+    Level: 2
+    State: 0
+  Stairs:
+  - X: 2
+    Z: 4
+    FromLevel: 0
+    Length: 2
+  PlayerCell: {x: 6, y: 0}
+  LiftCell: {x: 4, y: 7}

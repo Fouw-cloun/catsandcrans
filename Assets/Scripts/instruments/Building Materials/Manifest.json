@@ -1,0 +1,2252 @@
+{
+  "generator": "CatCooks Cozy Far City 2.0",
+  "palette": "HarborSun",
+  "seed": 719,
+  "roof_density": 0.7,
+  "crane_fraction": 0.08,
+  "units": "metres; source OBJ Z-up; FBX -Z forward Y up",
+  "atlas": {
+    "size": 2048,
+    "tiles": [
+      "LimestoneWindows",
+      "CreamWindows",
+      "BrickWindows",
+      "TealGlass",
+      "CopperGlass",
+      "SlateGlass",
+      "DecoWindows",
+      "GravelRoof",
+      "Concrete",
+      "WarmBrick",
+      "Timber",
+      "DarkMetal",
+      "RoadPlain",
+      "Sidewalk",
+      "RoadMarked",
+      "PropPalette"
+    ],
+    "materials": 1,
+    "opaque": true,
+    "gutter_pixels": 16
+  },
+  "building_assets": 30,
+  "prop_assets": 27,
+  "city_sectors": 12,
+  "lods_per_asset": 2,
+  "sector_lod0_triangles": 42398,
+  "sector_lod1_triangles": 20448,
+  "sector_meshes_at_a_time": 12,
+  "blender_executed": true,
+  "fbx_files": 69,
+  "warnings": [],
+  "meshes": [
+    {
+      "name": "CCFC_Building_ArtDeco_00_LOD0",
+      "triangles": 152,
+      "vertices_unwelded": 456,
+      "bounds_min": [
+        -10.158,
+        -12.691,
+        0.0
+      ],
+      "bounds_max": [
+        10.158,
+        12.691,
+        114.976
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_ArtDeco_00_LOD1",
+      "triangles": 132,
+      "vertices_unwelded": 396,
+      "bounds_min": [
+        -10.158,
+        -12.691,
+        0.0
+      ],
+      "bounds_max": [
+        10.158,
+        12.691,
+        114.976
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_ArtDeco_01_LOD0",
+      "triangles": 152,
+      "vertices_unwelded": 456,
+      "bounds_min": [
+        -10.32,
+        -12.206,
+        0.0
+      ],
+      "bounds_max": [
+        10.32,
+        12.206,
+        131.207
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_ArtDeco_01_LOD1",
+      "triangles": 132,
+      "vertices_unwelded": 396,
+      "bounds_min": [
+        -10.32,
+        -12.206,
+        0.0
+      ],
+      "bounds_max": [
+        10.32,
+        12.206,
+        131.207
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_ArtDeco_02_LOD0",
+      "triangles": 152,
+      "vertices_unwelded": 456,
+      "bounds_min": [
+        -9.825,
+        -11.655,
+        0.0
+      ],
+      "bounds_max": [
+        9.825,
+        11.655,
+        128.969
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_ArtDeco_02_LOD1",
+      "triangles": 132,
+      "vertices_unwelded": 396,
+      "bounds_min": [
+        -9.825,
+        -11.655,
+        0.0
+      ],
+      "bounds_max": [
+        9.825,
+        11.655,
+        128.969
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_LimestoneOffice_00_LOD0",
+      "triangles": 152,
+      "vertices_unwelded": 456,
+      "bounds_min": [
+        -9.947,
+        -14.21,
+        0.0
+      ],
+      "bounds_max": [
+        9.947,
+        14.21,
+        91.712
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_LimestoneOffice_00_LOD1",
+      "triangles": 84,
+      "vertices_unwelded": 252,
+      "bounds_min": [
+        -9.8,
+        -14.0,
+        0.0
+      ],
+      "bounds_max": [
+        9.8,
+        14.0,
+        89.482
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_LimestoneOffice_01_LOD0",
+      "triangles": 188,
+      "vertices_unwelded": 564,
+      "bounds_min": [
+        -9.586,
+        -14.172,
+        0.0
+      ],
+      "bounds_max": [
+        9.586,
+        14.172,
+        100.567
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_LimestoneOffice_01_LOD1",
+      "triangles": 108,
+      "vertices_unwelded": 324,
+      "bounds_min": [
+        -9.444,
+        -13.963,
+        0.0
+      ],
+      "bounds_max": [
+        9.444,
+        13.963,
+        100.567
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_LimestoneOffice_02_LOD0",
+      "triangles": 212,
+      "vertices_unwelded": 636,
+      "bounds_min": [
+        -13.963,
+        -11.6,
+        0.0
+      ],
+      "bounds_max": [
+        13.963,
+        11.6,
+        96.127
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_LimestoneOffice_02_LOD1",
+      "triangles": 108,
+      "vertices_unwelded": 324,
+      "bounds_min": [
+        -13.757,
+        -11.428,
+        0.0
+      ],
+      "bounds_max": [
+        13.757,
+        11.428,
+        96.127
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_GlassSlab_00_LOD0",
+      "triangles": 152,
+      "vertices_unwelded": 456,
+      "bounds_min": [
+        -14.398,
+        -10.584,
+        0.0
+      ],
+      "bounds_max": [
+        14.398,
+        10.584,
+        88.692
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_GlassSlab_00_LOD1",
+      "triangles": 132,
+      "vertices_unwelded": 396,
+      "bounds_min": [
+        -14.398,
+        -10.584,
+        0.0
+      ],
+      "bounds_max": [
+        14.398,
+        10.584,
+        88.692
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_GlassSlab_01_LOD0",
+      "triangles": 172,
+      "vertices_unwelded": 516,
+      "bounds_min": [
+        -11.6,
+        -9.138,
+        0.0
+      ],
+      "bounds_max": [
+        11.6,
+        9.138,
+        123.417
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_GlassSlab_01_LOD1",
+      "triangles": 128,
+      "vertices_unwelded": 384,
+      "bounds_min": [
+        -11.6,
+        -9.138,
+        0.0
+      ],
+      "bounds_max": [
+        11.6,
+        9.138,
+        123.417
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_GlassSlab_02_LOD0",
+      "triangles": 88,
+      "vertices_unwelded": 264,
+      "bounds_min": [
+        -11.749,
+        -11.711,
+        0.0
+      ],
+      "bounds_max": [
+        11.749,
+        11.711,
+        71.635
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_GlassSlab_02_LOD1",
+      "triangles": 76,
+      "vertices_unwelded": 228,
+      "bounds_min": [
+        -11.749,
+        -11.711,
+        0.0
+      ],
+      "bounds_max": [
+        11.749,
+        11.711,
+        69.405
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_WeddingCake_00_LOD0",
+      "triangles": 140,
+      "vertices_unwelded": 420,
+      "bounds_min": [
+        -9.295,
+        -14.081,
+        0.0
+      ],
+      "bounds_max": [
+        9.295,
+        14.081,
+        84.452
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_WeddingCake_00_LOD1",
+      "triangles": 128,
+      "vertices_unwelded": 384,
+      "bounds_min": [
+        -9.295,
+        -14.081,
+        0.0
+      ],
+      "bounds_max": [
+        9.295,
+        14.081,
+        82.222
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_WeddingCake_01_LOD0",
+      "triangles": 140,
+      "vertices_unwelded": 420,
+      "bounds_min": [
+        -14.252,
+        -9.757,
+        0.0
+      ],
+      "bounds_max": [
+        14.252,
+        9.757,
+        79.49
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_WeddingCake_01_LOD1",
+      "triangles": 128,
+      "vertices_unwelded": 384,
+      "bounds_min": [
+        -14.252,
+        -9.757,
+        0.0
+      ],
+      "bounds_max": [
+        14.252,
+        9.757,
+        77.26
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_WeddingCake_02_LOD0",
+      "triangles": 392,
+      "vertices_unwelded": 1176,
+      "bounds_min": [
+        -13.287,
+        -10.641,
+        0.0
+      ],
+      "bounds_max": [
+        13.287,
+        10.641,
+        106.406
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_WeddingCake_02_LOD1",
+      "triangles": 176,
+      "vertices_unwelded": 528,
+      "bounds_min": [
+        -13.287,
+        -10.641,
+        0.0
+      ],
+      "bounds_max": [
+        13.287,
+        10.641,
+        105.976
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_TwinCrown_00_LOD0",
+      "triangles": 112,
+      "vertices_unwelded": 336,
+      "bounds_min": [
+        -10.181,
+        -11.856,
+        0.0
+      ],
+      "bounds_max": [
+        10.181,
+        11.856,
+        113.821
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_TwinCrown_00_LOD1",
+      "triangles": 100,
+      "vertices_unwelded": 300,
+      "bounds_min": [
+        -10.181,
+        -11.856,
+        0.0
+      ],
+      "bounds_max": [
+        10.181,
+        11.856,
+        113.821
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_TwinCrown_01_LOD0",
+      "triangles": 180,
+      "vertices_unwelded": 540,
+      "bounds_min": [
+        -14.47,
+        -11.9,
+        0.0
+      ],
+      "bounds_max": [
+        14.47,
+        11.9,
+        77.977
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_TwinCrown_01_LOD1",
+      "triangles": 132,
+      "vertices_unwelded": 396,
+      "bounds_min": [
+        -14.47,
+        -11.9,
+        0.0
+      ],
+      "bounds_max": [
+        14.47,
+        11.9,
+        77.977
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_TwinCrown_02_LOD0",
+      "triangles": 112,
+      "vertices_unwelded": 336,
+      "bounds_min": [
+        -9.672,
+        -10.32,
+        0.0
+      ],
+      "bounds_max": [
+        9.672,
+        10.32,
+        81.005
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_TwinCrown_02_LOD1",
+      "triangles": 100,
+      "vertices_unwelded": 300,
+      "bounds_min": [
+        -9.672,
+        -10.32,
+        0.0
+      ],
+      "bounds_max": [
+        9.672,
+        10.32,
+        81.005
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_Flatiron_00_LOD0",
+      "triangles": 50,
+      "vertices_unwelded": 150,
+      "bounds_min": [
+        -9.26,
+        -12.945,
+        0.0
+      ],
+      "bounds_max": [
+        9.26,
+        12.945,
+        85.624
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_Flatiron_00_LOD1",
+      "triangles": 22,
+      "vertices_unwelded": 66,
+      "bounds_min": [
+        -9.123,
+        -12.754,
+        0.0
+      ],
+      "bounds_max": [
+        9.123,
+        12.754,
+        83.394
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_Flatiron_01_LOD0",
+      "triangles": 196,
+      "vertices_unwelded": 588,
+      "bounds_min": [
+        -14.161,
+        -11.214,
+        0.0
+      ],
+      "bounds_max": [
+        14.161,
+        11.214,
+        111.373
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_Flatiron_01_LOD1",
+      "triangles": 56,
+      "vertices_unwelded": 168,
+      "bounds_min": [
+        -13.951,
+        -11.048,
+        0.0
+      ],
+      "bounds_max": [
+        13.951,
+        11.048,
+        110.393
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_Flatiron_02_LOD0",
+      "triangles": 190,
+      "vertices_unwelded": 570,
+      "bounds_min": [
+        -9.641,
+        -11.839,
+        0.0
+      ],
+      "bounds_max": [
+        9.641,
+        11.839,
+        105.187
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_Flatiron_02_LOD1",
+      "triangles": 50,
+      "vertices_unwelded": 150,
+      "bounds_min": [
+        -9.499,
+        -11.664,
+        0.0
+      ],
+      "bounds_max": [
+        9.499,
+        11.664,
+        104.207
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_Octagon_00_LOD0",
+      "triangles": 122,
+      "vertices_unwelded": 366,
+      "bounds_min": [
+        -14.114,
+        -13.982,
+        0.0
+      ],
+      "bounds_max": [
+        14.114,
+        13.982,
+        76.512
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_Octagon_00_LOD1",
+      "triangles": 100,
+      "vertices_unwelded": 300,
+      "bounds_min": [
+        -14.114,
+        -13.982,
+        0.0
+      ],
+      "bounds_max": [
+        14.114,
+        13.982,
+        76.512
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_Octagon_01_LOD0",
+      "triangles": 72,
+      "vertices_unwelded": 216,
+      "bounds_min": [
+        -11.56,
+        -9.129,
+        0.0
+      ],
+      "bounds_max": [
+        11.56,
+        9.129,
+        115.599
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_Octagon_01_LOD1",
+      "triangles": 60,
+      "vertices_unwelded": 180,
+      "bounds_min": [
+        -11.56,
+        -9.129,
+        0.0
+      ],
+      "bounds_max": [
+        11.56,
+        9.129,
+        113.369
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_Octagon_02_LOD0",
+      "triangles": 108,
+      "vertices_unwelded": 324,
+      "bounds_min": [
+        -14.347,
+        -12.859,
+        0.0
+      ],
+      "bounds_max": [
+        14.347,
+        12.859,
+        77.581
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_Octagon_02_LOD1",
+      "triangles": 84,
+      "vertices_unwelded": 252,
+      "bounds_min": [
+        -14.347,
+        -12.859,
+        0.0
+      ],
+      "bounds_max": [
+        14.347,
+        12.859,
+        77.581
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_CopperCrown_00_LOD0",
+      "triangles": 136,
+      "vertices_unwelded": 408,
+      "bounds_min": [
+        -14.469,
+        -14.373,
+        0.0
+      ],
+      "bounds_max": [
+        14.469,
+        14.373,
+        112.027
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_CopperCrown_00_LOD1",
+      "triangles": 116,
+      "vertices_unwelded": 348,
+      "bounds_min": [
+        -14.469,
+        -14.373,
+        0.0
+      ],
+      "bounds_max": [
+        14.469,
+        14.373,
+        112.027
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_CopperCrown_01_LOD0",
+      "triangles": 136,
+      "vertices_unwelded": 408,
+      "bounds_min": [
+        -9.8,
+        -13.179,
+        0.0
+      ],
+      "bounds_max": [
+        9.8,
+        13.179,
+        110.225
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_CopperCrown_01_LOD1",
+      "triangles": 116,
+      "vertices_unwelded": 348,
+      "bounds_min": [
+        -9.8,
+        -13.179,
+        0.0
+      ],
+      "bounds_max": [
+        9.8,
+        13.179,
+        110.225
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_CopperCrown_02_LOD0",
+      "triangles": 136,
+      "vertices_unwelded": 408,
+      "bounds_min": [
+        -11.123,
+        -9.698,
+        0.0
+      ],
+      "bounds_max": [
+        11.123,
+        9.698,
+        110.499
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_CopperCrown_02_LOD1",
+      "triangles": 116,
+      "vertices_unwelded": 348,
+      "bounds_min": [
+        -11.123,
+        -9.698,
+        0.0
+      ],
+      "bounds_max": [
+        11.123,
+        9.698,
+        110.499
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_BrickLoft_00_LOD0",
+      "triangles": 288,
+      "vertices_unwelded": 864,
+      "bounds_min": [
+        -12.417,
+        -11.905,
+        0.0
+      ],
+      "bounds_max": [
+        12.417,
+        11.905,
+        47.357
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_BrickLoft_00_LOD1",
+      "triangles": 66,
+      "vertices_unwelded": 198,
+      "bounds_min": [
+        -12.234,
+        -11.729,
+        0.0
+      ],
+      "bounds_max": [
+        12.234,
+        11.729,
+        46.632
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_BrickLoft_01_LOD0",
+      "triangles": 148,
+      "vertices_unwelded": 444,
+      "bounds_min": [
+        -10.318,
+        -12.49,
+        0.0
+      ],
+      "bounds_max": [
+        10.318,
+        12.49,
+        45.482
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_BrickLoft_01_LOD1",
+      "triangles": 28,
+      "vertices_unwelded": 84,
+      "bounds_min": [
+        -10.166,
+        -12.305,
+        0.0
+      ],
+      "bounds_max": [
+        10.166,
+        12.305,
+        38.357
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_BrickLoft_02_LOD0",
+      "triangles": 198,
+      "vertices_unwelded": 594,
+      "bounds_min": [
+        -11.72,
+        -11.713,
+        0.0
+      ],
+      "bounds_max": [
+        11.72,
+        11.713,
+        50.362
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_BrickLoft_02_LOD1",
+      "triangles": 68,
+      "vertices_unwelded": 204,
+      "bounds_min": [
+        -11.547,
+        -11.54,
+        0.0
+      ],
+      "bounds_max": [
+        11.547,
+        11.54,
+        47.237
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_OffsetOffice_00_LOD0",
+      "triangles": 328,
+      "vertices_unwelded": 984,
+      "bounds_min": [
+        -9.112,
+        -13.349,
+        0.0
+      ],
+      "bounds_max": [
+        9.112,
+        13.349,
+        78.105
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_OffsetOffice_00_LOD1",
+      "triangles": 112,
+      "vertices_unwelded": 336,
+      "bounds_min": [
+        -9.112,
+        -13.349,
+        0.0
+      ],
+      "bounds_max": [
+        9.112,
+        13.349,
+        77.675
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_OffsetOffice_01_LOD0",
+      "triangles": 112,
+      "vertices_unwelded": 336,
+      "bounds_min": [
+        -8.922,
+        -13.279,
+        0.0
+      ],
+      "bounds_max": [
+        8.922,
+        13.279,
+        66.296
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_OffsetOffice_01_LOD1",
+      "triangles": 88,
+      "vertices_unwelded": 264,
+      "bounds_min": [
+        -8.922,
+        -13.279,
+        0.0
+      ],
+      "bounds_max": [
+        8.922,
+        13.279,
+        66.296
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_OffsetOffice_02_LOD0",
+      "triangles": 104,
+      "vertices_unwelded": 312,
+      "bounds_min": [
+        -11.38,
+        -10.587,
+        0.0
+      ],
+      "bounds_max": [
+        11.38,
+        10.587,
+        114.441
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Building_OffsetOffice_02_LOD1",
+      "triangles": 92,
+      "vertices_unwelded": 276,
+      "bounds_min": [
+        -11.38,
+        -10.587,
+        0.0
+      ],
+      "bounds_max": [
+        11.38,
+        10.587,
+        112.211
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Prop_StreetLamp_LOD0",
+      "triangles": 64,
+      "vertices_unwelded": 192,
+      "bounds_min": [
+        -0.121,
+        -0.3,
+        0.0
+      ],
+      "bounds_max": [
+        2.25,
+        0.3,
+        8.35
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Prop_StreetLamp_LOD1",
+      "triangles": 48,
+      "vertices_unwelded": 144,
+      "bounds_min": [
+        -0.14,
+        -0.3,
+        0.0
+      ],
+      "bounds_max": [
+        2.25,
+        0.3,
+        8.364
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Prop_UtilityPole_LOD0",
+      "triangles": 68,
+      "vertices_unwelded": 204,
+      "bounds_min": [
+        -1.5,
+        -0.19,
+        0.0
+      ],
+      "bounds_max": [
+        1.5,
+        0.19,
+        9.0
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Prop_UtilityPole_LOD1",
+      "triangles": 24,
+      "vertices_unwelded": 72,
+      "bounds_min": [
+        -1.5,
+        -0.19,
+        0.0
+      ],
+      "bounds_max": [
+        1.5,
+        0.19,
+        9.0
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Prop_BusShelter_LOD0",
+      "triangles": 108,
+      "vertices_unwelded": 324,
+      "bounds_min": [
+        -2.65,
+        -1.0,
+        0.0
+      ],
+      "bounds_max": [
+        2.65,
+        1.0,
+        2.87
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Prop_BusShelter_LOD1",
+      "triangles": 84,
+      "vertices_unwelded": 252,
+      "bounds_min": [
+        -2.65,
+        -1.0,
+        0.0
+      ],
+      "bounds_max": [
+        2.65,
+        1.0,
+        2.87
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Prop_BusStopSign_LOD0",
+      "triangles": 44,
+      "vertices_unwelded": 132,
+      "bounds_min": [
+        -0.35,
+        -0.08,
+        0.0
+      ],
+      "bounds_max": [
+        0.35,
+        0.08,
+        3.1
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Prop_BusStopSign_LOD1",
+      "triangles": 24,
+      "vertices_unwelded": 72,
+      "bounds_min": [
+        -0.35,
+        -0.08,
+        0.0
+      ],
+      "bounds_max": [
+        0.35,
+        0.08,
+        3.1
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Prop_Bench_LOD0",
+      "triangles": 48,
+      "vertices_unwelded": 144,
+      "bounds_min": [
+        -1.25,
+        -0.275,
+        0.0
+      ],
+      "bounds_max": [
+        1.25,
+        0.31,
+        1.15
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Prop_Bench_LOD1",
+      "triangles": 48,
+      "vertices_unwelded": 144,
+      "bounds_min": [
+        -1.25,
+        -0.275,
+        0.0
+      ],
+      "bounds_max": [
+        1.25,
+        0.31,
+        1.15
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Prop_Bin_LOD0",
+      "triangles": 32,
+      "vertices_unwelded": 96,
+      "bounds_min": [
+        -0.4,
+        -0.4,
+        0.0
+      ],
+      "bounds_max": [
+        0.4,
+        0.4,
+        1.2
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Prop_Bin_LOD1",
+      "triangles": 24,
+      "vertices_unwelded": 72,
+      "bounds_min": [
+        -0.4,
+        -0.4,
+        0.0
+      ],
+      "bounds_max": [
+        0.4,
+        0.4,
+        1.2
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Prop_Hydrant_LOD0",
+      "triangles": 44,
+      "vertices_unwelded": 132,
+      "bounds_min": [
+        -0.35,
+        -0.23,
+        0.0
+      ],
+      "bounds_max": [
+        0.35,
+        0.23,
+        1.1
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Prop_Hydrant_LOD1",
+      "triangles": 36,
+      "vertices_unwelded": 108,
+      "bounds_min": [
+        -0.35,
+        -0.23,
+        0.0
+      ],
+      "bounds_max": [
+        0.35,
+        0.23,
+        1.1
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Prop_TrafficLight_LOD0",
+      "triangles": 80,
+      "vertices_unwelded": 240,
+      "bounds_min": [
+        -0.095,
+        -0.224,
+        0.0
+      ],
+      "bounds_max": [
+        2.375,
+        0.2,
+        5.7
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Prop_TrafficLight_LOD1",
+      "triangles": 72,
+      "vertices_unwelded": 216,
+      "bounds_min": [
+        -0.11,
+        -0.224,
+        0.0
+      ],
+      "bounds_max": [
+        2.375,
+        0.2,
+        5.7
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Prop_RoadStraight_LOD0",
+      "triangles": 12,
+      "vertices_unwelded": 36,
+      "bounds_min": [
+        -8.0,
+        -16.0,
+        -0.16
+      ],
+      "bounds_max": [
+        8.0,
+        16.0,
+        0.0
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Prop_RoadStraight_LOD1",
+      "triangles": 12,
+      "vertices_unwelded": 36,
+      "bounds_min": [
+        -8.0,
+        -16.0,
+        -0.16
+      ],
+      "bounds_max": [
+        8.0,
+        16.0,
+        0.0
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Prop_RoadCrossing_LOD0",
+      "triangles": 56,
+      "vertices_unwelded": 168,
+      "bounds_min": [
+        -8.0,
+        -8.0,
+        -0.16
+      ],
+      "bounds_max": [
+        8.0,
+        8.0,
+        0.0
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Prop_RoadCrossing_LOD1",
+      "triangles": 56,
+      "vertices_unwelded": 168,
+      "bounds_min": [
+        -8.0,
+        -8.0,
+        -0.16
+      ],
+      "bounds_max": [
+        8.0,
+        8.0,
+        0.0
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Prop_Sidewalk_LOD0",
+      "triangles": 12,
+      "vertices_unwelded": 36,
+      "bounds_min": [
+        -2.0,
+        -6.0,
+        -0.12
+      ],
+      "bounds_max": [
+        2.0,
+        6.0,
+        0.15
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Prop_Sidewalk_LOD1",
+      "triangles": 12,
+      "vertices_unwelded": 36,
+      "bounds_min": [
+        -2.0,
+        -6.0,
+        -0.12
+      ],
+      "bounds_max": [
+        2.0,
+        6.0,
+        0.15
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Prop_RoadBarrier_LOD0",
+      "triangles": 48,
+      "vertices_unwelded": 144,
+      "bounds_min": [
+        -1.5,
+        -0.34,
+        0.1
+      ],
+      "bounds_max": [
+        1.5,
+        0.325,
+        0.75
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Prop_RoadBarrier_LOD1",
+      "triangles": 12,
+      "vertices_unwelded": 36,
+      "bounds_min": [
+        -1.5,
+        -0.325,
+        0.1
+      ],
+      "bounds_max": [
+        1.5,
+        0.325,
+        0.75
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Roof_WaterTank_LOD0",
+      "triangles": 140,
+      "vertices_unwelded": 420,
+      "bounds_min": [
+        -1.85,
+        -1.85,
+        0.0
+      ],
+      "bounds_max": [
+        1.85,
+        1.85,
+        6.4
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Roof_WaterTank_LOD1",
+      "triangles": 38,
+      "vertices_unwelded": 114,
+      "bounds_min": [
+        -1.85,
+        -1.602,
+        0.0
+      ],
+      "bounds_max": [
+        1.85,
+        1.602,
+        6.4
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Roof_HVACBank_LOD0",
+      "triangles": 136,
+      "vertices_unwelded": 408,
+      "bounds_min": [
+        -2.45,
+        -0.945,
+        0.0
+      ],
+      "bounds_max": [
+        2.45,
+        0.9,
+        1.33
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Roof_HVACBank_LOD1",
+      "triangles": 24,
+      "vertices_unwelded": 72,
+      "bounds_min": [
+        -2.45,
+        -0.9,
+        0.0
+      ],
+      "bounds_max": [
+        2.45,
+        0.9,
+        1.25
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Roof_BillboardTea_LOD0",
+      "triangles": 50,
+      "vertices_unwelded": 150,
+      "bounds_min": [
+        -3.0,
+        -0.151,
+        0.0
+      ],
+      "bounds_max": [
+        3.0,
+        0.151,
+        4.0
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Roof_BillboardTea_LOD1",
+      "triangles": 40,
+      "vertices_unwelded": 120,
+      "bounds_min": [
+        -3.0,
+        -0.151,
+        0.0
+      ],
+      "bounds_max": [
+        3.0,
+        0.151,
+        4.0
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Roof_BillboardSun_LOD0",
+      "triangles": 60,
+      "vertices_unwelded": 180,
+      "bounds_min": [
+        -3.0,
+        -0.151,
+        0.0
+      ],
+      "bounds_max": [
+        3.0,
+        0.151,
+        4.0
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Roof_BillboardSun_LOD1",
+      "triangles": 52,
+      "vertices_unwelded": 156,
+      "bounds_min": [
+        -3.0,
+        -0.151,
+        0.0
+      ],
+      "bounds_max": [
+        3.0,
+        0.151,
+        4.0
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Roof_BillboardArrow_LOD0",
+      "triangles": 52,
+      "vertices_unwelded": 156,
+      "bounds_min": [
+        -3.0,
+        -0.151,
+        0.0
+      ],
+      "bounds_max": [
+        3.0,
+        0.151,
+        4.0
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Roof_BillboardArrow_LOD1",
+      "triangles": 44,
+      "vertices_unwelded": 132,
+      "bounds_min": [
+        -3.0,
+        -0.151,
+        0.0
+      ],
+      "bounds_max": [
+        3.0,
+        0.151,
+        4.0
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Roof_RoofBarrels_LOD0",
+      "triangles": 252,
+      "vertices_unwelded": 756,
+      "bounds_min": [
+        -1.55,
+        -0.65,
+        0.0
+      ],
+      "bounds_max": [
+        1.55,
+        2.05,
+        1.8
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Roof_RoofBarrels_LOD1",
+      "triangles": 48,
+      "vertices_unwelded": 144,
+      "bounds_min": [
+        -1.406,
+        -0.594,
+        0.0
+      ],
+      "bounds_max": [
+        1.525,
+        1.994,
+        1.8
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Roof_RoofShed_LOD0",
+      "triangles": 36,
+      "vertices_unwelded": 108,
+      "bounds_min": [
+        -2.2,
+        -1.7,
+        0.0
+      ],
+      "bounds_max": [
+        2.2,
+        1.7,
+        3.17
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Roof_RoofShed_LOD1",
+      "triangles": 24,
+      "vertices_unwelded": 72,
+      "bounds_min": [
+        -2.2,
+        -1.7,
+        0.0
+      ],
+      "bounds_max": [
+        2.2,
+        1.7,
+        3.17
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Roof_Ducts_LOD0",
+      "triangles": 60,
+      "vertices_unwelded": 180,
+      "bounds_min": [
+        -2.0,
+        -0.55,
+        0.0
+      ],
+      "bounds_max": [
+        2.0,
+        0.55,
+        2.6
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Roof_Ducts_LOD1",
+      "triangles": 24,
+      "vertices_unwelded": 72,
+      "bounds_min": [
+        -2.0,
+        -0.55,
+        0.0
+      ],
+      "bounds_max": [
+        2.0,
+        0.55,
+        2.6
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Roof_Antenna_LOD0",
+      "triangles": 68,
+      "vertices_unwelded": 204,
+      "bounds_min": [
+        -1.6,
+        -0.55,
+        0.0
+      ],
+      "bounds_max": [
+        1.6,
+        0.55,
+        6.0
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Roof_Antenna_LOD1",
+      "triangles": 36,
+      "vertices_unwelded": 108,
+      "bounds_min": [
+        -1.6,
+        -0.11,
+        0.0
+      ],
+      "bounds_max": [
+        1.6,
+        0.11,
+        6.0
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Roof_VentStacks_LOD0",
+      "triangles": 64,
+      "vertices_unwelded": 192,
+      "bounds_min": [
+        -1.95,
+        -0.65,
+        0.0
+      ],
+      "bounds_max": [
+        1.95,
+        0.65,
+        3.64
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Roof_VentStacks_LOD1",
+      "triangles": 48,
+      "vertices_unwelded": 144,
+      "bounds_min": [
+        -1.95,
+        -0.65,
+        0.0
+      ],
+      "bounds_max": [
+        1.95,
+        0.65,
+        3.64
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Roof_SolarBank_LOD0",
+      "triangles": 28,
+      "vertices_unwelded": 84,
+      "bounds_min": [
+        -2.6,
+        -1.5,
+        0.0
+      ],
+      "bounds_max": [
+        2.6,
+        1.5,
+        0.95
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Roof_SolarBank_LOD1",
+      "triangles": 28,
+      "vertices_unwelded": 84,
+      "bounds_min": [
+        -2.6,
+        -1.5,
+        0.0
+      ],
+      "bounds_max": [
+        2.6,
+        1.5,
+        0.95
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Roof_FacadeBanner_LOD0",
+      "triangles": 36,
+      "vertices_unwelded": 108,
+      "bounds_min": [
+        -1.5,
+        -0.151,
+        0.0
+      ],
+      "bounds_max": [
+        1.5,
+        0.151,
+        6.0
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Roof_FacadeBanner_LOD1",
+      "triangles": 28,
+      "vertices_unwelded": 84,
+      "bounds_min": [
+        -1.5,
+        -0.151,
+        0.0
+      ],
+      "bounds_max": [
+        1.5,
+        0.151,
+        6.0
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Roof_ParapetSign_LOD0",
+      "triangles": 60,
+      "vertices_unwelded": 180,
+      "bounds_min": [
+        -2.5,
+        -0.151,
+        0.0
+      ],
+      "bounds_max": [
+        2.5,
+        0.151,
+        4.0
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Roof_ParapetSign_LOD1",
+      "triangles": 52,
+      "vertices_unwelded": 156,
+      "bounds_min": [
+        -2.5,
+        -0.151,
+        0.0
+      ],
+      "bounds_max": [
+        2.5,
+        0.151,
+        4.0
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Roof_TowerCrane_LOD0",
+      "triangles": 476,
+      "vertices_unwelded": 1428,
+      "bounds_min": [
+        -7.037,
+        -1.1,
+        -0.02
+      ],
+      "bounds_max": [
+        27.037,
+        1.1,
+        70.069
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Roof_TowerCrane_LOD1",
+      "triangles": 68,
+      "vertices_unwelded": 204,
+      "bounds_min": [
+        -7.0,
+        -1.1,
+        0.0
+      ],
+      "bounds_max": [
+        27.0,
+        1.1,
+        66.6
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Roof_RoofCrane_LOD0",
+      "triangles": 348,
+      "vertices_unwelded": 1044,
+      "bounds_min": [
+        -7.056,
+        -1.1,
+        -0.033
+      ],
+      "bounds_max": [
+        14.056,
+        1.1,
+        22.067
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Roof_RoofCrane_LOD1",
+      "triangles": 68,
+      "vertices_unwelded": 204,
+      "bounds_min": [
+        -7.0,
+        -1.1,
+        0.0
+      ],
+      "bounds_max": [
+        14.0,
+        1.1,
+        18.6
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Sector_0_0_LOD0",
+      "triangles": 3662,
+      "vertices_unwelded": 10986,
+      "bounds_min": [
+        -400.0,
+        -400.0,
+        -0.2
+      ],
+      "bounds_max": [
+        -200.0,
+        -200.0,
+        131.207
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Sector_0_0_LOD1",
+      "triangles": 1816,
+      "vertices_unwelded": 5448,
+      "bounds_min": [
+        -400.0,
+        -400.0,
+        -0.2
+      ],
+      "bounds_max": [
+        -200.0,
+        -200.0,
+        131.207
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Sector_1_0_LOD0",
+      "triangles": 2898,
+      "vertices_unwelded": 8694,
+      "bounds_min": [
+        -200.0,
+        -400.0,
+        -0.2
+      ],
+      "bounds_max": [
+        0.0,
+        -200.0,
+        131.207
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Sector_1_0_LOD1",
+      "triangles": 1654,
+      "vertices_unwelded": 4962,
+      "bounds_min": [
+        -200.0,
+        -400.0,
+        -0.2
+      ],
+      "bounds_max": [
+        0.0,
+        -200.0,
+        131.207
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Sector_2_0_LOD0",
+      "triangles": 3572,
+      "vertices_unwelded": 10716,
+      "bounds_min": [
+        0.0,
+        -400.0,
+        -0.2
+      ],
+      "bounds_max": [
+        200.0,
+        -200.0,
+        112.027
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Sector_2_0_LOD1",
+      "triangles": 1526,
+      "vertices_unwelded": 4578,
+      "bounds_min": [
+        0.0,
+        -400.0,
+        -0.2
+      ],
+      "bounds_max": [
+        200.0,
+        -200.0,
+        112.027
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Sector_3_0_LOD0",
+      "triangles": 3474,
+      "vertices_unwelded": 10422,
+      "bounds_min": [
+        200.0,
+        -400.0,
+        -0.2
+      ],
+      "bounds_max": [
+        400.0,
+        -200.0,
+        131.207
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Sector_3_0_LOD1",
+      "triangles": 1970,
+      "vertices_unwelded": 5910,
+      "bounds_min": [
+        200.0,
+        -400.0,
+        -0.2
+      ],
+      "bounds_max": [
+        400.0,
+        -200.0,
+        131.207
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Sector_0_1_LOD0",
+      "triangles": 3744,
+      "vertices_unwelded": 11232,
+      "bounds_min": [
+        -400.0,
+        -200.0,
+        -0.2
+      ],
+      "bounds_max": [
+        -200.0,
+        0.0,
+        131.207
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Sector_0_1_LOD1",
+      "triangles": 1736,
+      "vertices_unwelded": 5208,
+      "bounds_min": [
+        -400.0,
+        -200.0,
+        -0.2
+      ],
+      "bounds_max": [
+        -200.0,
+        0.0,
+        131.207
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Sector_3_1_LOD0",
+      "triangles": 3752,
+      "vertices_unwelded": 11256,
+      "bounds_min": [
+        200.0,
+        -200.0,
+        -0.2
+      ],
+      "bounds_max": [
+        400.0,
+        0.0,
+        128.969
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Sector_3_1_LOD1",
+      "triangles": 1692,
+      "vertices_unwelded": 5076,
+      "bounds_min": [
+        200.0,
+        -200.0,
+        -0.2
+      ],
+      "bounds_max": [
+        400.0,
+        0.0,
+        128.969
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Sector_0_2_LOD0",
+      "triangles": 2880,
+      "vertices_unwelded": 8640,
+      "bounds_min": [
+        -400.0,
+        0.0,
+        -0.2
+      ],
+      "bounds_max": [
+        -200.0,
+        200.0,
+        123.417
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Sector_0_2_LOD1",
+      "triangles": 1478,
+      "vertices_unwelded": 4434,
+      "bounds_min": [
+        -400.0,
+        0.0,
+        -0.2
+      ],
+      "bounds_max": [
+        -200.0,
+        200.0,
+        123.417
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Sector_3_2_LOD0",
+      "triangles": 3318,
+      "vertices_unwelded": 9954,
+      "bounds_min": [
+        200.0,
+        0.0,
+        -0.2
+      ],
+      "bounds_max": [
+        400.0,
+        200.0,
+        128.969
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Sector_3_2_LOD1",
+      "triangles": 1796,
+      "vertices_unwelded": 5388,
+      "bounds_min": [
+        200.0,
+        0.0,
+        -0.2
+      ],
+      "bounds_max": [
+        400.0,
+        200.0,
+        128.969
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Sector_0_3_LOD0",
+      "triangles": 3616,
+      "vertices_unwelded": 10848,
+      "bounds_min": [
+        -400.0,
+        200.0,
+        -0.2
+      ],
+      "bounds_max": [
+        -200.0,
+        400.0,
+        114.976
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Sector_0_3_LOD1",
+      "triangles": 1674,
+      "vertices_unwelded": 5022,
+      "bounds_min": [
+        -400.0,
+        200.0,
+        -0.2
+      ],
+      "bounds_max": [
+        -200.0,
+        400.0,
+        114.976
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Sector_1_3_LOD0",
+      "triangles": 3956,
+      "vertices_unwelded": 11868,
+      "bounds_min": [
+        -200.0,
+        200.0,
+        -0.2
+      ],
+      "bounds_max": [
+        0.0,
+        400.0,
+        115.599
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Sector_1_3_LOD1",
+      "triangles": 1594,
+      "vertices_unwelded": 4782,
+      "bounds_min": [
+        -200.0,
+        200.0,
+        -0.2
+      ],
+      "bounds_max": [
+        0.0,
+        400.0,
+        113.821
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Sector_2_3_LOD0",
+      "triangles": 3496,
+      "vertices_unwelded": 10488,
+      "bounds_min": [
+        0.0,
+        200.0,
+        -0.2
+      ],
+      "bounds_max": [
+        200.0,
+        400.0,
+        131.207
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Sector_2_3_LOD1",
+      "triangles": 1672,
+      "vertices_unwelded": 5016,
+      "bounds_min": [
+        0.0,
+        200.0,
+        -0.2
+      ],
+      "bounds_max": [
+        200.0,
+        400.0,
+        131.207
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Sector_3_3_LOD0",
+      "triangles": 4030,
+      "vertices_unwelded": 12090,
+      "bounds_min": [
+        200.0,
+        200.0,
+        -0.2
+      ],
+      "bounds_max": [
+        400.0,
+        400.0,
+        123.417
+      ],
+      "materials": 1
+    },
+    {
+      "name": "CCFC_Sector_3_3_LOD1",
+      "triangles": 1840,
+      "vertices_unwelded": 5520,
+      "bounds_min": [
+        200.0,
+        200.0,
+        -0.2
+      ],
+      "bounds_max": [
+        400.0,
+        400.0,
+        123.417
+      ],
+      "materials": 1
+    }
+  ]
+}

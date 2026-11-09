@@ -29,7 +29,7 @@ Material:
     - _Softness: 0.35
     - _Stretch: 0
     m_Colors:
-    - _Color: {r: 1.5, g: 2.8, b: 3.5, a: 1}
+    - _Color: {r: 0.60784316, g: 0.89411765, b: 0.9490196, a: 1}
     - _CoreColor: {r: 3.5, g: 4, b: 4.2, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

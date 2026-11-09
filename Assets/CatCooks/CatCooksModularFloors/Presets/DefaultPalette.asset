@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 88534404e63656b2b1a8023042e2cba5, type: 3}
+  m_Name: DefaultPalette
+  m_EditorClassIdentifier: Assembly-CSharp::CatCooks.Floors.CCFloorPalette
+  Concrete: {fileID: 2100000, guid: 3ad759d6089c4414689c3c700f06e747, type: 2}
+  Steel: {fileID: 2100000, guid: 93c89a085a9bfb648a0587bdf6f297c8, type: 2}
+  Safety: {fileID: 2100000, guid: 70d3128ca5fda2b459fb0143f6d33601, type: 2}
+  Rubble: {fileID: 2100000, guid: bb75b76e849c2874993058684961d4ea, type: 2}
+  AtlasMaterial: {fileID: 0}
+  Slab:
+    Prefab: {fileID: 0}
+    RotationCorrection: {x: 0, y: 0, z: 0}
+  Column:
+    Prefab: {fileID: 0}
+    RotationCorrection: {x: 0, y: 0, z: 0}
+  Beam:
+    Prefab: {fileID: 0}
+    RotationCorrection: {x: 0, y: 0, z: 0}

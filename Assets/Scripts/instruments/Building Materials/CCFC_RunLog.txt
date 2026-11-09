@@ -1,0 +1,14 @@
+Output: C:\AIgen\CozyFarCity_20260910_140153
+{
+  "generator": "CatCooks Cozy Far City 1.1",
+  "blender_version": "5.2.1 LTS",
+  "building_assets": 30,
+  "prop_assets": 12,
+  "city_sectors": 12,
+  "sector_lod0_triangles": 30440,
+  "sector_lod1_triangles": 17064,
+  "fbx_files": 54,
+  "expected_fbx_files": 54,
+  "blend_saved": true,
+  "warnings": []
+}

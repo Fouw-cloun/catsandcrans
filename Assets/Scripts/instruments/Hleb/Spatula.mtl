@@ -1,0 +1,15 @@
+newmtl SpatulaBlade
+Kd 0.720 0.740 0.780
+Ka 0 0 0
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl SpatulaHandle
+Kd 0.950 0.450 0.080
+Ka 0 0 0
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2

@@ -1,0 +1,73 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d3b916a9f921b24bac8dd77aa0a049c, type: 3}
+  m_Name: "Food_\u041B\u0443\u043A_\u043A\u0440\u0430\u0441\u043D\u044B\u0439"
+  m_EditorClassIdentifier: Assembly-CSharp::CatCooks.Food.ProductDef
+  Id: 40
+  Title: "\u041B\u0443\u043A \u0440\u0435\u043F\u0447\u0430\u0442\u044B\u0439"
+  Group: {fileID: 11400000, guid: 5975e66943c91ab4ca94714d3d110ce7, type: 2}
+  Overrides:
+  - From: 49
+    Process: 46
+    To: 48
+    Seconds: 6
+    Window: 0
+    TooEarly: 0
+    TooLate: 0
+  - From: 4
+    Process: 46
+    To: 49
+    Seconds: 6
+    Window: 0.5
+    TooEarly: 0
+    TooLate: 48
+  - From: 4
+    Process: 40
+    To: 40
+    Seconds: 80
+    Window: 0.5
+    TooEarly: 0
+    TooLate: 47
+  - From: 49
+    Process: 40
+    To: 40
+    Seconds: 80
+    Window: 0.5
+    TooEarly: 0
+    TooLate: 47
+  BaseColor: {r: 0.9, g: 0.82, b: 0.6, a: 1}
+  BurntColor: {r: 0.22, g: 0.16, b: 0.11, a: 1}
+  DebrisColor: {r: 0, g: 0, b: 0, a: 0}
+  SolidMesh: {fileID: 0}
+  PieceMeshes: []
+  Size: 0.05
+  Looks:
+  - State: 2
+    Material: {fileID: 2100000, guid: 625c11871f959af40a2dc9e4f47c7bd0, type: 2}
+    Slot: 0
+    Mesh: {fileID: 0}
+  - State: 3
+    Material: {fileID: 2100000, guid: 1a76bc9c0b59f7043abfcb3fed8af115, type: 2}
+    Slot: 0
+    Mesh: {fileID: 0}
+  - State: 200
+    Material: {fileID: 2100000, guid: 31fcef29dbc6b954aabf760b69057cfc, type: 2}
+    Slot: 0
+    Mesh: {fileID: 0}
+  - State: 4
+    Material: {fileID: 2100000, guid: a5b184e0c34b7c24dbe852cc621548a6, type: 2}
+    Slot: 0
+    Mesh: {fileID: -7981464529973442506, guid: 25d888efe44f54e46aeb6b5e196e6ec4, type: 3}
+  MadeByRecipe: 0
+  HardensInto: {fileID: 0}
+  HardenSeconds: 90
+  Solid: 0

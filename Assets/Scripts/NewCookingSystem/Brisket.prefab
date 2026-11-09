@@ -1,0 +1,341 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &6809707009843320205
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7814348084824513529}
+  - component: {fileID: 784315231522799840}
+  - component: {fileID: 6050095999588924437}
+  - component: {fileID: 6443807310599853078}
+  - component: {fileID: 6078501284542583036}
+  - component: {fileID: 3941266787585097126}
+  - component: {fileID: 8844578657444844470}
+  - component: {fileID: 1017637547056522077}
+  m_Layer: 7
+  m_Name: Brisket
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7814348084824513529
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6809707009843320205}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 2606.18, y: 177.16, z: 2030.81}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!33 &784315231522799840
+MeshFilter:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6809707009843320205}
+  m_Mesh: {fileID: 4300000, guid: cadb3e1e8b1a3464b9fc210ee1211303, type: 2}
+--- !u!23 &6050095999588924437
+MeshRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6809707009843320205}
+  m_Enabled: 1
+  m_CastShadows: 1
+  m_ReceiveShadows: 1
+  m_DynamicOccludee: 1
+  m_StaticShadowCaster: 0
+  m_MotionVectors: 1
+  m_LightProbeUsage: 1
+  m_ReflectionProbeUsage: 1
+  m_RayTracingMode: 2
+  m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
+  m_RenderingLayerMask: 1
+  m_RendererPriority: 0
+  m_Materials:
+  - {fileID: 2100000, guid: 36bc4e7bdf381cd49a7c1dc6e3542d9a, type: 2}
+  m_StaticBatchInfo:
+    firstSubMesh: 0
+    subMeshCount: 0
+  m_StaticBatchRoot: {fileID: 0}
+  m_ProbeAnchor: {fileID: 0}
+  m_LightProbeVolumeOverride: {fileID: 0}
+  m_ScaleInLightmap: 1
+  m_ReceiveGI: 1
+  m_PreserveUVs: 0
+  m_IgnoreNormalsForChartDetection: 0
+  m_ImportantGI: 0
+  m_StitchLightmapSeams: 1
+  m_SelectedEditorRenderState: 3
+  m_MinimumChartSize: 4
+  m_AutoUVMaxDistance: 0.5
+  m_AutoUVMaxAngle: 89
+  m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
+  m_SortingLayerID: 0
+  m_SortingLayer: 0
+  m_SortingOrder: 0
+  m_MaskInteraction: 0
+  m_AdditionalVertexStreams: {fileID: 0}
+--- !u!65 &6443807310599853078
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6809707009843320205}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1.7317301, y: 0.36206236, z: 1.1418157}
+  m_Center: {x: 0.013548076, y: 0, z: -0.00021839142}
+--- !u!54 &6078501284542583036
+Rigidbody:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6809707009843320205}
+  serializedVersion: 5
+  m_Mass: 6
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_CenterOfMass: {x: 0, y: 0, z: 0}
+  m_InertiaTensor: {x: 1, y: 1, z: 1}
+  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ImplicitCom: 1
+  m_ImplicitTensor: 1
+  m_UseGravity: 1
+  m_IsKinematic: 0
+  m_Interpolate: 1
+  m_Constraints: 0
+  m_CollisionDetection: 3
+--- !u!114 &3941266787585097126
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6809707009843320205}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 26b716c41e9b56b4baafaf13a523ba2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: FishNet.Runtime::FishNet.Object.NetworkObject
+  <IsNested>k__BackingField: 0
+  WasActiveDuringEdit: 0
+  WasActiveDuringEdit_Set1: 1
+  <ComponentIndex>k__BackingField: 0
+  <PredictedSpawn>k__BackingField: {fileID: 0}
+  <PredictedOwner>k__BackingField: {fileID: 0}
+  NetworkBehaviours:
+  - {fileID: 8844578657444844470}
+  - {fileID: 1017637547056522077}
+  InitializedParentNetworkBehaviour: {fileID: 0}
+  InitializedNestedNetworkObjects: []
+  RuntimeParentNetworkBehaviour: {fileID: 0}
+  RuntimeChildNetworkBehaviours: []
+  _isNetworked: 1
+  _isSpawnable: 1
+  _isGlobal: 0
+  _initializeOrder: 0
+  _preventDespawnOnDisconnect: 0
+  _defaultDespawnType: 0
+  _initializedTimestamp: -8584090807931791223
+  _localLevelOfDetailCalculationType: 0
+  _useLevelOfDetail: 0
+  _useRootLevelOfDetail: 1
+  NetworkObserver: {fileID: 0}
+  _enablePrediction: 0
+  _predictionType: 0
+  _localReconcileCorrectionType: 2
+  _graphicalObject: {fileID: 0}
+  _detachGraphicalObject: 0
+  _enableStateForwarding: 1
+  _networkTransform: {fileID: 0}
+  _ownerInterpolation: 1
+  _ownerSmoothedProperties: 255
+  _adaptiveInterpolation: 3
+  _spectatorSmoothedProperties: 255
+  _spectatorInterpolation: 2
+  _enableTeleport: 0
+  _teleportThreshold: 1
+  <PrefabId>k__BackingField: 31
+  <SpawnableCollectionId>k__BackingField: 0
+  <AssetPathHash>k__BackingField: 7126921675594636509
+  SceneId: 0
+  SerializedTransformProperties:
+    Position: {x: 2606.18, y: 177.16, z: 2030.81}
+    Rotation: {x: 0, y: 0, z: 0, w: 1}
+    Scale: {x: 1, y: 1, z: 1}
+    IsValid: 1
+--- !u!114 &8844578657444844470
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6809707009843320205}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a2836e36774ca1c4bbbee976e17b649c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: FishNet.Runtime::FishNet.Component.Transforming.NetworkTransform
+  _componentIndexCache: 0
+  _addedNetworkObject: {fileID: 3941266787585097126}
+  _networkObjectCache: {fileID: 3941266787585097126}
+  _componentConfiguration: 0
+  _synchronizeParent: 0
+  _packing:
+    Position: 1
+    Rotation: 1
+    Scale: 0
+  _useScaledTime: 1
+  _interpolation: 2
+  _extrapolation: 2
+  _enableTeleport: 0
+  _teleportThreshold: 1
+  _clientAuthoritative: 1
+  _sendToOwner: 1
+  _interval: 1
+  _synchronizePosition: 1
+  _positionSensitivity: 0.001
+  _positionSnapping:
+    X: 0
+    Y: 0
+    Z: 0
+  _synchronizeRotation: 1
+  _rotationSnapping:
+    X: 0
+    Y: 0
+    Z: 0
+  _synchronizeScale: 1
+  _scaleSensitivity: 0.001
+  _scaleSnapping:
+    X: 0
+    Y: 0
+    Z: 0
+--- !u!114 &1017637547056522077
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6809707009843320205}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aec2915102324035b6b8e4610001df28, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CatCooks.Food.RibsRack
+  _componentIndexCache: 1
+  _addedNetworkObject: {fileID: 3941266787585097126}
+  _networkObjectCache: {fileID: 3941266787585097126}
+  _canPickup: 1
+  _groundFriction: 1
+  _bounciness: 0
+  _holdPositionOffset: {x: 0, y: 0, z: 0}
+  _holdEulerOffset: {x: 0, y: 0, z: 0}
+  _carrySpeed: 1
+  _product: {fileID: 11400000, guid: b0114f5c6450d3647be7942a0d7041f9, type: 2}
+  _count: 8
+  _startState: 101
+  _minThrowForce: 3
+  _maxThrowForce: 16
+  _dirtySpeed: 3
+  _dirtyPerHit: 0.35
+  _spawnGrace: 1.5
+  _log: 1
+  _ribs: 8
+  _ribWidth: 0.2
+  _boneLength: 1.04
+  _thickness: 0.3
+  _slicePrefab: {fileID: 3955769799287921684, guid: 01fb1a87150ffda47992095b170f07d5, type: 3}
+  _dish: {fileID: 0}
+  _rub: {fileID: 0}
+  _glaze: {fileID: 0}
+  _sauce: {fileID: 0}
+  _mop: {fileID: 0}
+  _cookFromC: 95
+  _bakeSeconds: 70
+  _drySeconds: 80
+  _burnAboveC: 245
+  _sliceDryK: 1.7
+  _sliceBakeK: 1.4
+  _glazeSetSeconds: 10
+  _sprayMoist: 0.18
+  _hotC: 50
+  _heatRate: 0.05
+  _coolRate: 0.025
+  _rubPerSide: 2
+  _glazePerSide: 2
+  _strokeK: 3.5
+  _flipKey: 114
+  _reach: 3
+  _material: {fileID: 2100000, guid: 36bc4e7bdf381cd49a7c1dc6e3542d9a, type: 2}
+  _rawMeat: {r: 0.74, g: 0.24, b: 0.22, a: 1}
+  _cookedMeat: {r: 0.58, g: 0.31, b: 0.17, a: 1}
+  _overMeat: {r: 0.34, g: 0.18, b: 0.1, a: 1}
+  _dryMeat: {r: 0.36, g: 0.24, b: 0.18, a: 1}
+  _fat: {r: 0.94, g: 0.86, b: 0.8, a: 1}
+  _fatCooked: {r: 0.86, g: 0.66, b: 0.4, a: 1}
+  _bone: {r: 0.93, g: 0.89, b: 0.78, a: 1}
+  _rubColor: {r: 0.62, g: 0.2, b: 0.08, a: 1}
+  _glazeColor: {r: 0.46, g: 0.1, b: 0.05, a: 1}
+  _glazeSetColor: {r: 0.33, g: 0.08, b: 0.04, a: 1}
+  _char: {r: 0.07, g: 0.05, b: 0.04, a: 1}
+  _brisket: 1
+  _bRub: {fileID: 0}
+  _mustard: {fileID: 0}
+  _bDish: {fileID: 0}
+  _searC: 200
+  _searSeconds: 8
+  _bBakeSeconds: 90
+  _barkSeconds: 45
+  _lowMaxC: 150
+  _restSeconds: 10
+  _bRubPerSide: 3
+  _bRubColor: {r: 0.3, g: 0.22, b: 0.16, a: 1}
+  _mustardColor: {r: 0.86, g: 0.66, b: 0.12, a: 1}
+  _searColor: {r: 0.4, g: 0.2, b: 0.1, a: 1}
+  _barkColor: {r: 0.1, g: 0.07, b: 0.05, a: 1}
+  _smokeSeconds: 12
+  _smokeBonus: 6
+  _smokeTint: {r: 0.42, g: 0.25, b: 0.15, a: 1}
+  _showHud: 1
+  _hudDistance: 4
+  _stars: 1
+  _starCount: 22
+  _logRibs: 1

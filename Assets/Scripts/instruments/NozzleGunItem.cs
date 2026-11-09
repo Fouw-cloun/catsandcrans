@@ -37,9 +37,12 @@ public class NozzleGunItem : InteractableItem
     [Tooltip("Максимальная длина шланга, м — дальше не пускает (и вверх тоже)")]
     [SerializeField] private float _maxHoseLength = 6f;
 
-    [Header("Реактивная тяга (полёт на струе)")]
-    [Tooltip("ВКЛ — струя толкает держателя в обратную сторону (можно взлететь)")]
-    [SerializeField] private bool _reactiveThrust = true;
+    [Header("Реактивная тяга ДЕРЖАТЕЛЮ (полёт на струе)")]
+    [Tooltip("ВЫКЛ по умолчанию: в руках отдачи нет, ствол пляшет только когда " +
+             "брошен. Включи, если захочешь вернуть полёт на струе.\n\n" +
+             "Поле специально переименовано — старое значение из префаба не " +
+             "переносится, поэтому отдача выключится сама.")]
+    [SerializeField] private bool _thrustWhenHeld = false;
     [Tooltip("Сила отдачи на игрока при полном напоре")]
     [SerializeField] private float _thrustForce = 16f;
     [Tooltip("Напор, ниже которого отдачи нет")]
@@ -155,15 +158,21 @@ public class NozzleGunItem : InteractableItem
         float flow = _firing.Value && IsConnected ? SuppliedFlow : 0f;
         if (flow <= 0.02f) return;
 
-        if (IsHeld) ServerThrustHolder(flow);
-        else if (_wildWhenDropped) ServerWildDance(flow);
+        // В руках — ничего: ни отдачи, ни пляски. Пляшет только брошенный.
+        if (IsHeld)
+        {
+            if (_thrustWhenHeld) ServerThrustHolder(flow);
+            return;
+        }
+
+        if (_wildWhenDropped) ServerWildDance(flow);
     }
 
     /// <summary>РЕАКТИВНАЯ ТЯГА держателю: толкает В ОБРАТНУЮ от струи сторону.
     /// Льёшь вниз — летишь вверх.</summary>
     private void ServerThrustHolder(float flow)
     {
-        if (!_reactiveThrust || flow < _thrustMinFlow) return;
+        if (!_thrustWhenHeld || flow < _thrustMinFlow) return;
         if (_holdingHand == null) return;
 
         FirstPersonController fpc = _holdingHand.GetComponentInParent<FirstPersonController>();

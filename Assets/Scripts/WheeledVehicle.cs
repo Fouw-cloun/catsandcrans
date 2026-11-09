@@ -82,6 +82,11 @@ public class WheeledVehicle : NetworkVehicle
     /// чтобы не растягивались и не отрывались, пока корпус стоит на опорах.</summary>
     protected virtual bool WheelPhysicsActive => true;
 
+    /// <summary>Луч подвески вниз. База — обычный Raycast по groundMask. Каток переопределяет:
+    /// не забирается на тесто, а едет по земле (по тонкому слою) и толкает тесто перед собой.</summary>
+    protected virtual bool WheelGroundCast(Vector3 pos, Vector3 dir, float maxDist, out RaycastHit hit)
+        => Physics.Raycast(pos, dir, out hit, maxDist, groundMask);
+
     protected override void VehicleFixedUpdate()
     {
         // Опоры выдвинуты (у крана) — физику колёс не считаем: корпус держат
@@ -129,7 +134,7 @@ public class WheeledVehicle : NetworkVehicle
             Vector3 pos = w.anchor.position;
 
             float maxDist = restLength + wheelRadius;
-            if (Physics.Raycast(pos, -up, out RaycastHit hit, maxDist, groundMask))
+            if (WheelGroundCast(pos, -up, maxDist, out RaycastHit hit))
             {
                 w.grounded = true;
                 Vector3 tireVel = _body.GetPointVelocity(pos);

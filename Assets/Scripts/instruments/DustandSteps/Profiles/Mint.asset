@@ -1,0 +1,44 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 753a3314301c543bb549dab581bbb384, type: 3}
+  m_Name: Mint
+  m_EditorClassIdentifier:
+  colour: {r: 0.25, g: 0.68, b: 0.5, a: 1}
+  size: 1
+  lifetime: 1
+  amount: 1
+  opacity: 0.85
+  erosion: 0.75
+  drag: 3
+  usePalette: 1
+  secondaryColour: {r: 0.62, g: 0.95, b: 0.7, a: 1}
+  endColour: {r: 0.2, g: 0.4, b: 0.37, a: 1}
+  grainColour: {r: 0.16, g: 0.43520000000000003, b: 0.32, a: 1}
+  paletteMix: 0.7
+  colourOverLife: 0.7
+  brightnessVariation: 0.1
+  shape: 1
+  sizeVariation: 0.4
+  verticalStretch: 1
+  growth: 1.1
+  pattern: 2
+  patternStrength: 0.4
+  patternScale: 4
+  patternMotion: 0.35
+  outwardSpeed: 1
+  rise: 1
+  turbulence: 1
+  spin: 1
+  debrisShape: 2
+  grainSize: 1
+  grainsOnAllEffects: 0
+  grains: 0.25

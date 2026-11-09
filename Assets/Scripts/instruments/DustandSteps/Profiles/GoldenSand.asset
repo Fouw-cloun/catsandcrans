@@ -1,0 +1,44 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 753a3314301c543bb549dab581bbb384, type: 3}
+  m_Name: GoldenSand
+  m_EditorClassIdentifier:
+  colour: {r: 0.91, g: 0.72, b: 0.37, a: 1}
+  size: 1
+  lifetime: 1
+  amount: 1
+  opacity: 0.85
+  erosion: 0.75
+  drag: 3
+  usePalette: 1
+  secondaryColour: {r: 0.99, g: 0.88, b: 0.63, a: 1}
+  endColour: {r: 0.69, g: 0.54, b: 0.35, a: 1}
+  grainColour: {r: 0.5824, g: 0.4608, b: 0.2368, a: 1}
+  paletteMix: 0.7
+  colourOverLife: 0.7
+  brightnessVariation: 0.1
+  shape: 0
+  sizeVariation: 0.4
+  verticalStretch: 1
+  growth: 1.1
+  pattern: 3
+  patternStrength: 0.5
+  patternScale: 4
+  patternMotion: 0.35
+  outwardSpeed: 1
+  rise: 1
+  turbulence: 1
+  spin: 1
+  debrisShape: 0
+  grainSize: 0.65
+  grainsOnAllEffects: 0
+  grains: 0.85

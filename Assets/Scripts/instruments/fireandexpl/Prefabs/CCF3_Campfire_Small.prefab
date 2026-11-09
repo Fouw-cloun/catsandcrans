@@ -1,0 +1,84 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &1000
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4000}
+  - component: {fileID: 114000}
+  m_Layer: 0
+  m_Name: CCF3_Campfire_Small
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4000
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1000}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 1
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &114000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3e67e7ea48c052138b4f65a2e4b291f0, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  bodyShader: {fileID: 4800000, guid: be3e5cc2a4fc51c8b3dfdcaee5c32cb1, type: 3}
+  particlesShader: {fileID: 4800000, guid: a6369c436fa15d92a3adef24b03b0a1a, type: 3}
+  heatShader: {fileID: 4800000, guid: 0aa7d95a5a6b52289a4f630530054c16, type: 3}
+  layout: 0
+  footprint: {x: 0.5, y: 0.5}
+  sourceSpacing: 0.3
+  maxSources: 64
+  automaticHeight: 1
+  heightToWidth: 0.7
+  flameHeight: 0.35
+  sinkIntoLogs: 0.08
+  seed: 137
+  manualSources: []
+  intensity: 1
+  transitionSeconds: 0.65
+  flowSpeed: 1
+  sway: 0.55
+  erosion: 0.55
+  colourSoftness: 0.22
+  emission: 1.15
+  wind: {x: 0.15, y: 0, z: 0.04}
+  windResponse: 0.6
+  outer: {r: 0.95, g: 0.12, b: 0.015, a: 1}
+  middle: {r: 1, g: 0.37, b: 0.035, a: 1}
+  inner: {r: 1, g: 0.78, b: 0.16, a: 1}
+  core: {r: 1, g: 0.94, b: 0.51, a: 1}
+  fragmentsPerSource: 0.35
+  sparksPerSource: 1.8
+  smokePerSource: 0.28
+  maxParticles: 320
+  smokeOpacity: 0.26
+  smokeColour: {r: 0.27, g: 0.25, b: 0.29, a: 1}
+  glowingCoals: 1
+  createLight: 1
+  lightIntensity: 1.8
+  enableHeatHaze: 0
+  heatPixels: 0.7
+  heatOpacity: 0.12

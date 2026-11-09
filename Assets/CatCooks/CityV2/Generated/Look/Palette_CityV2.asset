@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8efb13bf62cf503592bed3da0ec4c43a, type: 3}
+  m_Name: Palette_CityV2
+  m_EditorClassIdentifier: Assembly-CSharp::CatCooks.CityV2.CCCityV2Palette
+  note: "\u0422\u0432\u043E\u044F \u043F\u0430\u043B\u0438\u0442\u0440\u0430. SKY_TOP
+    + SKY_BOT \u0438\u0437 palette.json, \u0444\u0438\u043E\u043B\u0435\u0442\u043E\u0432\u044B\u0435
+    \u0442\u0435\u043D\u0438, \u0442\u0451\u043F\u043B\u043E\u0435 \u0441\u043E\u043B\u043D\u0446\u0435."
+  zenith: {r: 0.33333334, g: 0.7254902, b: 0.8156863, a: 1}
+  horizon: {r: 0.7176471, g: 0.80784315, b: 0.84313726, a: 1}
+  ground: {r: 0.69411767, g: 0.64705884, b: 0.6, a: 1}
+  cloudLit: {r: 1, g: 0.9529412, b: 0.8745098, a: 1}
+  cloudShadow: {r: 0.6156863, g: 0.6862745, b: 0.7254902, a: 1}
+  cloudBase: {r: 0.5176471, g: 0.6, b: 0.6392157, a: 1}
+  cloudAmbientTop: {r: 0.7372549, g: 0.8117647, b: 0.83137256, a: 1}
+  cloudAmbientBottom: {r: 0.7137255, g: 0.654902, b: 0.5882353, a: 1}
+  sunDisc: {r: 1, g: 0.9411765, b: 0.8352941, a: 1}
+  sunLight: {r: 1, g: 0.9411765, b: 0.8352941, a: 1}
+  ambientSky: {r: 0.6440393, g: 0.7822614, b: 0.8627451, a: 1}
+  ambientEquator: {r: 0.762353, g: 0.70190597, b: 0.6352942, a: 1}
+  ambientGround: {r: 0.6506667, g: 0.46805516, b: 0.3674353, a: 1}
+  fogNear: {r: 0.75239986, g: 0.74547195, b: 0.83199996, a: 1}
+  fogFar: {r: 0.724608, g: 0.7743957, b: 0.816, a: 1}
+  rayTint: {r: 1, g: 0.9411765, b: 0.8352941, a: 1}
+  windStreak: {r: 1, g: 1, b: 1, a: 1}

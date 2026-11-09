@@ -49,9 +49,9 @@ Material:
     - _WaveFrequency: 1.2
     - _WaveSpeed: 1
     m_Colors:
-    - _DeepColor: {r: 0.059999965, g: 0.31999996, b: 0.45, a: 0.95}
-    - _FoamColor: {r: 1, g: 1, b: 1, a: 1}
-    - _ShallowColor: {r: 0.45, g: 0.85, b: 0.85, a: 0.55}
+    - _DeepColor: {r: 0.24313726, g: 0.62352943, b: 0.7882353, a: 1}
+    - _FoamColor: {r: 0.9490196, g: 0.9843137, b: 1, a: 1}
+    - _ShallowColor: {r: 0.60784316, g: 0.89411765, b: 0.9490196, a: 1}
     - _SparkleColor: {r: 1, g: 1, b: 1, a: 1}
     - _SpecColorW: {r: 1, g: 1, b: 0.95, a: 1}
   m_BuildTextureStacks: []

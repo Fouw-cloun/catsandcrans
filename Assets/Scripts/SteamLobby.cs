@@ -16,6 +16,29 @@ using UnityEngine;
 ///
 /// ВАЖНО: Steam должен быть запущен, а steam_appid.txt (AppID 480 для
 /// разработки) должен лежать в корне проекта.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// ИСПРАВЛЕНО:
+///
+/// 1. ГЛАВНОЕ. Подписка на OnServerConnectionState стояла ПОСЛЕ проверки
+///    SteamManager.Initialized. Без запущенного Steam метод выходил по return,
+///    подписки не происходило — и «Одиночная игра» поднимала сервер, но сцену
+///    не грузила. Игра вставала чёрным экраном без единой ошибки в консоли,
+///    хотя одиночному режиму Steam вообще не нужен. Теперь всё, что касается
+///    FishNet, настраивается до проверки Steam, а без Steam отваливается
+///    только сетевая игра с друзьями.
+///
+/// 2. Disconnect() освобождает курсор через UiModal.Reset(). Иначе при выходе
+///    из игры с открытым меню счётчик модальных окон оставался ненулевым, и в
+///    главном меню курсор оставался в непонятном состоянии.
+///
+/// 3. Проверки на null у _networkManager: раньше пустое поле в инспекторе
+///    роняло Start() с NullReferenceException без внятного объяснения.
+///
+/// 4. Disconnect() безопасен при повторном вызове. Он зовётся и из меню паузы,
+///    и из главного меню, и из OnApplicationQuit — двойной StopConnection
+///    сыпал предупреждениями FishNet.
+/// ─────────────────────────────────────────────────────────────────────────
 /// </summary>
 public class SteamLobby : MonoBehaviour
 {
@@ -43,6 +66,11 @@ public class SteamLobby : MonoBehaviour
     /// <summary>True, если сейчас сработает dev-пропуск меню (для GameBootstrap).</summary>
     public bool WillDevSkip => _devSkipToGame && Application.isEditor;
 
+    /// <summary>Доступна ли сетевая игра. False, если Steam не поднялся —
+    /// кнопки «Создать лобби» и «Пригласить» в меню стоит по этому флагу
+    /// гасить, чтобы игрок не жал в пустоту.</summary>
+    public bool SteamReady { get; private set; }
+
     private const string HostAddressKey = "HostAddress";
     public CSteamID CurrentLobbyID { get; private set; }
 
@@ -52,6 +80,8 @@ public class SteamLobby : MonoBehaviour
 
     // Какую сцену грузить, как только поднимется сервер (пусто = ничего).
     private string _sceneOnServerStart;
+
+    private bool _subscribed;
 
     private void Awake()
     {
@@ -66,22 +96,21 @@ public class SteamLobby : MonoBehaviour
 
     private void Start()
     {
-        if (!SteamManager.Initialized)
+        if (_networkManager == null)
         {
-            Debug.LogError("[SteamLobby] Steam НЕ инициализирован. " +
-                           "Запущен ли Steam? Есть ли steam_appid.txt в корне проекта?");
+            Debug.LogError("[SteamLobby] Не назначен NetworkManager. " +
+                           "Перетащи его из bootstrap-сцены в поле Network Manager.");
             return;
         }
 
-        _lobbyCreated  = Callback<LobbyCreated_t>.Create(OnLobbyCreated);
-        _joinRequested = Callback<GameLobbyJoinRequested_t>.Create(OnJoinRequested);
-        _lobbyEntered  = Callback<LobbyEnter_t>.Create(OnLobbyEntered);
-
+        // ── СНАЧАЛА FishNet ──
+        // Подписка идёт ДО проверки Steam. Одиночная игра работает без Steam,
+        // и если бы мы вышли раньше, сервер стартовал бы, а сцена не грузилась.
         _networkManager.ServerManager.OnServerConnectionState += OnServerConnectionState;
+        _subscribed = true;
 
         // Dev-режим: в редакторе сразу поднимаем хост в указанном уровне.
-        // Делаем это здесь (а не в GameBootstrap), чтобы гарантированно успеть
-        // подписаться на OnServerConnectionState ДО старта сервера.
+        // Steam для этого тоже не нужен.
         if (WillDevSkip)
         {
             Debug.Log($"[SteamLobby] DEV: пропуск меню, старт хоста в '{_devScene}'.");
@@ -89,19 +118,41 @@ public class SteamLobby : MonoBehaviour
             _networkManager.ServerManager.StartConnection();
             _networkManager.ClientManager.StartConnection();
         }
+
+        // ── ЗАТЕМ Steam ──
+        if (!SteamManager.Initialized)
+        {
+            SteamReady = false;
+            Debug.LogWarning("[SteamLobby] Steam НЕ инициализирован — сетевая игра " +
+                             "недоступна, одиночная работает. Запущен ли Steam? " +
+                             "Есть ли steam_appid.txt в корне проекта?");
+            return;
+        }
+
+        SteamReady = true;
+
+        _lobbyCreated = Callback<LobbyCreated_t>.Create(OnLobbyCreated);
+        _joinRequested = Callback<GameLobbyJoinRequested_t>.Create(OnJoinRequested);
+        _lobbyEntered = Callback<LobbyEnter_t>.Create(OnLobbyEntered);
     }
 
     private void OnDestroy()
     {
-        if (_networkManager != null)
+        if (_subscribed && _networkManager != null)
+        {
             _networkManager.ServerManager.OnServerConnectionState -= OnServerConnectionState;
+            _subscribed = false;
+        }
     }
 
     // ───────────────────────── ПУБЛИЧНЫЕ КНОПКИ ─────────────────────────
 
-    /// <summary>Одиночная игра: локальный server+client, сразу в игровую сцену.</summary>
+    /// <summary>Одиночная игра: локальный server+client, сразу в игровую сцену.
+    /// Steam не требуется.</summary>
     public void StartSinglePlayer()
     {
+        if (_networkManager == null) return;
+
         _sceneOnServerStart = _gameScene; // минуя лобби
         _networkManager.ServerManager.StartConnection();
         _networkManager.ClientManager.StartConnection();
@@ -110,16 +161,39 @@ public class SteamLobby : MonoBehaviour
     /// <summary>Создать лобби (friends-only) и стать хостом -> сцена лобби.</summary>
     public void HostLobby()
     {
+        if (!SteamReady)
+        {
+            Debug.LogError("[SteamLobby] Нельзя создать лобби: Steam не инициализирован.");
+            return;
+        }
+
         _sceneOnServerStart = _lobbyScene;
         SteamMatchmaking.CreateLobby(ELobbyType.k_ELobbyTypeFriendsOnly, _maxPlayers);
     }
 
-    /// <summary>Отключиться: останавливаем сеть и выходим из лобби.</summary>
+    /// <summary>Отключиться: останавливаем сеть и выходим из лобби.
+    /// Безопасно звать повторно — зовётся и из меню паузы, и из главного меню.</summary>
     public void Disconnect()
     {
-        if (_networkManager.IsServerStarted) _networkManager.ServerManager.StopConnection(true);
-        if (_networkManager.IsClientStarted) _networkManager.ClientManager.StopConnection();
-        if (CurrentLobbyID.IsValid()) SteamMatchmaking.LeaveLobby(CurrentLobbyID);
+        // Возвращаем управление курсором в исходное состояние: если выход
+        // случился из открытого меню, счётчик модалок остался бы ненулевым.
+        UiModal.Reset();
+
+        if (_networkManager != null)
+        {
+            if (_networkManager.IsServerStarted)
+                _networkManager.ServerManager.StopConnection(true);
+            if (_networkManager.IsClientStarted)
+                _networkManager.ClientManager.StopConnection();
+        }
+
+        if (SteamReady && CurrentLobbyID.IsValid())
+        {
+            SteamMatchmaking.LeaveLobby(CurrentLobbyID);
+            CurrentLobbyID = default;   // иначе второй вызов уйдёт в мёртвое лобби
+        }
+
+        _sceneOnServerStart = null;
     }
 
     // ───────────────────────── STEAM CALLBACKS ─────────────────────────
@@ -129,6 +203,7 @@ public class SteamLobby : MonoBehaviour
         if (cb.m_eResult != EResult.k_EResultOK)
         {
             Debug.LogError("[SteamLobby] Не удалось создать лобби: " + cb.m_eResult);
+            _sceneOnServerStart = null;   // иначе сцена загрузится «сама» позже
             return;
         }
 

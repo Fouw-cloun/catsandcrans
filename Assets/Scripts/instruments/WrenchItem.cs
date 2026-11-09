@@ -54,6 +54,10 @@ public class WrenchItem : InteractableItem
 
     private HydrantNut Nut => _mountedNut.Value as HydrantNut;
 
+    /// <summary>Работает в связке с оборудованием — F по кнопкам и гайкам
+    /// должен проходить, не выпуская предмет из рук.</summary>
+    public override bool AllowInteractWhileHeld => true;
+
     protected override void Awake()
     {
         base.Awake();

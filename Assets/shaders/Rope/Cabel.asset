@@ -1,0 +1,67 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0991b14fcc3a3ce4cb06d047c3386974, type: 3}
+  m_Name: Cabel
+  m_EditorClassIdentifier: Assembly-CSharp::RopeMaterial
+  type: 3
+  radius: 0.03
+  radialSegments: 6
+  radiusProfile:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  gravityScale: 1
+  stiffness: 30
+  bendStiffness: 0.25
+  elasticity: 0.1
+  stretchLimit: 1.5
+  damping: 0.99
+  surfaceFriction: 0.5
+  bounciness: 0
+  collide: 1
+  preventTunneling: 1
+  baseColor: {r: 0.15, g: 0.15, b: 0.16, a: 1}
+  tipColor: {r: 0.1, g: 0.1, b: 0.11, a: 1}
+  gradient: 0
+  smoothness: 0.3
+  lightWrap: 0.5
+  fiberDetail: 0.4
+  fiberTiling: 12
+  fiberTwist: 4
+  fuzz: 0.2
+  fuzzColor: {r: 0.6, g: 0.6, b: 0.6, a: 1}
+  fuzzPower: 3
+  wear: 0
+  wearColor: {r: 0.05, g: 0.04, b: 0.03, a: 1}
+  wearScale: 20
+  outlineColor: {r: 0, g: 0, b: 0, a: 1}
+  outlineWidth: 0.008

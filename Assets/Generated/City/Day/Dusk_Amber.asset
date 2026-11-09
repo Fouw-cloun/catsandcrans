@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d22ec43331393e6489983a52c9edced3, type: 3}
+  m_Name: P_Amber
+  m_EditorClassIdentifier: Assembly-CSharp::CatCooksPalette
+  note: "\u041E\u0441\u0435\u043D\u043D\u0438\u0439 \u044F\u043D\u0442\u0430\u0440\u044C.
+    \u0422\u0451\u043F\u043B\u043E\u0435 \u0432\u0441\u0451, \u0432\u043A\u043B\u044E\u0447\u0430\u044F
+    \u0442\u0435\u043D\u0438."
+  zenith: {r: 0.29803923, g: 0.4745098, b: 0.72156864, a: 1}
+  horizon: {r: 1, g: 0.8509804, b: 0.627451, a: 1}
+  ground: {r: 0.65882355, g: 0.4745098, b: 0.30588236, a: 1}
+  cloudLit: {r: 1, g: 0.9411765, b: 0.85490197, a: 1}
+  cloudShadow: {r: 0.78039217, g: 0.6039216, b: 0.50980395, a: 1}
+  cloudBase: {r: 0.5411765, g: 0.41568628, b: 0.38431373, a: 1}
+  cloudAmbientTop: {r: 0.43137255, g: 0.5647059, b: 0.76862746, a: 1}
+  cloudAmbientBottom: {r: 0.65882355, g: 0.49411765, b: 0.3372549, a: 1}
+  sunDisc: {r: 1, g: 0.75686276, b: 0.3882353, a: 1}
+  sunLight: {r: 1, g: 0.8156863, b: 0.5411765, a: 1}
+  ambientSky: {r: 0.7652549, g: 0.82567155, b: 0.88862747, a: 1}
+  ambientEquator: {r: 0.8385883, g: 0.6851419, b: 0.4929883, a: 1}
+  ambientGround: {r: 0.5836863, g: 0.30208543, b: 0.13970199, a: 1}
+  fogNear: {r: 1.0061152, g: 0.89504474, b: 0.7884788, a: 1}
+  fogFar: {r: 0.88172203, g: 0.7812133, b: 0.6781679, a: 1}
+  rayTint: {r: 1, g: 0.78431374, b: 0.4627451, a: 1}
+  windStreak: {r: 1, g: 0.92156863, b: 0.8235294, a: 1}

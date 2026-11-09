@@ -1,0 +1,981 @@
+{
+  "target": "Unity 6 / URP / PC",
+  "presets": [
+    {
+      "name": "Footstep_Soft",
+      "title": "Тихий шаг",
+      "layers": [
+        {
+          "name": "Core",
+          "count": 2,
+          "life": 0.42,
+          "size": 0.18,
+          "speed": 0.3,
+          "radius": 0.025,
+          "delay": 0,
+          "lift": 0.12,
+          "drag": 4,
+          "bill": false,
+          "detail": false,
+          "flat": false,
+          "color": [
+            0.65,
+            0.6,
+            0.5
+          ],
+          "mat": "Dust_Sand",
+          "gravity": 0
+        },
+        {
+          "name": "Wisps",
+          "count": 1,
+          "life": 0.55,
+          "size": 0.2,
+          "speed": 0.15,
+          "radius": 0.035,
+          "delay": 0.035,
+          "lift": 0.18,
+          "drag": 4,
+          "bill": true,
+          "detail": true,
+          "flat": false,
+          "color": [
+            0.6695,
+            0.624,
+            0.53
+          ],
+          "mat": "Dust_Wisps",
+          "gravity": 0,
+          "startAlphaRange": [
+            0.78,
+            0.9
+          ]
+        }
+      ],
+      "loop": false,
+      "distance": 0,
+      "rate": 0
+    },
+    {
+      "name": "Footstep_Run",
+      "title": "Бег",
+      "layers": [
+        {
+          "name": "Core",
+          "count": 3,
+          "life": 0.5,
+          "size": 0.25,
+          "speed": 0.65,
+          "radius": 0.045,
+          "delay": 0,
+          "lift": 0.18,
+          "drag": 4,
+          "bill": false,
+          "detail": false,
+          "flat": false,
+          "color": [
+            0.65,
+            0.6,
+            0.5
+          ],
+          "mat": "Dust_Sand",
+          "gravity": 0
+        },
+        {
+          "name": "Contact",
+          "count": 2,
+          "life": 0.28,
+          "size": 0.19,
+          "speed": 0.95,
+          "radius": 0.03,
+          "delay": 0,
+          "lift": 0.04,
+          "drag": 4,
+          "bill": false,
+          "detail": false,
+          "flat": true,
+          "color": [
+            0.559,
+            0.504,
+            0.405
+          ],
+          "mat": "Dust_Sand",
+          "gravity": 0
+        },
+        {
+          "name": "Wisps",
+          "count": 2,
+          "life": 0.64,
+          "size": 0.22,
+          "speed": 0.25,
+          "radius": 0.06,
+          "delay": 0.04,
+          "lift": 0.18,
+          "drag": 4,
+          "bill": true,
+          "detail": true,
+          "flat": false,
+          "color": [
+            0.6695,
+            0.624,
+            0.53
+          ],
+          "mat": "Dust_Wisps",
+          "gravity": 0,
+          "startAlphaRange": [
+            0.78,
+            0.9
+          ]
+        }
+      ],
+      "loop": false,
+      "distance": 0,
+      "rate": 0
+    },
+    {
+      "name": "Jump_Takeoff",
+      "title": "Отталкивание",
+      "layers": [
+        {
+          "name": "Contact",
+          "count": 4,
+          "life": 0.3,
+          "size": 0.24,
+          "speed": 1.5,
+          "radius": 0.09,
+          "delay": 0,
+          "lift": 0.02,
+          "drag": 4,
+          "bill": false,
+          "detail": false,
+          "flat": true,
+          "color": [
+            0.559,
+            0.504,
+            0.405
+          ],
+          "mat": "Dust_Sand",
+          "gravity": 0
+        },
+        {
+          "name": "Core",
+          "count": 4,
+          "life": 0.6,
+          "size": 0.31,
+          "speed": 0.72,
+          "radius": 0.09,
+          "delay": 0.025,
+          "lift": 0.27,
+          "drag": 4,
+          "bill": false,
+          "detail": false,
+          "flat": false,
+          "color": [
+            0.65,
+            0.6,
+            0.5
+          ],
+          "mat": "Dust_Sand",
+          "gravity": 0
+        },
+        {
+          "name": "Wisps",
+          "count": 2,
+          "life": 0.8,
+          "size": 0.24,
+          "speed": 0.4,
+          "radius": 0.12,
+          "delay": 0.08,
+          "lift": 0.18,
+          "drag": 4,
+          "bill": true,
+          "detail": true,
+          "flat": false,
+          "color": [
+            0.6695,
+            0.624,
+            0.53
+          ],
+          "mat": "Dust_Wisps",
+          "gravity": 0,
+          "startAlphaRange": [
+            0.78,
+            0.9
+          ]
+        }
+      ],
+      "loop": false,
+      "distance": 0,
+      "rate": 0
+    },
+    {
+      "name": "Land_Light",
+      "title": "Лёгкое приземление",
+      "layers": [
+        {
+          "name": "Contact",
+          "count": 5,
+          "life": 0.32,
+          "size": 0.28,
+          "speed": 1.45,
+          "radius": 0.1,
+          "delay": 0,
+          "lift": 0.04,
+          "drag": 4,
+          "bill": false,
+          "detail": false,
+          "flat": true,
+          "color": [
+            0.559,
+            0.504,
+            0.405
+          ],
+          "mat": "Dust_Sand",
+          "gravity": 0
+        },
+        {
+          "name": "Core",
+          "count": 5,
+          "life": 0.7,
+          "size": 0.34,
+          "speed": 0.85,
+          "radius": 0.12,
+          "delay": 0.035,
+          "lift": 0.25,
+          "drag": 4,
+          "bill": false,
+          "detail": false,
+          "flat": false,
+          "color": [
+            0.65,
+            0.6,
+            0.5
+          ],
+          "mat": "Dust_Sand",
+          "gravity": 0
+        },
+        {
+          "name": "Wisps",
+          "count": 3,
+          "life": 0.9,
+          "size": 0.27,
+          "speed": 0.3,
+          "radius": 0.16,
+          "delay": 0.1,
+          "lift": 0.18,
+          "drag": 4,
+          "bill": true,
+          "detail": true,
+          "flat": false,
+          "color": [
+            0.6695,
+            0.624,
+            0.53
+          ],
+          "mat": "Dust_Wisps",
+          "gravity": 0,
+          "startAlphaRange": [
+            0.78,
+            0.9
+          ]
+        }
+      ],
+      "loop": false,
+      "distance": 0,
+      "rate": 0
+    },
+    {
+      "name": "Land_Heavy",
+      "title": "Тяжёлое приземление",
+      "layers": [
+        {
+          "name": "Contact",
+          "count": 8,
+          "life": 0.37,
+          "size": 0.4,
+          "speed": 2.8,
+          "radius": 0.17,
+          "delay": 0,
+          "lift": 0.03,
+          "drag": 5,
+          "bill": false,
+          "detail": false,
+          "flat": true,
+          "color": [
+            0.559,
+            0.504,
+            0.405
+          ],
+          "mat": "Dust_Sand",
+          "gravity": 0
+        },
+        {
+          "name": "Core",
+          "count": 8,
+          "life": 1.05,
+          "size": 0.54,
+          "speed": 1.5,
+          "radius": 0.24,
+          "delay": 0.045,
+          "lift": 0.32,
+          "drag": 4.5,
+          "bill": false,
+          "detail": false,
+          "flat": false,
+          "color": [
+            0.65,
+            0.6,
+            0.5
+          ],
+          "mat": "Dust_Sand",
+          "gravity": 0
+        },
+        {
+          "name": "Wisps",
+          "count": 5,
+          "life": 1.4,
+          "size": 0.35,
+          "speed": 0.55,
+          "radius": 0.3,
+          "delay": 0.13,
+          "lift": 0.18,
+          "drag": 4,
+          "bill": true,
+          "detail": true,
+          "flat": false,
+          "color": [
+            0.6695,
+            0.624,
+            0.53
+          ],
+          "mat": "Dust_Wisps",
+          "gravity": 0,
+          "startAlphaRange": [
+            0.78,
+            0.9
+          ]
+        },
+        {
+          "name": "Chips",
+          "count": 4,
+          "life": 0.38,
+          "size": 0.09,
+          "speed": 2.1,
+          "radius": 0.12,
+          "delay": 0,
+          "lift": 0.3,
+          "drag": 4,
+          "bill": false,
+          "detail": true,
+          "flat": false,
+          "color": [
+            0.5135,
+            0.462,
+            0.365
+          ],
+          "mat": "Dust_Sand",
+          "gravity": 0.8
+        }
+      ],
+      "loop": false,
+      "distance": 0,
+      "rate": 0
+    },
+    {
+      "name": "Drop_Small",
+      "title": "Падение небольшой вещи",
+      "layers": [
+        {
+          "name": "Core",
+          "count": 4,
+          "life": 0.55,
+          "size": 0.25,
+          "speed": 0.65,
+          "radius": 0.07,
+          "delay": 0,
+          "lift": 0.13,
+          "drag": 4,
+          "bill": false,
+          "detail": false,
+          "flat": false,
+          "color": [
+            0.65,
+            0.6,
+            0.5
+          ],
+          "mat": "Dust_Sand",
+          "gravity": 0
+        },
+        {
+          "name": "Wisps",
+          "count": 2,
+          "life": 0.72,
+          "size": 0.2,
+          "speed": 0.3,
+          "radius": 0.1,
+          "delay": 0.05,
+          "lift": 0.18,
+          "drag": 4,
+          "bill": true,
+          "detail": true,
+          "flat": false,
+          "color": [
+            0.6695,
+            0.624,
+            0.53
+          ],
+          "mat": "Dust_Wisps",
+          "gravity": 0,
+          "startAlphaRange": [
+            0.78,
+            0.9
+          ]
+        }
+      ],
+      "loop": false,
+      "distance": 0,
+      "rate": 0
+    },
+    {
+      "name": "Drop_Heavy",
+      "title": "Падение ящика / груза",
+      "layers": [
+        {
+          "name": "Contact",
+          "count": 7,
+          "life": 0.4,
+          "size": 0.43,
+          "speed": 2.2,
+          "radius": 0.24,
+          "delay": 0,
+          "lift": 0.025,
+          "drag": 4,
+          "bill": false,
+          "detail": false,
+          "flat": true,
+          "color": [
+            0.559,
+            0.504,
+            0.405
+          ],
+          "mat": "Dust_Sand",
+          "gravity": 0
+        },
+        {
+          "name": "Core",
+          "count": 9,
+          "life": 1.2,
+          "size": 0.58,
+          "speed": 1.15,
+          "radius": 0.29,
+          "delay": 0.06,
+          "lift": 0.25,
+          "drag": 4,
+          "bill": false,
+          "detail": false,
+          "flat": false,
+          "color": [
+            0.65,
+            0.6,
+            0.5
+          ],
+          "mat": "Dust_Sand",
+          "gravity": 0
+        },
+        {
+          "name": "Wisps",
+          "count": 5,
+          "life": 1.65,
+          "size": 0.4,
+          "speed": 0.45,
+          "radius": 0.32,
+          "delay": 0.16,
+          "lift": 0.18,
+          "drag": 4,
+          "bill": true,
+          "detail": true,
+          "flat": false,
+          "color": [
+            0.6695,
+            0.624,
+            0.53
+          ],
+          "mat": "Dust_Wisps",
+          "gravity": 0,
+          "startAlphaRange": [
+            0.78,
+            0.9
+          ]
+        },
+        {
+          "name": "Chips",
+          "count": 4,
+          "life": 0.4,
+          "size": 0.09,
+          "speed": 1.8,
+          "radius": 0.16,
+          "delay": 0,
+          "lift": 0.18,
+          "drag": 4,
+          "bill": false,
+          "detail": true,
+          "flat": false,
+          "color": [
+            0.5135,
+            0.462,
+            0.365
+          ],
+          "mat": "Dust_Sand",
+          "gravity": 0.8
+        }
+      ],
+      "loop": false,
+      "distance": 0,
+      "rate": 0
+    },
+    {
+      "name": "Tool_Hit",
+      "title": "Удар строительным инструментом",
+      "layers": [
+        {
+          "name": "Core",
+          "count": 3,
+          "life": 0.42,
+          "size": 0.22,
+          "speed": 0.75,
+          "radius": 0.035,
+          "delay": 0,
+          "lift": 0.16,
+          "drag": 4,
+          "bill": false,
+          "detail": false,
+          "flat": false,
+          "color": [
+            0.65,
+            0.6,
+            0.5
+          ],
+          "mat": "Dust_Sand",
+          "gravity": 0
+        },
+        {
+          "name": "Chips",
+          "count": 3,
+          "life": 0.27,
+          "size": 0.055,
+          "speed": 1.9,
+          "radius": 0.025,
+          "delay": 0,
+          "lift": 0.18,
+          "drag": 4,
+          "bill": false,
+          "detail": true,
+          "flat": false,
+          "color": [
+            0.5135,
+            0.462,
+            0.365
+          ],
+          "mat": "Dust_Sand",
+          "gravity": 0.8
+        },
+        {
+          "name": "Wisps",
+          "count": 2,
+          "life": 0.63,
+          "size": 0.17,
+          "speed": 0.25,
+          "radius": 0.05,
+          "delay": 0.04,
+          "lift": 0.18,
+          "drag": 4,
+          "bill": true,
+          "detail": true,
+          "flat": false,
+          "color": [
+            0.6695,
+            0.624,
+            0.53
+          ],
+          "mat": "Dust_Wisps",
+          "gravity": 0,
+          "startAlphaRange": [
+            0.78,
+            0.9
+          ]
+        }
+      ],
+      "loop": false,
+      "distance": 0,
+      "rate": 0
+    },
+    {
+      "name": "Flour_Puff",
+      "title": "Мука / сухие ингредиенты",
+      "layers": [
+        {
+          "name": "Core",
+          "count": 6,
+          "life": 0.95,
+          "size": 0.38,
+          "speed": 0.7,
+          "radius": 0.13,
+          "delay": 0,
+          "lift": 0.3,
+          "drag": 3,
+          "bill": false,
+          "detail": false,
+          "flat": false,
+          "color": [
+            0.8,
+            0.77,
+            0.68
+          ],
+          "mat": "Dust_Flour",
+          "gravity": 0
+        },
+        {
+          "name": "Wisps",
+          "count": 5,
+          "life": 1.45,
+          "size": 0.35,
+          "speed": 0.35,
+          "radius": 0.19,
+          "delay": 0.08,
+          "lift": 0.25,
+          "drag": 4,
+          "bill": true,
+          "detail": true,
+          "flat": false,
+          "color": [
+            0.824,
+            0.8008,
+            0.7208
+          ],
+          "mat": "Gas_Wisps",
+          "gravity": 0,
+          "startAlphaRange": [
+            0.78,
+            0.9
+          ]
+        }
+      ],
+      "loop": false,
+      "distance": 0,
+      "rate": 0
+    },
+    {
+      "name": "Wheel_Rolling",
+      "title": "Пыль от колёс",
+      "layers": [
+        {
+          "name": "Core",
+          "count": 1,
+          "life": 0.72,
+          "size": 0.32,
+          "speed": 0.4,
+          "radius": 0.07,
+          "delay": 0,
+          "lift": 0.18,
+          "drag": 4,
+          "bill": false,
+          "detail": false,
+          "flat": false,
+          "color": [
+            0.65,
+            0.6,
+            0.5
+          ],
+          "mat": "Dust_Sand",
+          "gravity": 0
+        },
+        {
+          "name": "Wisps",
+          "count": 0.65,
+          "life": 1.0,
+          "size": 0.29,
+          "speed": 0.2,
+          "radius": 0.1,
+          "delay": 0,
+          "lift": 0.18,
+          "drag": 4,
+          "bill": true,
+          "detail": true,
+          "flat": false,
+          "color": [
+            0.6695,
+            0.624,
+            0.53
+          ],
+          "mat": "Dust_Wisps",
+          "gravity": 0,
+          "startAlphaRange": [
+            0.78,
+            0.9
+          ]
+        }
+      ],
+      "loop": true,
+      "distance": 3.2,
+      "rate": 0
+    },
+    {
+      "name": "Wheel_Skid",
+      "title": "Торможение / пробуксовка",
+      "layers": [
+        {
+          "name": "Contact",
+          "count": 5,
+          "life": 0.36,
+          "size": 0.3,
+          "speed": 1.7,
+          "radius": 0.14,
+          "delay": 0,
+          "lift": 0.03,
+          "drag": 4,
+          "bill": false,
+          "detail": false,
+          "flat": true,
+          "color": [
+            0.559,
+            0.504,
+            0.405
+          ],
+          "mat": "Dust_Sand",
+          "gravity": 0
+        },
+        {
+          "name": "Core",
+          "count": 6,
+          "life": 0.85,
+          "size": 0.42,
+          "speed": 1.2,
+          "radius": 0.17,
+          "delay": 0.025,
+          "lift": 0.18,
+          "drag": 4,
+          "bill": false,
+          "detail": false,
+          "flat": false,
+          "color": [
+            0.65,
+            0.6,
+            0.5
+          ],
+          "mat": "Dust_Sand",
+          "gravity": 0
+        },
+        {
+          "name": "Wisps",
+          "count": 4,
+          "life": 1.2,
+          "size": 0.3,
+          "speed": 0.4,
+          "radius": 0.22,
+          "delay": 0.08,
+          "lift": 0.18,
+          "drag": 4,
+          "bill": true,
+          "detail": true,
+          "flat": false,
+          "color": [
+            0.6695,
+            0.624,
+            0.53
+          ],
+          "mat": "Dust_Wisps",
+          "gravity": 0,
+          "startAlphaRange": [
+            0.78,
+            0.9
+          ]
+        }
+      ],
+      "loop": false,
+      "distance": 0,
+      "rate": 0
+    },
+    {
+      "name": "Exhaust_Idle",
+      "title": "Выхлоп на холостом ходу",
+      "layers": [
+        {
+          "name": "Core",
+          "count": 1,
+          "life": 0.95,
+          "size": 0.22,
+          "speed": 0.5,
+          "radius": 0.035,
+          "delay": 0,
+          "lift": 0.14,
+          "drag": 1.8,
+          "bill": false,
+          "detail": false,
+          "flat": false,
+          "color": [
+            0.43,
+            0.44,
+            0.42
+          ],
+          "mat": "Dust_Soot",
+          "gravity": 0
+        },
+        {
+          "name": "Wisps",
+          "count": 0.65,
+          "life": 1.4,
+          "size": 0.3,
+          "speed": 0.3,
+          "radius": 0.05,
+          "delay": 0.1,
+          "lift": 0.22,
+          "drag": 4,
+          "bill": true,
+          "detail": true,
+          "flat": false,
+          "color": [
+            0.4429,
+            0.4576,
+            0.4452
+          ],
+          "mat": "Gas_Wisps",
+          "gravity": 0,
+          "startAlphaRange": [
+            0.78,
+            0.9
+          ]
+        }
+      ],
+      "loop": true,
+      "distance": 0,
+      "rate": 3.6
+    },
+    {
+      "name": "Exhaust_Load",
+      "title": "Выхлоп под нагрузкой",
+      "layers": [
+        {
+          "name": "Core",
+          "count": 1,
+          "life": 1.1,
+          "size": 0.34,
+          "speed": 1.0,
+          "radius": 0.045,
+          "delay": 0,
+          "lift": 0.18,
+          "drag": 2.3,
+          "bill": false,
+          "detail": false,
+          "flat": false,
+          "color": [
+            0.43,
+            0.44,
+            0.42
+          ],
+          "mat": "Dust_Soot",
+          "gravity": 0
+        },
+        {
+          "name": "Wisps",
+          "count": 0.7,
+          "life": 1.6,
+          "size": 0.39,
+          "speed": 0.45,
+          "radius": 0.07,
+          "delay": 0.08,
+          "lift": 0.28,
+          "drag": 4,
+          "bill": true,
+          "detail": true,
+          "flat": false,
+          "color": [
+            0.4429,
+            0.4576,
+            0.4452
+          ],
+          "mat": "Gas_Wisps",
+          "gravity": 0,
+          "startAlphaRange": [
+            0.78,
+            0.9
+          ]
+        }
+      ],
+      "loop": true,
+      "distance": 0,
+      "rate": 6.0
+    },
+    {
+      "name": "Cooking_Steam",
+      "title": "Пар строительной кухни",
+      "layers": [
+        {
+          "name": "Core",
+          "count": 1,
+          "life": 1.35,
+          "size": 0.24,
+          "speed": 0.28,
+          "radius": 0.07,
+          "delay": 0,
+          "lift": 0.25,
+          "drag": 1.2,
+          "bill": true,
+          "detail": false,
+          "flat": false,
+          "color": [
+            0.72,
+            0.76,
+            0.73
+          ],
+          "mat": "Gas_Wisps",
+          "gravity": 0
+        },
+        {
+          "name": "Wisps",
+          "count": 0.5,
+          "life": 1.9,
+          "size": 0.32,
+          "speed": 0.2,
+          "radius": 0.1,
+          "delay": 0.15,
+          "lift": 0.34,
+          "drag": 4,
+          "bill": true,
+          "detail": true,
+          "flat": false,
+          "color": [
+            0.7416,
+            0.7904,
+            0.7738
+          ],
+          "mat": "Gas_Wisps",
+          "gravity": 0,
+          "startAlphaRange": [
+            0.78,
+            0.9
+          ]
+        }
+      ],
+      "loop": true,
+      "distance": 0,
+      "rate": 4.0
+    }
+  ],
+  "meshes": [
+    {
+      "name": "Puff_A",
+      "vertices": 375,
+      "triangles": 624
+    },
+    {
+      "name": "Puff_B",
+      "vertices": 375,
+      "triangles": 624
+    },
+    {
+      "name": "Puff_C",
+      "vertices": 375,
+      "triangles": 624
+    }
+  ]
+}

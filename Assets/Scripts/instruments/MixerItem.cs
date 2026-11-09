@@ -1,6 +1,7 @@
 using FishNet.Connection;
 using FishNet.Object;
 using FishNet.Object.Synchronizing;
+using CatCooks.Food;
 using UnityEngine;
 
 /// <summary>
@@ -29,8 +30,17 @@ using UnityEngine;
 /// Требует: NetworkObject, NetworkTransform (Client Authoritative), Collider,
 /// Rigidbody (Collision Detection = Continuous желательно).
 /// </summary>
-public class MixerItem : InteractableItem
+public class MixerItem : InteractableItem, ISpinningTool
 {
+    [Header("Кухня — замес смеси в таре")]
+    [Tooltip("Опустил венчик в тару и крутишь (ЛКМ) — смесь по рецепту замешивается: проценты в консоли и в аналитике (F4). " +
+             "Вибратор только взбивает молоко и сливки, а смеси (мороженое) — это миксер")]
+    [SerializeField] private bool _kitchenMode = true;
+    [Tooltip("Венчик — точка, которая должна быть в таре. Пусто — Probe Point, потом Attachment")]
+    [SerializeField] private Transform _whisk;
+    [Tooltip("Насколько венчик может быть в стороне от центра горловины, м")]
+    [SerializeField] private float _whiskReach = 0.45f;
+
     [Header("Миксер — насадка (крутится в обычном режиме)")]
     [Tooltip("Дочерний меш вращающейся насадки")]
     [SerializeField] private Transform _attachment;
@@ -115,8 +125,50 @@ public class MixerItem : InteractableItem
 
     // ───────── КАЖДЫЙ КАДР ─────────
 
+    // ISpinningTool (FoodToolDriver и др.)
+    public bool IsActive => _spinning.Value && !_stuck.Value;
+    public float Power01 => 1f;
+    public Transform WorkPoint => WhiskT;
+
+    private Transform WhiskT => _whisk != null ? _whisk : (_probePoint != null ? _probePoint : _attachment);
+
+    /// <summary>Тара, в которую опущен венчик (в полости или над горловиной в пределах Whisk Reach). Одинаково у всех.</summary>
+    private Cookware FindWhiskCookware()
+    {
+        Transform w = WhiskT;
+        if (w == null) return null;
+        Vector3 p = w.position;
+        Cookware best = null;
+        float bd = float.MaxValue;
+        foreach (Cookware c in Cookware.All)
+        {
+            if (c == null) continue;
+            if (c.IsInside(p)) return c;
+            Vector3 m = c.MouthPoint;
+            float h = new Vector2(m.x - p.x, m.z - p.z).magnitude;
+            if (h > _whiskReach) continue;
+            if (p.y > m.y + 0.25f || p.y < m.y - 1.5f) continue;
+            if (h < bd) { bd = h; best = c; }
+        }
+        return best;
+    }
+
+    /// <summary>Сервер: венчик крутится в таре — мешаем (шаг рецепта «Перемешать») и взбалтываем.</summary>
+    private void KitchenTickServer()
+    {
+        if (!_kitchenMode || !_spinning.Value || _stuck.Value) return;
+        Cookware cw = FindWhiskCookware();
+        if (cw == null) return;
+        cw.ServerAgitate(0.85f);
+        // Миксер и взбивает (яичная масса, меренга), и перемешивает (тесто, мороженое) — шаг выбирает рецепт.
+        bool step = CookRecipeBook.ServerProcessAny(cw, 0f, CookStepKind.Whip, CookStepKind.Mix);
+        // Не рецепт — может, шоколад: жидкую пасту мешаем (темперируем, застывает быстрее), застывший — скребём.
+        if (!step) ChocolateWork.ServerMix(cw, Time.deltaTime);
+    }
+
     private void Update()
     {
+        if (base.IsServerInitialized) KitchenTickServer();
         UpdateVisual();
 
         if (base.IsOwner)
@@ -152,6 +204,16 @@ public class MixerItem : InteractableItem
         }
 
         // Ручки — только когда ЗАМОРОЖЕНО (крутится игрок).
+        // Венчик в жидкости — закрутка и рябь у всех игроков.
+        if (_kitchenMode && spinningNow && !frozen && _attachmentSpinScale > 0.3f)
+        {
+            Cookware cwv = FindWhiskCookware();
+            CookwareLiquidVisual lv = cwv != null ? cwv.GetComponentInChildren<CookwareLiquidVisual>() : null;
+            if (lv != null && lv.HasLiquid && WhiskT != null) lv.Stir(WhiskT.position, 1f);
+            // Шоколад под венчиком: брызги пасты / крошки застывшего, форма — рябь и закрутка.
+            if (cwv != null && WhiskT != null) ChocolateWork.ClientStir(cwv, WhiskT.position, dt);
+        }
+
         if (_handles != null)
         {
             float target = (spinningNow && frozen) ? 1f : 0f;
@@ -192,6 +254,8 @@ public class MixerItem : InteractableItem
                 _probePoint.position, _probeRadius, _stuckMask,
                 QueryTriggerInteraction.Collide);
         }
+        // Венчик в таре на кухне — это не «застряли в земле» (ведро стоит на земле, щуп большой).
+        if (probeStuck && _kitchenMode && !_spinLocked && FindWhiskCookware() != null) probeStuck = false;
         _localStuck = probeStuck;
 
         // Защёлка: старт при попадании в слой, держится пока зажата ЛКМ.

@@ -35,6 +35,7 @@ public class TrackedVehicle : NetworkVehicle
              "— плавно гасит скорость с этим ускорением). 2-3 мягко, 6-8 резко.")]
     public float idleBrakeDeceleration = 4f;
 
+    protected virtual bool TryAutomatedInput(out float move,out float turn) { move=turn=0;return false; }
     private float _move;
     private float _turn;
 
@@ -45,6 +46,7 @@ public class TrackedVehicle : NetworkVehicle
             _move = Input.GetAxisRaw("Vertical");
             _turn = Input.GetAxisRaw("Horizontal");
         }
+        else if(IsServerInitialized && CanDrive && TryAutomatedInput(out _move,out _turn)) { _move=Mathf.Clamp(_move,-1,1);_turn=Mathf.Clamp(_turn,-1,1); }
         else { _move = 0f; _turn = 0f; }
 
         // Дифференциал: поворот = разная тяга сторон.

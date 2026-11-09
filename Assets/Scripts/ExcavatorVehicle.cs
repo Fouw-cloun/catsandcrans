@@ -56,6 +56,58 @@ public class ExcavatorVehicle : TrackedVehicle
     private Quaternion _towerBaseRot, _boomBaseRot, _armBaseRot, _bucketBaseRot;
     private bool _armBaseCaptured;
 
+    private readonly SyncVar<NetworkObject> _npc=new(null);
+    private float _npcMove,_npcTurn,_npcExpires;
+    public bool HasNpcDriver => _npc.Value!=null;
+    public Transform NpcSeat => _seatPoint;
+    public Transform NpcExit => _exitPoint;
+    public Transform TowerPart => _tower;
+    public Transform BoomPart => _boom;
+    public Transform ArmPart => _arm;
+    public Transform BucketPart => _bucket;
+    public Vector3 TowerAxis => _towerAxis;
+    public float BodySpeed => _body!=null?_body.linearVelocity.magnitude:0;
+    public Vector4 CurrentArmPose => new Vector4(_isLocalDriver?_localTower:_towerAngle.Value,
+        _isLocalDriver?_localBoom:_boomAngle.Value,_isLocalDriver?_localArm:_armAngle.Value,_isLocalDriver?_localBucket:_bucketAngle.Value);
+    public Vector4 ClampNpcPose(Vector4 p) => new Vector4(p.x,Mathf.Clamp(p.y,_boomLimit.x,_boomLimit.y),
+        Mathf.Clamp(p.z,_armLimit.x,_armLimit.y),Mathf.Clamp(p.w,_bucketLimit.x,_bucketLimit.y));
+    public override void OnStartServer()
+    {
+        base.OnStartServer();_npc.Value=null;_npcMove=_npcTurn=0;_npcExpires=0;
+    }
+    public bool ServerAcquireNpc(NetworkObject cat)
+    {
+        if(!IsServerInitialized || HasDriver || HasNpcDriver || cat==null || !cat.IsSpawned || _isStatic || _body==null) return false;
+        NetworkObject.RemoveOwnership();_npc.Value=cat;_npcMove=_npcTurn=0;_npcExpires=0;_workMode.Value=true;return true;
+    }
+    public void ServerReleaseNpc(NetworkObject cat)
+    {
+        if(!IsServerInitialized || HasDriver || _npc.Value!=cat) return;
+        _npc.Value=null;_npcMove=_npcTurn=0;_npcExpires=0;_workMode.Value=false;
+    }
+    public bool ServerNpcControl(NetworkObject cat,Vector4 pose,float move,float turn,bool drive,float delta)
+    {
+        if(!IsServerInitialized || cat==null || _npc.Value!=cat || HasDriver || !cat.IsSpawned) return false;
+        pose=ClampNpcPose(pose);float dt=Mathf.Clamp(delta,0,.2f);
+        _towerAngle.Value=Mathf.MoveTowardsAngle(_towerAngle.Value,pose.x,Mathf.Max(0,_towerSpeed)*dt);
+        _boomAngle.Value=Mathf.MoveTowards(_boomAngle.Value,pose.y,Mathf.Max(0,_armSpeed)*dt);
+        _armAngle.Value=Mathf.MoveTowards(_armAngle.Value,pose.z,Mathf.Max(0,_armSpeed)*dt);
+        _bucketAngle.Value=Mathf.MoveTowards(_bucketAngle.Value,pose.w,Mathf.Max(0,_armSpeed)*dt);
+        _npcMove=drive?Mathf.Clamp(move,-1,1):0;_npcTurn=drive?Mathf.Clamp(turn,-1,1):0;
+        _npcExpires=Time.time+.6f;_workMode.Value=!drive;return true;
+    }
+    protected override bool TryAutomatedInput(out float move,out float turn)
+    {
+        bool valid=IsServerInitialized && _npc.Value!=null && _npc.Value.IsSpawned && !HasDriver && Time.time<_npcExpires;
+        move=valid?_npcMove:0;turn=valid?_npcTurn:0;return valid;
+    }
+    protected override bool CanEnter(PlayerInteractor interactor) => !HasNpcDriver && base.CanEnter(interactor);
+    protected override void ApplyDriverState(NetworkObject player,bool entering)
+    {
+        if(entering) { _localTower=_towerAngle.Value;_localBoom=_boomAngle.Value;_localArm=_armAngle.Value;_localBucket=_bucketAngle.Value; }
+        base.ApplyDriverState(player,entering);
+    }
+
     // В режиме работы рукой ездить нельзя.
     protected override bool CanDrive => !_workMode.Value;
 

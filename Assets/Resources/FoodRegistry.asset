@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b77ec53f63c1d5c459d0279d2c17ee39, type: 3}
+  m_Name: FoodRegistry
+  m_EditorClassIdentifier: Assembly-CSharp::FoodRegistry
+  Ingredients:
+  - {fileID: 11400000, guid: 9367cd27371e7e24cbfb3688c0d83c37, type: 2}
+  - {fileID: 11400000, guid: c2b88e0b820d07745aa37031f5e5367d, type: 2}
+  Processes:
+  - {fileID: 11400000, guid: 74aa99818b0fd344e9046d798b1a7937, type: 2}
+  - {fileID: 11400000, guid: 1a364354b36fb5a44bc2514d9baf51f7, type: 2}
+  - {fileID: 11400000, guid: f4909f13ba33b7d4ab96a7c1a69935e7, type: 2}
+  - {fileID: 11400000, guid: c07a5f36342843f4d97b5e750038e967, type: 2}
+  - {fileID: 11400000, guid: 292ab7e323e2ce248a9ebcbfbcb1bdd7, type: 2}
+  - {fileID: 11400000, guid: b8fea9daf00478641a3578588b67f03e, type: 2}
+  - {fileID: 11400000, guid: 94a24b9dd88ff494fb0a5233f4f040ca, type: 2}
+  NextIngredientId: 3
+  NextProcessId: 8

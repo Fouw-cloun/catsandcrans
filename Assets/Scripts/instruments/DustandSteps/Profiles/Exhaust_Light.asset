@@ -1,0 +1,44 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 753a3314301c543bb549dab581bbb384, type: 3}
+  m_Name: Exhaust_Light
+  m_EditorClassIdentifier:
+  colour: {r: 0.58, g: 0.66, b: 0.72, a: 1}
+  amount: 1
+  erosion: 0.75
+  usePalette: 1
+  secondaryColour: {r: 0.82, g: 0.88, b: 0.9, a: 1}
+  endColour: {r: 0.43, g: 0.51, b: 0.58, a: 1}
+  grainColour: {r: 0.3712, g: 0.42240000000000005, b: 0.4608, a: 1}
+  paletteMix: 0.7
+  colourOverLife: 0.7
+  brightnessVariation: 0.1
+  shape: 2
+  sizeVariation: 0.4
+  verticalStretch: 1
+  growth: 1.4
+  pattern: 2
+  patternStrength: 0.18
+  patternScale: 4
+  patternMotion: 0.35
+  outwardSpeed: 1.3
+  rise: 0.7
+  turbulence: 1
+  spin: 1
+  debrisShape: 0
+  grainSize: 1
+  grainsOnAllEffects: 0
+  opacity: 0.3
+  size: 0.8
+  lifetime: 0.8
+  grains: 0
+  drag: 4

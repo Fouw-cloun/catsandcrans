@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9db99f8d290280846931eddeb0a67e66, type: 3}
+  m_Name: Debris_Potato
+  m_EditorClassIdentifier: Assembly-CSharp::FoodDebrisProfile
+  Ingredient: {fileID: 11400000, guid: 9367cd27371e7e24cbfb3688c0d83c37, type: 2}
+  States:
+  - Label: "\u0433\u0440\u044F\u0437\u043D\u0430\u044F"
+    Dirt: {r: 0.235, g: 0.169, b: 0.122, a: 1}
+    Skin: {r: 0.71, g: 0.408, b: 0.047, a: 1}
+    Flesh: {r: 0.867, g: 0.584, b: 0.11, a: 1}
+    Juice: {r: 0.9, g: 0.78, b: 0.4, a: 0.35}
+    DirtAmount: 1
+    JuiceAmount: 0.15
+  - Label: "\u043C\u044B\u0442\u0430\u044F"
+    Dirt: {r: 0.38, g: 0.29, b: 0.2, a: 1}
+    Skin: {r: 0.78, g: 0.5, b: 0.09, a: 1}
+    Flesh: {r: 1, g: 0.861, b: 0.437, a: 1}
+    Juice: {r: 1, g: 0.93, b: 0.62, a: 0.45}
+    DirtAmount: 0.15
+    JuiceAmount: 0.55
+  - Label: "\u0447\u0438\u0449\u0435\u043D\u0430\u044F"
+    Dirt: {r: 0.5, g: 0.42, b: 0.3, a: 1}
+    Skin: {r: 1, g: 0.9, b: 0.56, a: 1}
+    Flesh: {r: 1, g: 0.974, b: 0.679, a: 1}
+    Juice: {r: 1, g: 1, b: 0.843, a: 0.55}
+    DirtAmount: 0
+    JuiceAmount: 0.85
+  ChunkSize: 0.016
+  ShredSize: 0.03
+  DropletSize: 0.009
+  DustSize: 0.02
+  Density: 1
+  Stickiness: 0.65

@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5a406fbb6c445a14fa3b147a4d1fc511, type: 3}
+  m_Name: Recipe_Hleb
+  m_EditorClassIdentifier: Assembly-CSharp::CatCooks.Food.FoodRecipeDef
+  Title: "\u0425\u043B\u0435\u0431"
+  Note: "\u0417\u0430\u043C\u0435\u0441, \u0440\u0430\u0441\u0441\u0442\u043E\u0439\u043A\u0430,
+    \u0434\u0443\u0445\u043E\u0432\u043A\u0430. \u0418\u0437 \u043D\u0435\u0433\u043E
+    \u043F\u043E\u0442\u043E\u043C \u0441\u0443\u0445\u0430\u0440\u0438."
+  Needs:
+  - Product: {fileID: 11400000, guid: 31d85b30bd4eef1478b09b47183a64e1, type: 2}
+    State: 61
+    Count: 3
+  - Product: {fileID: 11400000, guid: 6b6c5084bdb55ae4ca6130c1dc6c0e21, type: 2}
+    State: 81
+    Count: 1
+  - Product: {fileID: 11400000, guid: 04810c3aed3b2d24382850d629ad9320, type: 2}
+    State: 61
+    Count: 1
+  - Product: {fileID: 11400000, guid: 0231f5b8db8dfe94d8bcdbbce6dbe7a8, type: 2}
+    State: 61
+    Count: 1
+  Process: 42
+  Seconds: 90
+  ResultProduct: {fileID: 11400000, guid: aa788479e80beb0499cfbacebea461eb, type: 2}
+  ResultCount: 2

@@ -11,6 +11,23 @@ using UnityEngine;
 ///   ПКМ — второе применение предмета в руке
 ///
 /// Живёт на префабе игрока рядом с PlayerHand и FirstPersonController.
+///
+/// ─────────────────────────────────────────────────────────────────────────
+/// ИЗМЕНЕНО ПОД UI:
+///
+/// 1. Пока открыто модальное окно (UiModal.AnyOpen), ввод не читается. Без
+///    этого клик по кнопке «Выход из игры» в меню одновременно уходил бы
+///    в CmdUse и бил кувалдой по миру за спиной.
+///
+/// 2. Появились публичные AimOrigin / Reach / InteractMask. Прицел-лапка
+///    берёт параметры луча отсюда, а не держит свою копию в инспекторе.
+///    Раньше при изменении _reach в одном месте прицел начинал врать:
+///    подсвечивал объект, до которого F уже не дотягивается.
+///
+/// 3. Отладочные Debug.Log при каждом нажатии F убраны под галку
+///    _debugRaycast. В сетевой игре они засоряли консоль так, что реальные
+///    предупреждения FishNet в ней терялись.
+/// ─────────────────────────────────────────────────────────────────────────
 /// </summary>
 public class PlayerInteractor : NetworkBehaviour
 {
@@ -25,8 +42,24 @@ public class PlayerInteractor : NetworkBehaviour
     [Tooltip("Сколько секунд удержания ЛКМ даёт максимальную силу броска")]
     [SerializeField] private float _maxChargeSeconds = 3f;
 
+    [Header("Отладка")]
+    [Tooltip("Писать в консоль, во что попал луч при нажатии F")]
+    [SerializeField] private bool _debugRaycast;
+
     private PlayerHand _hand;
     public PlayerHand Hand => _hand;
+
+    // ───────── параметры луча наружу ─────────
+    // Прицел-лапка читает их, чтобы гарантированно целиться туда же, куда F.
+
+    /// <summary>Точка и направление прицеливания. Никогда не null.</summary>
+    public Transform AimOrigin => _aimOrigin != null ? _aimOrigin : transform;
+
+    /// <summary>Дальность взаимодействия.</summary>
+    public float Reach => _reach;
+
+    /// <summary>Слои, по которым ищем предметы.</summary>
+    public LayerMask InteractMask => _interactMask;
 
     // Состояние заряда ЛКМ (только для предметов с ChargedPrimaryUse).
     private bool _charging;
@@ -45,6 +78,16 @@ public class PlayerInteractor : NetworkBehaviour
     private void Update()
     {
         if (!base.IsOwner) return;
+
+        // Открыто меню — мир не трогаем. Иначе клик по кнопке в интерфейсе
+        // уходит ещё и в применение предмета.
+        if (UiModal.AnyOpen)
+        {
+            // Заряд сбрасываем: игрок отпустит ЛКМ уже над кнопкой меню, и
+            // без сброса при закрытии меню улетел бы бросок на полную силу.
+            _charging = false;
+            return;
+        }
 
         if (Input.GetKeyDown(KeyCode.F)) TryInteract();
         if (Input.GetKeyDown(KeyCode.G)) TryDrop();
@@ -83,18 +126,27 @@ public class PlayerInteractor : NetworkBehaviour
     {
         // F работает с пустой рукой: подобрать предмет / сесть в технику /
         // нажать часть техники (рычаг).
-        if (_hand.HasItem
-    && !(_hand.HeldItem is WrenchItem)
-    && !(_hand.HeldItem is HoseRingItem)) return;
+        //
+        // Исключение — инструменты, которые работают в связке с оборудованием:
+        // ключ на гидранте, кольцо шланга, дуло пылесоса. Раньше они были
+        // перечислены здесь списком типов, и каждый новый приходилось дописывать
+        // вручную, иначе он молча переставал жать кнопки. Теперь предмет
+        // объявляет это сам через AllowInteractWhileHeld.
+        if (_hand.HasItem && !_hand.HeldItem.AllowInteractWhileHeld) return;
 
-        Transform origin = _aimOrigin != null ? _aimOrigin : transform;
-        if (!Physics.Raycast(origin.position, origin.forward, out RaycastHit hit, _reach, _interactMask))
+        Transform origin = AimOrigin;
+        if (!Physics.Raycast(origin.position, origin.forward, out RaycastHit hit,
+                             _reach, _interactMask))
         {
-            Debug.Log("[F] Луч никуда не попал");
+            if (_debugRaycast) Debug.Log("[F] Луч никуда не попал");
             return;
         }
-        Debug.Log($"[F] Попал в: {hit.collider.name}, слой: {LayerMask.LayerToName(hit.collider.gameObject.layer)}");
 
+        if (_debugRaycast)
+        {
+            Debug.Log($"[F] Попал в: {hit.collider.name}, слой: " +
+                      LayerMask.LayerToName(hit.collider.gameObject.layer));
+        }
 
         // ВАЖЕН ПОРЯДОК: часть техники (рычаг) проверяем ПЕРВОЙ. Рычаг —
         // дочерний объект крана, а кран сам является InteractableItem, поэтому
@@ -204,8 +256,7 @@ public class PlayerInteractor : NetworkBehaviour
     private void TryDrop()
     {
         if (!_hand.HasItem) return;
-        Vector3 dir = _aimOrigin != null ? _aimOrigin.forward : transform.forward;
-        CmdDrop(dir);
+        CmdDrop(AimOrigin.forward);
     }
 
     [ServerRpc]
@@ -219,9 +270,8 @@ public class PlayerInteractor : NetworkBehaviour
     private void TryUse(bool primary, float charge)
     {
         if (!_hand.HasItem) return;
-        Vector3 origin = _aimOrigin != null ? _aimOrigin.position : transform.position;
-        Vector3 dir = _aimOrigin != null ? _aimOrigin.forward : transform.forward;
-        CmdUse(primary, origin, dir, charge);
+        Transform origin = AimOrigin;
+        CmdUse(primary, origin.position, origin.forward, charge);
     }
 
     [ServerRpc]

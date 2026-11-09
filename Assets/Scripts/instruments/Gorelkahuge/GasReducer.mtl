@@ -1,0 +1,63 @@
+newmtl Brass
+Kd 0.860 0.660 0.250
+Ka 0 0 0
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl GreyMetal
+Kd 0.600 0.620 0.660
+Ka 0 0 0
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl RedPaint
+Kd 0.860 0.120 0.100
+Ka 0 0 0
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl Steel
+Kd 0.700 0.720 0.750
+Ka 0 0 0
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl Chrome
+Kd 0.850 0.870 0.900
+Ka 0 0 0
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl White
+Kd 0.970 0.970 0.950
+Ka 0 0 0
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl Green
+Kd 0.200 0.750 0.300
+Ka 0 0 0
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl Black
+Kd 0.080 0.080 0.080
+Ka 0 0 0
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2

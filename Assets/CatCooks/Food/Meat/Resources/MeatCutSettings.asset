@@ -1,0 +1,79 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a13217358d374d68be2f73665a7a664c, type: 3}
+  m_Name: MeatCutSettings
+  m_EditorClassIdentifier: Assembly-CSharp::CatCooks.Food.MeatCutSettings
+  CutPrefab: {fileID: 4836351387762781024, guid: 8d00837509fe66045881d11a4fbd6ec9, type: 3}
+  Material: {fileID: 2100000, guid: 2ae1203039af1bf43b1a6b5431faf62b, type: 2}
+  Scale: 4
+  PorkKinds:
+  - {fileID: 11400000, guid: 6eaf954b6c570f8498852cca74690764, type: 2}
+  - {fileID: 11400000, guid: 3fa1b287c92f7fb46a120840a1a3db4b, type: 2}
+  - {fileID: 11400000, guid: 6eaf954b6c570f8498852cca74690764, type: 2}
+  - {fileID: 11400000, guid: 387ac7dbc90e47848ad6471e251cd110, type: 2}
+  - {fileID: 11400000, guid: 6eaf954b6c570f8498852cca74690764, type: 2}
+  - {fileID: 11400000, guid: 929024e4d8c814145a4cdc3541347018, type: 2}
+  PorkSlices:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  BeefKinds:
+  - {fileID: 11400000, guid: 4019d943db29734459bbdc1dcec0c9a1, type: 2}
+  - {fileID: 11400000, guid: b0114f5c6450d3647be7942a0d7041f9, type: 2}
+  - {fileID: 11400000, guid: 4019d943db29734459bbdc1dcec0c9a1, type: 2}
+  - {fileID: 11400000, guid: 4019d943db29734459bbdc1dcec0c9a1, type: 2}
+  - {fileID: 11400000, guid: 4019d943db29734459bbdc1dcec0c9a1, type: 2}
+  - {fileID: 11400000, guid: 87f31c0de9c9d9b4893d4bd1228d1bf5, type: 2}
+  BeefSlices:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 11400000, guid: 0f88f7bae726f5f4bbebc5f492dce235, type: 2}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  PorkMeshes:
+  - {fileID: 4300000, guid: 9aa82ea4a56f1b94096da49029f7db95, type: 2}
+  - {fileID: 4300000, guid: 226599ca27c56e14eb717f9c3bec7fdd, type: 2}
+  - {fileID: 4300000, guid: c7da985e9802b9c45b69690418d16240, type: 2}
+  - {fileID: 4300000, guid: d574fb83a976b8c499da8a248cb3c054, type: 2}
+  - {fileID: 4300000, guid: 39a42e63dba64b1489be86e820ddd65b, type: 2}
+  - {fileID: 4300000, guid: 8df3ea5a8bc9f4e44accec49d26b41d0, type: 2}
+  - {fileID: 4300000, guid: 267ddd2d4e6ab0440ad14885fe82fc8b, type: 2}
+  - {fileID: 4300000, guid: fa0f39ab1589d7c49aaa3b56b4bf6846, type: 2}
+  - {fileID: 4300000, guid: 5ec1a130dc28bb94e90172588ad72398, type: 2}
+  - {fileID: 4300000, guid: c6b49da28604f934b88d36e9a82c3e7b, type: 2}
+  - {fileID: 4300000, guid: bc8b1b9ce7e825d4c888af6a969bdc60, type: 2}
+  - {fileID: 4300000, guid: 8dc67921ad522754c8b3ffdda8b57392, type: 2}
+  - {fileID: 4300000, guid: ec8390a5fcd1de94b9eaea0afd1e64a5, type: 2}
+  BeefMeshes:
+  - {fileID: 4300000, guid: b5031da46ed9eac47815be64d1a65177, type: 2}
+  - {fileID: 4300000, guid: c8a1453227700204a869c0949dd5239d, type: 2}
+  - {fileID: 4300000, guid: 73d3f90395dde3644bf363fc13ed21cc, type: 2}
+  - {fileID: 4300000, guid: b48f3eccd2ffa59459b97c72a8b26e3b, type: 2}
+  - {fileID: 4300000, guid: edd5bc9024f791f43b14a24729196807, type: 2}
+  - {fileID: 4300000, guid: acf67e4e4f2a51b42ada45ef276e5599, type: 2}
+  - {fileID: 4300000, guid: 8179d8294edaa3f43aed83493b7126b3, type: 2}
+  - {fileID: 4300000, guid: b0006be7ad350d745b3d2006d1066b48, type: 2}
+  - {fileID: 4300000, guid: a9a9a22417f235f4b9abb7eb498c1832, type: 2}
+  - {fileID: 4300000, guid: 73ae22b601df8ac4a872508a104dd703, type: 2}
+  - {fileID: 4300000, guid: 7023534e348b1e84c86f8eb2b6857786, type: 2}
+  - {fileID: 4300000, guid: 54b92acabecf2094997c53f2fee4136a, type: 2}
+  - {fileID: 4300000, guid: 3097a9c2d73aaf34f8a2d1a326ed9be7, type: 2}
+  LardPrefab: {fileID: 1688320510177216885, guid: 457315ffef9819947bee852baea9be4a, type: 3}
+  LardPerBrisket: 2
+  ShankPrefab: {fileID: 6101350332217408332, guid: f0fa60307ce84e24e8ee80998524288f, type: 3}
+  ShankPerLeg: 3
+  VealLoinPrefab: {fileID: 1793013736686293801, guid: e58edb2d456644946b3c43206827b2bd, type: 3}
+  VealLoinLeftOnly: 1

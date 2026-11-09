@@ -39,11 +39,15 @@ Material:
     - _FlakeCutoff: 0.95
     - _NoiseTiling: 3
     - _RippleCount: 1.53
+    - _RippleRings: 2
+    - _RippleScale: 2
     - _RippleSharp: 2.9
     - _RippleSpeed: 0.44
+    - _RippleSpots: 3
+    - _RippleWobble: 0.18
     - _ShapeTiling: 0.26
     m_Colors:
-    - _FoamColor: {r: 2.5, g: 3, b: 3.2, a: 1}
+    - _FoamColor: {r: 0.9490196, g: 0.9843137, b: 1, a: 1}
     - _ShapeSeed: {r: 0, g: 0, b: 0, a: 0}
     - _WaterColor: {r: 0.11999995, g: 0.5, b: 0.95, a: 0.6}
   m_BuildTextureStacks: []

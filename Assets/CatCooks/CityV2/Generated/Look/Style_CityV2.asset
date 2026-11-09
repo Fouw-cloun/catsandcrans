@@ -1,0 +1,46 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7978897573f85e03b2ed387af2789803, type: 3}
+  m_Name: Style_CityV2
+  m_EditorClassIdentifier: Assembly-CSharp::CatCooks.CityV2.CCCityV2SkyStyle
+  title: "City V2 \u2014 Harbor Day"
+  note: "\u0411\u0430\u0437\u043E\u0432\u044B\u0439. \u0422\u0432\u043E\u044F \u0433\u0430\u043C\u043C\u0430,
+    \u043C\u044F\u0433\u043A\u0430\u044F \u0437\u0430\u043B\u0438\u0432\u043A\u0430
+    \u043E\u0431\u043B\u0430\u043A\u043E\u0432, \u0441\u043B\u0430\u0431\u0430\u044F
+    \u0441\u0442\u0438\u043B\u0438\u0437\u0430\u0446\u0438\u044F. \u0421 \u043D\u0435\u0433\u043E
+    \u043D\u0430\u0441\u0442\u0440\u0430\u0438\u0432\u0430\u0439 \u043C\u0430\u0442\u0435\u0440\u0438\u0430\u043B\u044B."
+  palette: {fileID: 11400000, guid: 172a678e721c8df488480de4cc413f0e, type: 2}
+  sunIntensity: 1.798
+  sunElevation: 40
+  sunAzimuth: 40
+  sunDiscIntensity: 2
+  sunGlow: 0.5
+  skyBands: 1
+  bandSoftness: 0.6
+  cloudToon: 0.25
+  cloudSteps: 3
+  lightWrap: 0.6
+  silverLining: 1
+  cloudBottomShade: 0.4
+  cloudBump: 0.14
+  skyCloudSoft: 0.13
+  skyCloudPuff: 0.7
+  skyCloudWarp: 0.28
+  skyCloudOutline: 0
+  skyCloudScale: 1.25
+  postExposure: 0.14
+  saturation: 24
+  contrast: 23
+  temperature: 8
+  bloom: 0.19999999
+  vignette: 0
+  ambientBoost: 0.976

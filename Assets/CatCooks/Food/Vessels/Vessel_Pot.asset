@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 0}
+  m_Name: Vessel_Pot
+  m_EditorClassIdentifier: Assembly-CSharp:CatCooks.Food:VesselDef
+  Title: "\u041A\u0430\u0441\u0442\u0440\u044E\u043B\u044F"
+  Kind: 0
+  Capacity: 40
+  HeatProcess: 40
+  NeedsHeatSource: 1
+  Absorbs: 1
+  BlendsColor: 1
+  PortionPerMark: 0

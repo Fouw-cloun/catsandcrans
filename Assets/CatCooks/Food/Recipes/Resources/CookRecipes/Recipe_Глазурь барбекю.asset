@@ -1,0 +1,74 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e5db96707c4547c39714a0a3eadb0826, type: 3}
+  m_Name: "Recipe_\u0413\u043B\u0430\u0437\u0443\u0440\u044C \u0431\u0430\u0440\u0431\u0435\u043A\u044E"
+  m_EditorClassIdentifier: Assembly-CSharp::CatCooks.Food.CookRecipeDef
+  Title: "\u0413\u043B\u0430\u0437\u0443\u0440\u044C \u0431\u0430\u0440\u0431\u0435\u043A\u044E"
+  Driver: 0
+  Base: {fileID: 11400000, guid: b0d459c66710b8741af5ae0b9cb1efc3, type: 2}
+  BaseAmount: 10
+  BaseUnit: 0
+  BaseFillsContainer: 0
+  BaseMinFill: 0.9
+  PerContainer: 0
+  OnlyBaseBecomesResult: 0
+  Ingredients:
+  - Product: {fileID: 11400000, guid: 38f5a0ee1f18704479a23cfd05544a6d, type: 2}
+    Alt: {fileID: 0}
+    Amount: 1
+    Unit: 2
+    PortionsPerPiece: 0
+    CleanOnly: 0
+  - Product: {fileID: 11400000, guid: 2ede0d439b882e94f8ec1c731feab443, type: 2}
+    Alt: {fileID: 0}
+    Amount: 2
+    Unit: 5
+    PortionsPerPiece: 0
+    CleanOnly: 0
+  - Product: {fileID: 11400000, guid: 9928b35979b0e944fbb87aff28b74ccf, type: 2}
+    Alt: {fileID: 0}
+    Amount: 1
+    Unit: 5
+    PortionsPerPiece: 0
+    CleanOnly: 0
+  - Product: {fileID: 11400000, guid: 8a7fd5346a8ba694b982fecae89e0404, type: 2}
+    Alt: {fileID: 0}
+    Amount: 1
+    Unit: 5
+    PortionsPerPiece: 0
+    CleanOnly: 0
+  - Product: {fileID: 11400000, guid: 24d3a3b13496c2a49aa5055fc8264a55, type: 2}
+    Alt: {fileID: 0}
+    Amount: 1
+    Unit: 5
+    PortionsPerPiece: 0
+    CleanOnly: 0
+  - Product: {fileID: 11400000, guid: d31017c80488c9e45b223771e1f2bda6, type: 2}
+    Alt: {fileID: 0}
+    Amount: 1
+    Unit: 5
+    PortionsPerPiece: 0
+    CleanOnly: 0
+  OrderMatters: 0
+  OnlyThese: 1
+  Tolerance: 0.3
+  Steps:
+  - Kind: 9
+    Seconds: 5
+    Intermediate: {fileID: 0}
+    VolumeK: 0
+  - Kind: 1
+    Seconds: 4
+    Intermediate: {fileID: 0}
+    VolumeK: 0
+  Result: {fileID: 11400000, guid: 198722e39d6b8c04982650814763591c, type: 2}
+  IsMistake: 0

@@ -1,0 +1,64 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 0}
+  m_Name: CW_25_CozyRain
+  m_EditorClassIdentifier: Assembly-CSharp::CatCooksWeatherPreset
+  title: "\u0423\u044E\u0442\u043D\u044B\u0439 \u0434\u043E\u0436\u0434\u0438\u043A"
+  note: "\u0442\u0438\u0445\u0438\u0439 \u0442\u0451\u043F\u043B\u044B\u0439 \u0434\u043E\u0436\u0434\u044C,
+    \u043E\u043A\u043D\u0430 \u0441\u0432\u0435\u0442\u044F\u0442\u0441\u044F, \u0432\u0441\u0451
+    \u043C\u044F\u0433\u043A\u043E\u0435; \u0437\u0430\u0434\u0443\u043C\u0430\u043D\u043E:
+    \u043B\u0443\u0436\u0438, \u043A\u0430\u043F\u043B\u0438 \u0441 \u043A\u0430\u0440\u043D\u0438\u0437\u043E\u0432"
+  severity: 0.3
+  coverage: 0.85
+  skyCoverage: 0.9
+  darkness: 0.12
+  overcast: 0.5
+  cloudHeight: 230
+  cloudStretch: 1.5
+  cloudWisp: 0.2
+  cloudWidth: 1.1
+  cloudBodyScale: 1
+  cloudPopulation: 0.7
+  cloudSway: 0.06
+  hazeEnabled: 0
+  hazeDensity: 0.3
+  fogEnabled: 1
+  fogDensity: 0.75
+  fogStart: 225.29198
+  fogEnd: 1752.271
+  fogHeightTop: 25032.443
+  rayIntensity: 0.1
+  cloudShadows: 1
+  shadowStrength: 0.15
+  rain: 0.3
+  lightning: 0
+  exposureShift: -0.05
+  saturationShift: -2
+  contrastShift: -4
+  temperatureShift: 8
+  vignetteAdd: 0
+  bloomAdd: 0
+  sunDim: 0.6
+  screenFrame: 0.1
+  frameColor: {r: 0.22, g: 0.26, b: 0.36, a: 1}
+  edgeDesaturate: 0.2
+  wetnessRate: 1
+  wind: 0.12
+  windStreaks: 0.2
+  cloudEvolve: 0.05
+  leaves: 0
+  dust: 0
+  sunDust: 0.4
+  difficulty: 0.2
+  hazards: 1
+  unlockDay: 1
+  transitionSeconds: 40

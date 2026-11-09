@@ -8,11 +8,12 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Custom_Terrain_PerLayerToon
-  m_Shader: {fileID: 4800000, guid: bdc32a8af0be7ee4c9f64e95e6211aac, type: 3}
+  m_Shader: {fileID: 4800000, guid: 1f657ebcfabc97e4dbe6b42fec9ee5a9, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
-  m_InvalidKeywords: []
+  m_InvalidKeywords:
+  - _CS_ENABLE_ON
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
@@ -85,7 +86,35 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _AmbientBoost: 0.96
+    - _AddLightBoost: 12
+    - _AddLightFocus: 1.4
+    - _AmbientBoost: 1.29
+    - _CS_Contrast: 1.9
+    - _CS_Core: 0.08
+    - _CS_Coverage: 0.3
+    - _CS_Debug: 0
+    - _CS_Detail: 0.45
+    - _CS_DetailScale: 4
+    - _CS_Direction: 45
+    - _CS_Drift: 0.35
+    - _CS_Enable: 1
+    - _CS_Jitter: 0.85
+    - _CS_Layer2: 0.55
+    - _CS_Layer2Scale: 1.9
+    - _CS_MaxDistance: 2500
+    - _CS_Radius: 0.38
+    - _CS_Round: 0.55
+    - _CS_Scale: 420
+    - _CS_Softness: 0.28
+    - _CS_Speed: 8
+    - _CS_StepSoft: 0.35
+    - _CS_Steps: 3
+    - _CS_Strength: 0.979
+    - _CS_UseGlobals: 0
+    - _CS_Warp: 0.9
+    - _CS_Wave: 0.22
+    - _CS_WaveScale: 2.6
+    - _CloudShadowResponse: 1
     - _DetailFadeEnd: 90
     - _DetailFadeStart: 25
     - _HeightTransition: 0.001
@@ -93,11 +122,11 @@ Material:
     - _LayerHasMask1: 0
     - _LayerHasMask2: 0
     - _LayerHasMask3: 0
-    - _LightBoost: 1.76
-    - _LightWrap: 0
+    - _LightBoost: 1.15
+    - _LightWrap: 0.385
     - _MacroScale: 0.004
-    - _MacroStrength: 0.461
-    - _MacroTintStrength: 1
+    - _MacroStrength: 0.633
+    - _MacroTintStrength: 0.22
     - _Metallic0: 0
     - _Metallic1: 0
     - _Metallic2: 0
@@ -106,26 +135,33 @@ Material:
     - _NormalScale1: 1
     - _NormalScale2: 1
     - _NormalScale3: 1
-    - _OcclusionStrength: 0.5
+    - _OcclusionStrength: 0.45
+    - _PuddleSharp: 2.2
     - _ShadeFloor: 0
-    - _ShadeSteps: 5.46
-    - _ShadowStrength: 1
+    - _ShadeSteps: 4.47
+    - _ShadowStrength: 0.5
     - _Smoothness0: 0.1
     - _Smoothness1: 0.1
     - _Smoothness2: 0.1
     - _Smoothness3: 0.1
     - _StochasticBlend: 2.25
     - _StochasticScale: 2
+    - _WetDarken: 0.32
+    - _WetSmoothness: 0.8
+    - _WetSpecBoost: 1.1
     m_Colors:
-    - _LayerBrightness: {r: 1, g: 1, b: 1, a: 1}
-    - _LayerContrast: {r: 1, g: 1, b: 1, a: 1}
+    - _CS_Color: {r: 0.5999999, g: 0.55584896, b: 0.55584896, a: 1}
+    - _LayerBrightness: {r: 1.04, g: 1, b: 0.98, a: 0.94}
+    - _LayerContrast: {r: 0.92, g: 1, b: 1.06, a: 0.98}
     - _LayerHeightContrast: {r: 1, g: 1, b: 1, a: 1}
     - _LayerMacro: {r: 1, g: 1, b: 1, a: 1}
     - _LayerNormalMul: {r: 1, g: 1, b: 1, a: 1}
-    - _LayerSaturation: {r: 1, g: 1, b: 1, a: 1}
+    - _LayerSaturation: {r: 0.95, g: 1, b: 0.88, a: 0.92}
     - _LayerStochastic: {r: 1, g: 1, b: 1, a: 1}
     - _LayerUVRotation: {r: 0, g: 25, b: 55, a: 80}
-    - _MacroTint: {r: 0.93207544, g: 0.93207544, b: 0.93207544, a: 1}
-    - _ShadowTint: {r: 0, g: 0, b: 0, a: 1}
+    - _LayerWetness: {r: 0.7, g: 1, b: 0.85, a: 1}
+    - _MacroTint: {r: 0.9098039, g: 0.8862745, b: 0.9411765, a: 1}
+    - _ShadowTint: {r: 0.6039216, g: 0.54901963, b: 0.78039217, a: 1}
+    - _WetTint: {r: 0.72, g: 0.68, b: 0.8, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

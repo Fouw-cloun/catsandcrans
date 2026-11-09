@@ -45,6 +45,17 @@ public abstract class InteractableItem : NetworkBehaviour
     /// </summary>
     public virtual bool ChargedPrimaryUse => false;
 
+    /// <summary>
+    /// Разрешает нажимать F по МИРУ, не выпуская этот предмет из рук:
+    /// кнопки техники, рычаги, части машин.
+    ///
+    /// Нужно инструментам, которые работают в связке с оборудованием — ключ на
+    /// гидранте, кольцо шланга, дуло пылесоса. Раньше такие предметы были
+    /// перечислены списком типов прямо в PlayerInteractor, и каждый новый
+    /// приходилось туда дописывать, иначе он молча переставал жать кнопки.
+    /// </summary>
+    public virtual bool AllowInteractWhileHeld => false;
+
     public bool CanPickup => _canPickup;
 
     protected virtual void Awake()

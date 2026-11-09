@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 0}
+  m_Name: S_08_Amber
+  m_EditorClassIdentifier: Assembly-CSharp::CatCooksSkyStyle
+  title: "08 \xB7 \u042F\u043D\u0442\u0430\u0440\u044C"
+  note: "\u041E\u0441\u0435\u043D\u044C. \u0422\u0451\u043F\u043B\u043E\u0435 \u0432\u0441\u0451,
+    \u0432\u043A\u043B\u044E\u0447\u0430\u044F \u0442\u0435\u043D\u0438."
+  palette: {fileID: 11400000, guid: 33349ddbf6a8f0e4ab1b1d8372c84dd8, type: 2}
+  sunIntensity: 1.1
+  sunElevation: 22
+  sunAzimuth: 250
+  sunDiscIntensity: 2
+  sunGlow: 0.5
+  skyBands: 2
+  bandSoftness: 0.6
+  cloudToon: 0.5
+  cloudSteps: 4
+  lightWrap: 0.6
+  silverLining: 1.5
+  cloudBottomShade: 0.45
+  cloudBump: 0.14
+  skyCloudSoft: 0.11
+  skyCloudPuff: 0.85
+  skyCloudWarp: 0.55
+  skyCloudOutline: 0.1
+  skyCloudScale: 2
+  postExposure: 0.05
+  saturation: 10
+  contrast: 6
+  temperature: 18
+  bloom: 0.5
+  vignette: 0.26
+  ambientBoost: 1

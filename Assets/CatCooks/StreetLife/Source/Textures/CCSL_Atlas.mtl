@@ -1,0 +1,3 @@
+newmtl CCSL_Atlas
+Kd 1 1 1
+map_Kd CCSL_Atlas.png

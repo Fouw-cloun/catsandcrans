@@ -1,0 +1,70 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &1000
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4000}
+  - component: {fileID: 114000}
+  m_Layer: 0
+  m_Name: CCD_Impact_Flour
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4000
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1000}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 1
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &114000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 70fbebfca7d758b7a834d27d6ff5a8bb, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  system: {fileID: 0}
+  profile: {fileID: 11400000, guid: 2cbc0f84aa225988b577d094ee0d0613, type: 2}
+  effect: 4
+  scale: 1.4
+  strength: 1
+  amount: 1
+  tint: {r: 1, g: 1, b: 1, a: 1}
+  footprint: {x: 0, y: 0}
+  sources: 1
+  distributeAmount: 1
+  initialVelocity: {x: 0, y: 0, z: 0}
+  playOnEnable: 1
+  loop: 0
+  eventsPerSecond: 2
+  layers:
+  - label: Rising flour
+    enabled: 1
+    effect: 8
+    profile: {fileID: 11400000, guid: 4e61142e80475aa4a4d9cab55a0dd23d, type: 2}
+    tint: {r: 1, g: 1, b: 1, a: 1}
+    offset: {x: 0, y: 0.1, z: 0}
+    scale: 0.65
+    amount: 0.7
+    delay: 0.12

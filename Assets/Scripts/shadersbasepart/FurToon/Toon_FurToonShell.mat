@@ -1,0 +1,90 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Toon_FurToonShell
+  m_Shader: {fileID: 4800000, guid: 171ef03869fc81e4a86c0562dc234a57, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _BaseMap:
+        m_Texture: {fileID: 2800000, guid: 703f5544dbaae63429bea8c16ee6ea6c, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _FlowMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _FurMask:
+        m_Texture: {fileID: 2800000, guid: 366306dc2481a8043ae980e4d1730cd1, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _AmbientBoost: 0.6
+    - _AnisoExponent: 64
+    - _AnisoStrength: 0.5
+    - _BreathAmp: 0.05
+    - _BreathFreq: 1.6
+    - _CellJitter: 0.6
+    - _CombStrength: 0
+    - _CurlAmount: 0.5
+    - _FlutterSpeed: 9
+    - _FurDensity: 2670
+    - _FurLength: 0.017
+    - _FurShape: 1.54
+    - _FurThickness: 1
+    - _Gravity: 0.71
+    - _GustDepth: 0.45
+    - _MidThreshold: 0.62
+    - _OutlineAlbedoMix: 0.5
+    - _OutlineDistScale: 1
+    - _OutlineWidth: 0.00001
+    - _RimPower: 3.5
+    - _RimStrength: 0.33
+    - _RootShadow: 0.252
+    - _SSSDistort: 0.4
+    - _SSSPower: 5
+    - _SSSStrength: 0.6
+    - _ShadowSoftness: 0.001
+    - _ShadowThreshold: 0.478
+    - _ShellCount: 16
+    - _ShellIndex: 0
+    - _SpecSize: 0.177
+    - _SpecStrength: 0
+    - _StrandFlutter: 0.5
+    - _StrandVariation: 0.25
+    - _TipBrighten: 0.239
+    - _TipColorStrength: 0.3
+    - _WindAmp: 0.33
+    - _WindFreq: 2.7
+    m_Colors:
+    - _AnisoColor: {r: 1, g: 0.92, b: 0.72, a: 1}
+    - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
+    - _MidColor: {r: 0.9, g: 0.72, b: 0.72, a: 1}
+    - _OutlineColor: {r: 0.23137255, g: 0.16470589, b: 0.3019608, a: 1}
+    - _PhysOffset: {r: 0, g: 0, b: 0, a: 0}
+    - _RimColor: {r: 1, g: 0.85, b: 0.6, a: 1}
+    - _SSSColor: {r: 1, g: 0.5, b: 0.24999997, a: 1}
+    - _ShadeColor: {r: 0.62, g: 0.52, b: 0.72, a: 1}
+    - _SpecColor2: {r: 1, g: 0.96, b: 0.87, a: 1}
+    - _TipColor: {r: 1, g: 0.93, b: 0.78, a: 1}
+    - _WindDir: {r: 1, g: 0, b: 0.4, a: 0}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1

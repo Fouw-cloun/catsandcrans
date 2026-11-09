@@ -46,6 +46,10 @@ public class HoseRingItem : InteractableItem
 
     private NetworkTransform _nt;
 
+    /// <summary>Работает в связке с оборудованием — F по кнопкам и гайкам
+    /// должен проходить, не выпуская предмет из рук.</summary>
+    public override bool AllowInteractWhileHeld => true;
+
     protected override void Awake()
     {
         base.Awake();

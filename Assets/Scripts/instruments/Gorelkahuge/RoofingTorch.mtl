@@ -1,0 +1,47 @@
+newmtl Brass
+Kd 0.860 0.660 0.250
+Ka 0 0 0
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl Rubber
+Kd 0.120 0.120 0.130
+Ka 0 0 0
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl Orange
+Kd 1.000 0.450 0.080
+Ka 0 0 0
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl Steel
+Kd 0.720 0.740 0.780
+Ka 0 0 0
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl BellBlack
+Kd 0.160 0.160 0.170
+Ka 0 0 0
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl BellInner
+Kd 0.050 0.050 0.050
+Ka 0 0 0
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2

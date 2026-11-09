@@ -170,6 +170,11 @@ public class ConcreteMixer : NetworkBehaviour
         _displayTurn = target; // держим синхроном для плавного перехода после отпускания
     }
 
+    /// <summary>Барабан крутится (кнопка нажата). Для теста (MixerDough).</summary>
+    public bool IsSpinning => _spinning.Value;
+    /// <summary>Угол поворота бочки ручкой, градусы (0 — как стоит в сцене).</summary>
+    public float TurnAngle => _turnAngle.Value;
+
     // ───────── ВЫЗЫВАЕТСЯ ЧАСТЯМИ (на сервере) ─────────
 
     /// <summary>Кнопки: пуск/стоп барабана.</summary>

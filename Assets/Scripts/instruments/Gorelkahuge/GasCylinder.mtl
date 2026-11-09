@@ -1,0 +1,31 @@
+newmtl RedPaint
+Kd 0.850 0.100 0.080
+Ka 0 0 0
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl DarkRed
+Kd 0.550 0.060 0.050
+Ka 0 0 0
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl White
+Kd 0.970 0.970 0.950
+Ka 0 0 0
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl Brass
+Kd 0.860 0.660 0.250
+Ka 0 0 0
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2

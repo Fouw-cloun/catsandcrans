@@ -2,7 +2,8 @@ using UnityEngine;
 
 /// <summary>
 /// Дуло пылесоса. Предмет в руке (подбор, поза в руке — как инструменты).
-/// Пока без сосания. Шланг цепляется к дулу через VerletRope.startPoint —
+/// Всасывание живёт в отдельном VacuumNozzleSucker на этом же объекте.
+/// Шланг цепляется к дулу через VerletRope.startPoint —
 /// см. настройку (дуло само ничего с верёвкой не делает, за него держит
 /// startPoint шланга). Здесь только держание в руке.
 ///
@@ -14,6 +15,10 @@ public class NozzleItem : InteractableItem
     [Header("Положение в руке (регулировка под модель)")]
     [SerializeField] private Vector3 _holdPositionOffset = Vector3.zero;
     [SerializeField] private Vector3 _holdEulerOffset = Vector3.zero;
+
+    /// <summary>Дуло работает в связке с базой: F по кнопке компрессора должен
+    /// проходить, не выпуская дуло из рук.</summary>
+    public override bool AllowInteractWhileHeld => true;
 
     protected override void Awake()
     {

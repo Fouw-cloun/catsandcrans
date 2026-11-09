@@ -1,0 +1,30 @@
+{
+  "CC_Brick": {
+    "vertices": 24,
+    "triangles": 44
+  },
+  "CC_Plank": {
+    "vertices": 24,
+    "triangles": 44
+  },
+  "CC_BrickPile": {
+    "vertices": 672,
+    "triangles": 1232
+  },
+  "CC_PlankPile": {
+    "vertices": 144,
+    "triangles": 264
+  },
+  "CC_WindowFrame": {
+    "vertices": 144,
+    "triangles": 264
+  },
+  "CC_SandPile_1": {
+    "vertices": 74,
+    "triangles": 144
+  },
+  "CC_SandPile_2": {
+    "vertices": 74,
+    "triangles": 144
+  }
+}

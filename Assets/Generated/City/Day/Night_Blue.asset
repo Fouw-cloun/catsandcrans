@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d22ec43331393e6489983a52c9edced3, type: 3}
+  m_Name: SJ_P_Night
+  m_EditorClassIdentifier: Assembly-CSharp::CatCooksPalette
+  note: 
+  zenith: {r: 0.08627451, g: 0.14509805, b: 0.2901961, a: 1}
+  horizon: {r: 0.22745098, g: 0.3019608, b: 0.47058824, a: 1}
+  ground: {r: 0.13725491, g: 0.16470589, b: 0.23529412, a: 1}
+  cloudLit: {r: 0.43529412, g: 0.49803922, b: 0.65882355, a: 1}
+  cloudShadow: {r: 0.23137255, g: 0.27450982, b: 0.40784314, a: 1}
+  cloudBase: {r: 0.14509805, g: 0.1764706, b: 0.28235295, a: 1}
+  cloudAmbientTop: {r: 0.18039216, g: 0.24313726, b: 0.4, a: 1}
+  cloudAmbientBottom: {r: 0.14901961, g: 0.16470589, b: 0.22745098, a: 1}
+  sunDisc: {r: 0.78431374, g: 0.8392157, b: 1, a: 1}
+  sunLight: {r: 0.62352943, g: 0.69803923, b: 0.9411765, a: 1}
+  ambientSky: {r: 0.20392157, g: 0.27450982, b: 0.43137255, a: 1}
+  ambientEquator: {r: 0.18039216, g: 0.21960784, b: 0.32941177, a: 1}
+  ambientGround: {r: 0.10980392, g: 0.1254902, b: 0.1882353, a: 1}
+  fogNear: {r: 0.18431373, g: 0.23137255, b: 0.36078432, a: 1}
+  fogFar: {r: 0.14901961, g: 0.19215687, b: 0.30980393, a: 1}
+  rayTint: {r: 0.62352943, g: 0.69803923, b: 0.9411765, a: 1}
+  windStreak: {r: 0.56078434, g: 0.627451, b: 0.78431374, a: 1}

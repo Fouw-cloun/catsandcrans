@@ -1,0 +1,62 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 0}
+  m_Name: CW_13_Tempest
+  m_EditorClassIdentifier: Assembly-CSharp::CatCooksWeatherPreset
+  title: "\u0428\u0442\u043E\u0440\u043C"
+  note: "\u0437\u0430\u0434\u0443\u043C\u0430\u043D\u043E: \u043B\u0438\u0432\u0435\u043D\u044C
+    1, \u043C\u043E\u043B\u043D\u0438\u0438 0.9"
+  severity: 0.95
+  coverage: 1
+  skyCoverage: 1
+  darkness: 0.9
+  overcast: 0.95
+  cloudHeight: 230
+  cloudStretch: 1.5
+  cloudWisp: 0.2
+  cloudWidth: 1.1
+  cloudBodyScale: 1
+  cloudPopulation: 0.7
+  cloudSway: 0.06
+  hazeEnabled: 0
+  hazeDensity: 0.3
+  fogEnabled: 1
+  fogDensity: 0.9
+  fogStart: 125.16222
+  fogEnd: 1001.2977
+  fogHeightTop: 25032.443
+  rayIntensity: 0
+  cloudShadows: 1
+  shadowStrength: 0.1
+  rain: 1
+  lightning: 0
+  exposureShift: -0.6
+  saturationShift: -30
+  contrastShift: 12
+  temperatureShift: -14
+  vignetteAdd: 0.25
+  bloomAdd: 0
+  sunDim: 0.3
+  screenFrame: 0.45
+  frameColor: {r: 0.22, g: 0.26, b: 0.36, a: 1}
+  edgeDesaturate: 0.5
+  wetnessRate: 1
+  wind: 1
+  windStreaks: 0.9
+  cloudEvolve: 0.22
+  leaves: 0
+  dust: 0
+  sunDust: 0
+  difficulty: -1
+  hazards: 7
+  unlockDay: 1
+  transitionSeconds: 40

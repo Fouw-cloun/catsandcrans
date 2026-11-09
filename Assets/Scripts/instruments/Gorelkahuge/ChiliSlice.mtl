@@ -1,0 +1,31 @@
+newmtl ChiliSkin
+Kd 0.820 0.070 0.050
+Ka 0 0 0
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl ChiliFlesh
+Kd 0.950 0.300 0.160
+Ka 0 0 0
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl ChiliPith
+Kd 1.000 0.860 0.620
+Ka 0 0 0
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2
+
+newmtl ChiliSeed
+Kd 0.980 0.900 0.620
+Ka 0 0 0
+Ks 0.1 0.1 0.1
+Ns 20
+d 1
+illum 2

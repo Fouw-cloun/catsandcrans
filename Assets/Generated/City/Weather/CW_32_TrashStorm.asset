@@ -1,0 +1,66 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 0}
+  m_Name: CW_32_TrashStorm
+  m_EditorClassIdentifier: Assembly-CSharp::CatCooksWeatherPreset
+  title: "\u0422\u043E\u043D\u043D\u0430 \u043C\u0443\u0441\u043E\u0440\u0430"
+  note: "\u0441\u043E \u0432\u0441\u0435\u0445 \u0441\u0442\u043E\u0440\u043E\u043D
+    \u043B\u0435\u0442\u044F\u0442 \u043F\u0430\u043A\u0435\u0442\u044B, \u0433\u0430\u0437\u0435\u0442\u044B,
+    \u0441\u0442\u0430\u043A\u0430\u043D\u0447\u0438\u043A\u0438, \u043A\u0430\u0440\u0442\u043E\u043D\u043A\u0438,
+    \u0437\u043E\u043D\u0442\u0438\u043A\u0438; \u0435\u0441\u0442\u044C \u0433\u0430\u043B\u043A\u0430
+    \xAB\u043F\u043E\u0432\u0435\u0440\u0445 \u043B\u044E\u0431\u043E\u0439 \u043F\u043E\u0433\u043E\u0434\u044B\xBB
+    \u0432 \u043C\u0435\u043D\u044E P"
+  severity: 0.55
+  coverage: 0.45
+  skyCoverage: 0.5
+  darkness: 0
+  overcast: 0
+  cloudHeight: 230
+  cloudStretch: 3
+  cloudWisp: 0.5
+  cloudWidth: 1.1
+  cloudBodyScale: 1
+  cloudPopulation: 0.7
+  cloudSway: 0.06
+  hazeEnabled: 0
+  hazeDensity: 0.3
+  fogEnabled: 1
+  fogDensity: 0.7
+  fogStart: 300.38934
+  fogEnd: 2002.5955
+  fogHeightTop: 25032.443
+  rayIntensity: 1
+  cloudShadows: 1
+  shadowStrength: 0.4
+  rain: 0
+  lightning: 0
+  exposureShift: 0
+  saturationShift: 0
+  contrastShift: 6
+  temperatureShift: 0
+  vignetteAdd: 0
+  bloomAdd: 0
+  sunDim: 1
+  screenFrame: 0.1
+  frameColor: {r: 0.22, g: 0.26, b: 0.36, a: 1}
+  edgeDesaturate: 0.2
+  wetnessRate: 1
+  wind: 0.9
+  windStreaks: 0.9
+  cloudEvolve: 0.25
+  leaves: 0
+  dust: 0
+  sunDust: 0
+  difficulty: 0.5
+  hazards: 2
+  unlockDay: 1
+  transitionSeconds: 40

@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 54d122274b3a49578cb3962d06ced1fd, type: 3}
+  m_Name: FoodHeapLooks
+  m_EditorClassIdentifier: Assembly-CSharp::CatCooks.Food.FoodHeapLook
+  Products:
+  - Product: {fileID: 11400000, guid: 483d6d0cb2195fd47a5e50843f827dba, type: 2}
+    State: 0
+    Look: 1
+  - Product: {fileID: 11400000, guid: d89109d45ff100946b013346625d9187, type: 2}
+    State: 0
+    Look: 1
+  - Product: {fileID: 11400000, guid: bb4fa266ca78782489a3ede94d0672fa, type: 2}
+    State: 0
+    Look: 1
+  - Product: {fileID: 11400000, guid: 66e8cdebc6a30df46a7697126e965aa4, type: 2}
+    State: 0
+    Look: 7
+  - Product: {fileID: 11400000, guid: 3cc90772631e62d4f93ceef5d7fd7c14, type: 2}
+    State: 0
+    Look: 7
+  - Product: {fileID: 11400000, guid: b6f82caf1b074e2429204c606935c17d, type: 2}
+    State: 0
+    Look: 4
+  - Product: {fileID: 11400000, guid: 3c90fbbbe30dcfa40b7684654a3edb17, type: 2}
+    State: 0
+    Look: 8
+  - Product: {fileID: 11400000, guid: 5394355d900f3d845b5035d54d4ba539, type: 2}
+    State: 0
+    Look: 7
+  - Product: {fileID: 11400000, guid: fd96c6055fd826f468dad0fe258dc0d0, type: 2}
+    State: 0
+    Look: 5
+  States: []

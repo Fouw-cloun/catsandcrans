@@ -1,0 +1,3 @@
+newmtl ConstructionAtlas
+Kd 1 1 1
+map_Kd ../ConstructionAtlas.png

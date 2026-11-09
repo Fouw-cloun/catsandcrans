@@ -1,0 +1,62 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 0}
+  m_Name: CW_05_HeatHaze
+  m_EditorClassIdentifier: Assembly-CSharp::CatCooksWeatherPreset
+  title: "\u0416\u0430\u0440\u0430, \u043C\u0430\u0440\u0435\u0432\u043E"
+  note: "\u0437\u0430\u0434\u0443\u043C\u0430\u043D\u043E: \u043F\u044B\u043B\u044C
+    0.2"
+  severity: 0.25
+  coverage: 0.08
+  skyCoverage: 0.1
+  darkness: 0
+  overcast: 0
+  cloudHeight: 230
+  cloudStretch: 1.5
+  cloudWisp: 0.2
+  cloudWidth: 1.1
+  cloudBodyScale: 1
+  cloudPopulation: 0.7
+  cloudSway: 0.06
+  hazeEnabled: 0
+  hazeDensity: 0.3
+  fogEnabled: 1
+  fogDensity: 0.85
+  fogStart: 200.25955
+  fogEnd: 1501.9465
+  fogHeightTop: 25032.443
+  rayIntensity: 0.5
+  cloudShadows: 1
+  shadowStrength: 0.45
+  rain: 0
+  lightning: 0
+  exposureShift: 0.1
+  saturationShift: 14
+  contrastShift: 4
+  temperatureShift: 16
+  vignetteAdd: 0
+  bloomAdd: 0.25
+  sunDim: 1
+  screenFrame: 0.1
+  frameColor: {r: 0.22, g: 0.26, b: 0.36, a: 1}
+  edgeDesaturate: 0.2
+  wetnessRate: 1
+  wind: 0.1
+  windStreaks: 0.2
+  cloudEvolve: 0.05
+  leaves: 0
+  dust: 0
+  sunDust: 0.4
+  difficulty: -1
+  hazards: 32
+  unlockDay: 1
+  transitionSeconds: 40

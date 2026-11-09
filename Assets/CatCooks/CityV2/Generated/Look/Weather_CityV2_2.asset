@@ -1,0 +1,56 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6b4924278aea5e21b656e23267e6c9d5, type: 3}
+  m_Name: Weather_CityV2_2
+  m_EditorClassIdentifier: Assembly-CSharp::CatCooks.CityV2.CCCityV2Weather
+  title: "City V2 \u2014 \u0414\u043E\u0436\u0434\u044C"
+  note: "\u0427\u0438\u0441\u0442\u043E\u0435 \u043D\u0435\u0431\u043E, \u0440\u0435\u0434\u043A\u0438\u0435
+    \u043C\u0435\u043B\u043A\u0438\u0435 \u043E\u0431\u043B\u0430\u043A\u0430. \u0422\u0435\u043D\u0438
+    \u043E\u0442 \u043D\u0438\u0445 \u0440\u0435\u0437\u043A\u0438\u0435."
+  severity: 0.6666667
+  coverage: 0.67
+  skyCoverage: 0.67
+  darkness: 0.35
+  overcast: 0.5
+  cloudHeight: 250
+  cloudStretch: 5
+  cloudWisp: 0.75
+  cloudWidth: 1.6
+  cloudBodyScale: 0.7
+  cloudPopulation: 0.482
+  cloudSway: 0.0652
+  hazeEnabled: 0
+  hazeDensity: 0
+  fogEnabled: 1
+  fogDensity: 0.55
+  fogStart: 140
+  fogEnd: 900
+  fogHeightTop: 90
+  rayIntensity: 0
+  cloudShadows: 0
+  shadowStrength: 0
+  rain: 0.45
+  lightning: 0
+  exposureShift: 0
+  saturationShift: 0
+  contrastShift: 0
+  temperatureShift: 0
+  vignetteAdd: 0
+  bloomAdd: 0
+  sunDim: 0.95
+  screenFrame: 0
+  frameColor: {r: 0.22745098, g: 0.25882354, b: 0.34509805, a: 1}
+  edgeDesaturate: 0
+  wetnessRate: 0
+  wind: 0.18
+  windStreaks: 0
+  transitionSeconds: 10

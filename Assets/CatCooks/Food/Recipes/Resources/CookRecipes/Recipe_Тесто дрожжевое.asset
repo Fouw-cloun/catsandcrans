@@ -1,0 +1,52 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e5db96707c4547c39714a0a3eadb0826, type: 3}
+  m_Name: "Recipe_\u0422\u0435\u0441\u0442\u043E \u0434\u0440\u043E\u0436\u0436\u0435\u0432\u043E\u0435"
+  m_EditorClassIdentifier: Assembly-CSharp::CatCooks.Food.CookRecipeDef
+  Title: "\u0422\u0435\u0441\u0442\u043E \u0434\u0440\u043E\u0436\u0436\u0435\u0432\u043E\u0435"
+  Driver: 0
+  Base: {fileID: 11400000, guid: 6b6c5084bdb55ae4ca6130c1dc6c0e21, type: 2}
+  BaseAmount: 1
+  BaseUnit: 1
+  BaseFillsContainer: 0
+  BaseMinFill: 0.9
+  PerContainer: 0
+  OnlyBaseBecomesResult: 0
+  Ingredients:
+  - Product: {fileID: 11400000, guid: 31d85b30bd4eef1478b09b47183a64e1, type: 2}
+    Alt: {fileID: 0}
+    Amount: 8
+    Unit: 2
+    PortionsPerPiece: 0
+    CleanOnly: 0
+  - Product: {fileID: 11400000, guid: 04810c3aed3b2d24382850d629ad9320, type: 2}
+    Alt: {fileID: 0}
+    Amount: 1
+    Unit: 5
+    PortionsPerPiece: 0
+    CleanOnly: 0
+  - Product: {fileID: 11400000, guid: 0231f5b8db8dfe94d8bcdbbce6dbe7a8, type: 2}
+    Alt: {fileID: 0}
+    Amount: 1
+    Unit: 2
+    PortionsPerPiece: 0
+    CleanOnly: 0
+  OrderMatters: 0
+  OnlyThese: 1
+  Tolerance: 0.25
+  Steps:
+  - Kind: 1
+    Seconds: 10
+    Intermediate: {fileID: 0}
+    VolumeK: 0
+  Result: {fileID: 11400000, guid: 93046fb1412bbbc4399dfadd0c142ce8, type: 2}
+  IsMistake: 0
