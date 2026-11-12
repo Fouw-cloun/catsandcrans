@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CatCooks.Food.CookwareDef
   Title: "\u041A\u043E\u0432\u0448"
   Kind: 0
-  Capacity: 90
+  Capacity: 120
   HeatProcess: 40
   NeedsHeatSource: 1
   Absorbs: 1

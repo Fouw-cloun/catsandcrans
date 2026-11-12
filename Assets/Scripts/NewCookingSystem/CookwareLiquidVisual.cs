@@ -85,10 +85,21 @@ namespace CatCooks.Food
         [Tooltip("Радиус внутренней стенки по высоте (снизу вверх). Заполняет кнопка ⋮ → «Подогнать под стенки модели». " +
                  "Пусто — прямой конус Radius Bottom → Radius Top.")]
         [SerializeField] private float[] _wallProfile = new float[0];
+        [Tooltip("v4: граней у стенки (лоу-поли ведро: 12). 0 — круглая. Край жидкости идёт ровно по плоским граням, " +
+                 "не выпирает сквозь них и не оставляет щелей в углах. Ставит «Подогнать под стенки модели»")]
+        [Range(0, 48)][SerializeField] private int _wallSides = 0;
+        [Tooltip("v4: угол середины грани, градусы (оси тары). Ставит «Подогнать под стенки модели»")]
+        [SerializeField] private float _wallPhase = 0f;
         [Tooltip("На сколько край жидкости заходит под стенку, м. Прячет щель между молоком и стенкой.")]
         [Range(0f, 0.02f)][SerializeField] private float _edgeOverlap = 0.006f;
         [Tooltip("Подъём жидкости у стенки (мениск), м")]
         [Range(0f, 0.015f)][SerializeField] private float _meniscus = 0.004f;
+
+        [Header("v7: молоко гуще и матовее")]
+        [Tooltip("Тело молока: 0 — как вода, 1 — густое (тяжелее и мягче плещется, волны ниже). На воду не действует")]
+        [Range(0f, 1f)][SerializeField] private float _milkBody = 0.6f;
+        [Tooltip("Матовость: 0 — блестит как вода/металл, 1 — матовое молочное, маленький мягкий блик. На воду не действует")]
+        [Range(0f, 1f)][SerializeField] private float _milkMatte = 0.75f;
 
         [Header("Плеск")]
         [Tooltip("Насколько сильно жидкость реагирует на рывки тары")]
@@ -139,6 +150,12 @@ namespace CatCooks.Food
         [Range(0f, 1f)][SerializeField] private float _creamBodyFrom = 0.35f;
         [Tooltip("Как быстро появляются новые сливки, 1/с")]
         [SerializeField] private float _creamGrowSpeed = 1.2f;
+
+        [Header("v17: порошок (тёртое какао, мука, сахар) — Role Paste/Floating")]
+        [Tooltip("Продукт в роли Paste/Floating, в названии которого есть одно из этих слов, рисуется ПОРОШКОМ: горка, зерно, крошки, матовый (шейдер CatCooks/Powder Heap)")]
+        [SerializeField] private string _powderWords = "тёрт,терт,порош,мука,муки,сахар,крошк,молот,пудр";
+        [Tooltip("Высота горки порошка (множитель к Paste Relief)")]
+        [Range(0.2f, 3f)][SerializeField] private float _powderRelief = 1.3f;
 
         [Header("Паста (масло) — Role Paste")]
         [Tooltip("Высота бугров и вмятин густой пасты, м")]
@@ -228,6 +245,54 @@ namespace CatCooks.Food
         [Tooltip("Размер крупных пузырей, м")]
         [SerializeField] private float _whipBubbleSize = 0.022f;
 
+        [Header("Взбивание: эпицентр (v4)")]
+        [Tooltip("Там, где водят щупом, — объёмное бурление: горб из кипящих пузырей, м")]
+        [Range(0f, 0.04f)][SerializeField] private float _whipBoil = 0.016f;
+        [Tooltip("Радиус бурления вокруг щупа, м")]
+        [Range(0.02f, 0.2f)][SerializeField] private float _whipBoilRadius = 0.075f;
+        [Tooltip("v5: капель в секунду из точки взбивания — немного, зато крупные")]
+        [Range(0f, 60f)][SerializeField] private float _whipDrops = 12f;
+        [Tooltip("v5: размер капель взбивания, м (от и до)")]
+        [SerializeField] private Vector2 _whipDropSize = new Vector2(0.018f, 0.036f);
+        [Tooltip("v5: «пыль» взбивания — сколько тучек в секунду пыхает из точки щупа")]
+        [Range(0f, 400f)][SerializeField] private float _whipDust = 120f;
+        [Tooltip("v5: размер тучек, м (от и до)")]
+        [SerializeField] private Vector2 _whipDustSize = new Vector2(0.02f, 0.055f);
+        [Tooltip("v5: как резко тучки разлетаются в стороны, м/с (потом тормозят и тают)")]
+        [Range(0f, 3f)][SerializeField] private float _whipDustBurst = 0.9f;
+        [Tooltip("v6: «взрывчиков» в секунду в точке щупа — клубок, взрывчик с искрами, кольцо, столбик, россыпь (вперемешку)")]
+        [Range(0f, 15f)][SerializeField] private float _whipBursts = 5f;
+        [Tooltip("v6: размер взрывчиков (1 — под ведро)")]
+        [Range(0.3f, 3f)][SerializeField] private float _whipBurstSize = 1f;
+        [Tooltip("v18.8: скорость анимации тучек взбивания и появления новых (1 — как было, 2 — вдвое быстрее)")]
+        [Range(0.5f, 4f)][SerializeField] private float _whipFxSpeed = 2f;
+        [Tooltip("v6: какие взрывчики разрешены: клубок, взрывчик, кольцо, столбик, россыпь")]
+        [SerializeField] private bool[] _whipBurstKinds = { true, true, true, true, true };
+        [Tooltip("v7: пуфы взбивания крупнее во столько раз")]
+        [Range(0.5f, 6f)][SerializeField] private float _whipPoofScale = 3f;
+        [Tooltip("v7: пуфы облепляют щуп и едут за ним (0 — разлетаются по ведру, 1 — шапка у щупа)")]
+        [Range(0f, 1f)][SerializeField] private float _whipPoofFollow = 0.75f;
+        [Tooltip("Крупных пузырей в секунду прямо у щупа (кипящий горб)")]
+        [Range(0f, 120f)][SerializeField] private float _whipEpicenterBubbles = 45f;
+
+        [Header("Волны (v4)")]
+        [Tooltip("Бегущие волны: от шагов, ударов в борт, струи и щупа расходятся круги и отражаются")]
+        [Range(0f, 3f)][SerializeField] private float _waves = 1f;
+        [Tooltip("Скорость волн, м/с")]
+        [Range(0.1f, 1.2f)][SerializeField] private float _waveSpeed = 0.34f;
+        [Tooltip("Длина волны, м")]
+        [Range(0.03f, 0.2f)][SerializeField] private float _waveLength = 0.08f;
+        [Tooltip("Рябь «сеткой», пока тару несут: две косые волны по ходу движения")]
+        [Range(0f, 3f)][SerializeField] private float _moveWaves = 1f;
+
+        [Header("Молоко: жир и следы (v4)")]
+        [Tooltip("Жирные «глазки» на молоке: круглые блестящие капли с обводкой, сбиваются к стенкам и в ямки")]
+        [Range(0f, 1f)][SerializeField] private float _fatSpots = 0.6f;
+        [Tooltip("Размер глазков: больше — мельче")]
+        [Range(10f, 120f)][SerializeField] private float _fatScale = 42f;
+        [Tooltip("След от щупа: светлая полоса пены, тает за пару секунд")]
+        [Range(0f, 1f)][SerializeField] private float _stirTrails = 0.7f;
+
         [Header("Вид молока")]
         [Tooltip("Плотность: 1 — молоко непрозрачное: пишет глубину, рисуется как твёрдая поверхность " +
                  "(обводки и швы дна сквозь него не видны). Меньше 1 — полупрозрачное.")]
@@ -265,7 +330,7 @@ namespace CatCooks.Food
         [SerializeField] private Material _lumpMaterial;
 
         // ── сетка ──
-        private const int Dirs = 48, Rings = 12;      // + кольцо мениска (гуще — для бугров пасты)
+        private const int Dirs = 48, Rings = 18;      // + кольцо мениска (v4: гуще — для бегущих волн)
         private const int GridN = 14;                  // колонки для расчёта объёма при наклоне
         private const int TableN = 64;                 // таблица объёма «стоя»
 
@@ -411,6 +476,28 @@ namespace CatCooks.Food
         private static readonly int DensityId = Shader.PropertyToID("_Density");
         private static readonly int SkinId = Shader.PropertyToID("_Skin");
         private static readonly int PasteId = Shader.PropertyToID("_Paste");
+        private static readonly int FatId = Shader.PropertyToID("_Fat");
+        private static readonly int FatScaleId = Shader.PropertyToID("_FatScale");
+        private static readonly int TrailId = Shader.PropertyToID("_Trail");
+        private static readonly int TrailAmountId = Shader.PropertyToID("_TrailAmount");
+        private static readonly int GlintStrengthId = Shader.PropertyToID("_GlintStrength");
+        private static readonly int GlintSizeId = Shader.PropertyToID("_GlintSize");
+        private static readonly int SheenStrengthId = Shader.PropertyToID("_SheenStrength");
+        private static readonly int FresnelStrengthId = Shader.PropertyToID("_FresnelStrength");
+        private static readonly int FlatId = Shader.PropertyToID("_Flat");
+        private static float MatF(Material m, int id, float def) { return m.HasProperty(id) ? m.GetFloat(id) : def; }
+
+        // ── v4: бегущие волны (x, z — центр в осях тары, w — время рождения, y — сила, м) ──
+        private readonly Vector4[] _wv = new Vector4[8];
+        private int _wvNext;
+        private float _wvStirT, _prevBounceVel;
+        private Vector2 _moveDirL;                     // направление движения в осях тары
+        private float _moveSpeed;
+        // ── v4: след щупа (x, z — точка в осях тары, z — возраст, w — сила); [0] — самая свежая ──
+        private readonly Vector4[] _trail = new Vector4[8];
+        private readonly Vector4[] _trailSend = new Vector4[8];
+        private float _trailT;
+        private float _sprayAcc, _puffAcc, _epiAcc;
 
         // ───────── для выплёскивания и других скриптов ─────────
         /// <summary>Высота жидкости по оси тары над дном, м.</summary>
@@ -447,6 +534,8 @@ namespace CatCooks.Food
         public bool CanPour => _liquid + _layer + _thick > 0 && Rigid < 0.5f;
         // сметана (роль Thick) тоже «может литься» — медленно и только при сильном наклоне (решает Cookware Spill)
         public Form Shape => _form;
+        /// <summary>v17.5: цвет того, что сверху (паста/порошок — их цвет, иначе жидкость).</summary>
+        public Color SurfaceColor => Butter > 0 && _pasteShown > 0.3f ? _pasteColor : LiquidColor;
         public Vector2 HalfSize { get { if (_form != Form.Box) return new Vector2(_radiusTop, _radiusTop); Vector4 b = BoxAt(RimH); return new Vector2(b.x, b.y); } }
         /// <summary>Радиус у края в МИРЕ, м (с учётом масштаба, если он учитывается).</summary>
         public float RadiusAtRimWorld => RadiusAtRim * Scale;
@@ -551,7 +640,7 @@ namespace CatCooks.Food
         private void OnDisable()
         {
             if (_cookware != null) _cookware.ContentsChanged -= Refresh;
-            if (_bubbles != null) CCRuntimeParticles.SetStream(_bubbles, false, default, default, default, default, 0f);
+            if (_bubbles != null) CCRuntimeParticles.SetStream(_bubbles, false, Vector3.zero, Vector3.zero, Color.clear, Color.clear, 0f);
         }
         private void Start() => Refresh();
 
@@ -561,6 +650,9 @@ namespace CatCooks.Food
             foreach (Lump l in _lumps) if (l.T != null) SafeDestroy.Kill(l.T.gameObject);
             foreach (Lump l in _bits) if (l.T != null) SafeDestroy.Kill(l.T.gameObject);
             if (_bubbles != null) SafeDestroy.Kill(_bubbles.gameObject);
+            if (_whipCloud != null) SafeDestroy.Kill(_whipCloud.transform.parent != null ? _whipCloud.transform.parent.gameObject : _whipCloud.gameObject);
+            foreach (Topping t in _tops) { if (t.Go != null) SafeDestroy.Kill(t.Go); if (t.Mesh != null) SafeDestroy.Kill(t.Mesh); }   // v19.1
+            _tops.Clear();
         }
 
         public bool Handles(ushort productId)
@@ -604,6 +696,389 @@ namespace CatCooks.Food
         private static bool IsButter(ProductDef p) => p != null && !string.IsNullOrEmpty(p.Title)
                                                       && p.Title.ToLowerInvariant().Contains("масл");
 
+        // ── v17: порошок ──
+        private int _powderN;
+        private string[] _powderSplit;
+        private static Material _powderMat;
+        private static bool _powderMatTried;
+
+        private bool IsPowder(ProductDef p, FoodState state)
+        {
+            if (p == null || string.IsNullOrEmpty(p.Title)) return false;
+            FoodSubstance sub = FoodSubstance.Of(p, state);                  // v18: профиль вещества решает
+            if (sub != null && sub.InCookware)
+            {
+                bool pw = sub.Look == SubstanceLook.Powder || sub.Look == SubstanceLook.Crystals;   // v19: сахар — тоже сыпучее (рельеф порошка, свой блестящий материал)
+                if (pw) _powderSub = sub;
+                return pw;
+            }
+            if (IsButter(p)) return false;
+            if (_powderSplit == null) _powderSplit = (_powderWords ?? "").ToLowerInvariant().Split(new[] { ',', ';', ' ' }, System.StringSplitOptions.RemoveEmptyEntries);
+            string t = p.Title.ToLowerInvariant();
+            if (t.Contains("паст") || t.Contains("масс")) return false;
+            foreach (string w in _powderSplit) if (t.Contains(w)) return true;
+            return false;
+        }
+
+        /// <summary>Почти всё «масло-подобное» в таре — порошок (и шоколад не перебил вид).</summary>
+        private bool Powder => Butter > 0 && _powderN * 2 >= Butter && SurfaceOverride == null;
+
+        // ── v18: вещества (FoodSubstance) ──
+        private FoodSubstance _powderSub, _slabSub;
+        private int _slabN, _slabThickN, _slabSpoilN;
+        /// <summary>v19: доля испорченной массы (пятна плесени на поверхности).</summary>
+        private float SlabSpoil => _slabN > 0 ? Mathf.Clamp01(_slabSpoilN / (float)_slabN) : 0f;
+
+        /// <summary>Масло по профилю «пласт с мазками».</summary>
+        private bool IsSlab(ProductDef p, FoodState state)
+        {
+            FoodSubstance sub = FoodSubstance.Of(p, state);
+            if (sub == null || !sub.InCookware || (sub.Look != SubstanceLook.Butter && sub.Look != SubstanceLook.Spread)) return false;
+            if (sub != _slabSub) { _slabSub = sub; _slabStrokes = null; }
+            return true;
+        }
+
+        /// <summary>Почти всё «масло-подобное» в таре — пласт масла по профилю.</summary>
+        private bool Slab => !Powder && Butter > 0 && _slabN * 2 >= Butter && _slabSub != null
+                             && (SurfaceOverride == null || _slabSub.Look == SubstanceLook.Spread);   // v19: паста — свой вид, а не материал шоколада
+        /// <summary>v18.1: масло, у которого на этой таре роль «Густое» (Thick), — тоже пласт с мазками.</summary>
+        private bool SlabThick => _thick > 0 && _slabThickN * 2 >= _thick && SurfaceOverride == null && _slabSub != null;
+
+        private int _subMode = -1;
+
+        /// <summary>v18.1: в консоль — чем рисуется масса в таре (по профилю вещества или по роли).</summary>
+        private void LogSubstanceMode()
+        {
+            int mode = Powder ? 1 : Slab ? 2 : SlabThick ? 3 : (Butter > 0 || _thick > 0) ? 4 : 0;
+            if (mode == _subMode) return;
+            _subMode = mode;
+            string tara = _cookware != null ? _cookware.name : name;
+            if (mode == 1) Debug.Log($"[Вещества] «{tara}»: порошок по профилю «{(_powderSub != null ? _powderSub.Title : "слова")}»", this);
+            else if (mode == 2 || mode == 3) Debug.Log($"[Вещества] «{tara}»: масло пластом с мазками (роль {(mode == 2 ? "Paste/Floating" : "Thick")}), профиль «{_slabSub.Title}»", this);
+            else if (mode == 4) Debug.Log($"[Вещества] «{tara}»: масса без профиля вещества — вид по роли на таре (паста {Butter}, густое {_thick}, из них по профилю масла {_slabN + _slabThickN})", this);
+        }
+
+        private struct SlabStroke { public Vector2 C, Dir; public float L, W, K, Dep; }
+        private SlabStroke[] _slabStrokes;
+        private Vector2 _slabWave;
+        private Vector4[] _slabLobes = new Vector4[0], _slabPeaks = new Vector4[0];   // x,y — центр (доли радиуса), z — радиус, w — высота
+
+        private void BuildSlabStrokes()
+        {
+            int seed = _cookware != null && _cookware.IsSpawned ? _cookware.ObjectId * 131 + 17 : 17;
+            var rnd = new System.Random(seed);
+            int n = _slabSub != null ? Mathf.Clamp(_slabSub.Smears, 0, 9) : 5;
+            _slabStrokes = new SlabStroke[n];
+            float baseA = (float)rnd.NextDouble() * 6.28f;
+            for (int i = 0; i < n; i++)
+            {
+                float a = baseA + ((float)rnd.NextDouble() - 0.5f) * 1.6f + (i % 2) * 0.4f;
+                _slabStrokes[i] = new SlabStroke
+                {
+                    C = new Vector2(((float)rnd.NextDouble() - 0.5f) * 1.1f, ((float)rnd.NextDouble() - 0.5f) * 1.1f),
+                    Dir = new Vector2(Mathf.Cos(a), Mathf.Sin(a)),
+                    L = 0.7f + (float)rnd.NextDouble() * 0.7f,
+                    W = 0.09f + (float)rnd.NextDouble() * 0.09f,
+                    K = ((float)rnd.NextDouble() - 0.5f) * 1.4f,
+                    Dep = 0.6f + (float)rnd.NextDouble() * 0.5f,
+                };
+            }
+            _slabWave = new Vector2((float)rnd.NextDouble() * 40f, (float)rnd.NextDouble() * 40f);
+            // v18.2: наплывы и пики
+            _slabLobes = new Vector4[6];
+            for (int i = 0; i < _slabLobes.Length; i++)
+            {
+                float a = i / (float)_slabLobes.Length * 6.28f + (float)rnd.NextDouble() * 0.8f;
+                float rr = 0.15f + (float)rnd.NextDouble() * 0.5f;
+                _slabLobes[i] = new Vector4(Mathf.Cos(a) * rr, Mathf.Sin(a) * rr, 0.3f + (float)rnd.NextDouble() * 0.2f, 0.18f + (float)rnd.NextDouble() * 0.17f);
+            }
+            int np = 3 + rnd.Next(2);
+            _slabPeaks = new Vector4[np];
+            for (int i = 0; i < np; i++)
+            {
+                float a = (float)rnd.NextDouble() * 6.28f;
+                float rr = (float)rnd.NextDouble() * 0.5f;
+                _slabPeaks[i] = new Vector4(Mathf.Cos(a) * rr, Mathf.Sin(a) * rr, 0.16f + (float)rnd.NextDouble() * 0.1f, 0.45f + (float)rnd.NextDouble() * 0.35f);
+            }
+        }
+
+        /// <summary>
+        /// v18.2: МАСЛО В ТАРЕ — мягкие наплывы и красивые пики (как взбитое масло), пара широких
+        /// гладких мазков мастерком, масло размазано по стенке; ямки от мастерка. Только плавные формы —
+        /// никаких мелких полосок и шума (на сетке они выглядели «рваными»).
+        /// </summary>
+        private float SlabH(float x, float z, float rho, float t, float pa)
+        {
+            if (_slabStrokes == null) BuildSlabStrokes();
+            if (_slabSub != null && _slabSub.Look == SubstanceLook.Spread) return SpreadH(x, z, rho, t, pa);
+            float R = Mathf.Max(0.05f, RadiusAtRim);
+            float rel = _pasteRelief * PasteReliefK * pa * (_slabSub != null ? _slabSub.CookwareRelief : 1f);
+            float depth = _slabSub != null ? _slabSub.SmearDepth : 1f;
+            float u = x / R, v = z / R;
+            // v18.8: «фермерское» рваное масло — комки разной величины, трещинки (как на полу и на мастерке)
+            float h = 0.25f * (1f - rho * rho)
+                    + FoodSubstanceMesh.FarmButter(u * 1.15f, v * 1.15f, Mathf.Min(1f, rho * 0.75f), _slabWave.x, _slabWave.y, 1.5f + 0.1f * depth) * 1.1f * depth;
+            h *= rel * 2.6f;                                                   // v18.11: рельеф заметнее (было плоско)
+            // масло размазано по стенке — плавный подъём у края
+            h += rel * 0.4f * Mathf.SmoothStep(0.78f, 1f, rho);
+
+            Vector2 qq = new Vector2(x, z);
+            for (int i = 0; i < _dents.Length; i++)
+            {
+                Vector4 dn = _dents[i];
+                if (dn.z <= 0f) continue;
+                float dd = Vector2.Distance(qq, new Vector2(dn.x, dn.y));
+                if (dd > dn.z * 2.2f) continue;
+                float r2 = dn.z * dn.z;
+                h -= dn.w * Mathf.Exp(-dd * dd / (r2 * 0.55f)) * pa;
+                float ring = dd - dn.z;
+                h += dn.w * 0.45f * Mathf.Exp(-ring * ring / (r2 * 0.12f)) * pa;
+            }
+            return h;
+        }
+
+        /// <summary>
+        /// v19: ПАСТА (нутелла) В ТАРЕ — гладкая горка, закрученная спиралью, мягкие волны, ямки от мастерка.
+        /// Испорченная — свернувшаяся, в комочках.
+        /// </summary>
+        private float SpreadH(float x, float z, float rho, float t, float pa)
+        {
+            float R = Mathf.Max(0.05f, RadiusAtRim);
+            float rel = _pasteRelief * PasteReliefK * pa * (_slabSub != null ? _slabSub.CookwareRelief : 1f) * 2.2f;
+            float u = x / R, v = z / R;
+            float a = Mathf.Atan2(v, u);
+            float rr = Mathf.Min(1f, Mathf.Sqrt(u * u + v * v));                 // v19.1: круглая спираль (rho у тары-«квадрата» давал квадрат)
+            float h = 0.3f * (1f - rr * rr);
+            h += Mathf.Pow(0.5f + 0.5f * Mathf.Sin(rr * Mathf.PI * 5f - a + _slabWave.x), 2.2f) * 0.3f * (1f - Mathf.Pow(rr, 4f));
+            h += 0.25f * Mathf.Exp(-(rr * rr) / 0.04f);
+            float sp = SlabSpoil;
+            if (sp > 0.001f) h += (Mathf.PerlinNoise(u * 6f + _slabWave.y, v * 6f + _slabWave.x) - 0.45f) * 0.35f * sp;
+            h *= rel;
+            h += rel * 0.35f * Mathf.SmoothStep(0.8f, 1f, rho);
+            Vector2 qq = new Vector2(x, z);
+            for (int i = 0; i < _dents.Length; i++)
+            {
+                Vector4 dn = _dents[i];
+                if (dn.z <= 0f) continue;
+                float dd = Vector2.Distance(qq, new Vector2(dn.x, dn.y));
+                if (dd > dn.z * 2.2f) continue;
+                float r2 = dn.z * dn.z;
+                h -= dn.w * Mathf.Exp(-dd * dd / (r2 * 0.55f)) * pa;
+                float ring = dd - dn.z;
+                h += dn.w * 0.4f * Mathf.Exp(-ring * ring / (r2 * 0.12f)) * pa;
+            }
+            return h;
+        }
+
+        // ═════════════ v19.1: ДОБАВКИ ПОВЕРХ (сахар на какао, масло на какао…) И СМЕШИВАНИЕ ═════════════
+        //
+        // Основа (чего больше среди пасты/порошка) рисуется поверхностью, как раньше. Остальное с профилем
+        // вещества — отдельными кучками поверх, как положили мастерком (не перекрашивая всё). Мешаешь —
+        // кучки закручиваются к центру и тают, а по основе спиралью расходятся разводы цвета результата.
+
+        private sealed class Topping
+        {
+            public ushort Id; public FoodState State; public int Count, Built = -1;
+            public FoodSubstance Sub; public GameObject Go; public Mesh Mesh; public MeshRenderer Mr;
+            public float Ang, Dist;
+        }
+
+        private readonly List<Topping> _tops = new List<Topping>();
+        private int _pasteBest; private ushort _baseId;
+        private float _mixP, _mixDustAcc;
+        private Color _mixColor = new Color(0.36f, 0.19f, 0.1f);
+
+        /// <summary>Этот продукт рисуется добавкой-кучкой поверх (HeapAnchor его не рисует).</summary>
+        public bool ShowsTopping(ushort productId)
+        {
+            foreach (Topping t in _tops) if (t.Id == productId && t.Count > 0) return true;
+            return false;
+        }
+
+        private void RebuildToppings()
+        {
+            FoodDatabase db = FoodDatabase.Instance;
+            foreach (Topping t in _tops) t.Count = 0;
+            if (_cookware != null && Butter > 0 && db != null)
+                for (int i = 0; i < _cookware.ViewCount; i++)
+                {
+                    BagView v = _cookware.GetView(i);
+                    if (v.Count == 0 || v.Product == _baseId) continue;
+                    ProductDef d = db.Get(v.Product);
+                    FoodSubstance sub = d != null ? FoodSubstance.Of(d, v.State) : null;
+                    if (sub == null || !sub.OwnLook || FoodHeapLook.IsLiquid(d, v.State)) continue;
+                    Topping t = null;
+                    foreach (Topping x in _tops) if (x.Id == v.Product) { t = x; break; }
+                    if (t == null)
+                    {
+                        t = new Topping { Id = v.Product };
+                        float hsh = Mathf.Repeat(v.Product * 0.618034f, 1f);
+                        t.Ang = hsh * 6.2832f; t.Dist = 0.3f + 0.15f * Mathf.Repeat(v.Product * 0.377f, 1f);
+                        _tops.Add(t);
+                    }
+                    t.State = v.State; t.Count += v.Count; t.Sub = sub;
+                }
+            for (int i = _tops.Count - 1; i >= 0; i--)
+                if (_tops[i].Count <= 0)
+                {
+                    if (_tops[i].Go != null) SafeDestroy.Kill(_tops[i].Go);
+                    if (_tops[i].Mesh != null) SafeDestroy.Kill(_tops[i].Mesh);
+                    _tops.RemoveAt(i);
+                }
+        }
+
+        private Color MixSwirl(Color pc, float x, float z)
+        {
+            float R = Mathf.Max(0.05f, RadiusAtRim);
+            float u = x / R, v = z / R;
+            float rr = Mathf.Sqrt(u * u + v * v), a = Mathf.Atan2(v, u);
+            float band = 0.5f + 0.5f * Mathf.Sin(a * 2f + rr * 12f - _mixP * 14f);
+            float m = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(_mixP * 1.7f - band * 0.8f));
+            return Color.Lerp(pc, _mixColor, m);
+        }
+
+        private void UpdateToppings(float dt)
+        {
+            float S = Scale, R = Mathf.Max(0.05f, RadiusAtRim);
+            bool stirring = _stirAmt > 0.3f && Time.time < _stirUntil + 0.1f;
+            // смешивание (только вид; результат считает сервер — FoodBlend)
+            if (stirring && _tops.Count > 0)
+            {
+                float sec; Color rc;
+                if (FoodBlend.ClientInfo(_cookware, out sec, out rc)) { _mixColor = rc; _mixP = Mathf.Min(0.97f, _mixP + dt / Mathf.Max(0.5f, sec)); }
+            }
+            // пыль и крошки при мешании порошка/масла (большой миксер — реже)
+            if (stirring && _surfaceOk && (Powder || Slab))
+            {
+                float k = Time.time < _stirFxUntil ? _stirFxK : 1f;
+                _mixDustAcc += dt * 3f * k;
+                if (_mixDustAcc >= 1f)
+                {
+                    _mixDustAcc -= 1f;
+                    Vector3 at = transform.position + transform.rotation * (new Vector3(_stirRawLocal.x, _lc, _stirRawLocal.y) * S);
+                    if (Powder) CCPowderFx.Puff(at, _nDynW, _pasteColor, R * S * 0.35f, 0.5f);
+                    else CCPowderFx.Crumb(at + _nDynW * 0.02f, _nDynW * 0.6f + UnityEngine.Random.insideUnitSphere * 0.3f, _pasteColor, R * S * 0.05f, true);
+                }
+            }
+            if (_tops.Count == 0) return;
+            FoodDatabase db = FoodDatabase.Instance;
+            int total = Mathf.Max(1, _cookware != null ? _cookware.TotalCount : 1);
+            float lift = _pasteRelief * PasteReliefK * 0.5f;
+            foreach (Topping t in _tops)
+            {
+                if (t.Go == null)
+                {
+                    t.Go = new GameObject("Topping (auto)") { hideFlags = HideFlags.DontSave };
+                    t.Go.layer = gameObject.layer;
+                    t.Mesh = new Mesh { name = "Topping", hideFlags = HideFlags.DontSave };
+                    t.Go.AddComponent<MeshFilter>().sharedMesh = t.Mesh;
+                    t.Mr = t.Go.AddComponent<MeshRenderer>();
+                    t.Mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                }
+                if (t.Built != t.Count)
+                {
+                    t.Built = t.Count;
+                    ProductDef d = db != null ? db.Get(t.Id) : null;
+                    Color c = t.Sub.ColorFor(FoodColors.Of(d, t.State));
+                    float r = R * S * Mathf.Clamp(0.18f + 0.5f * Mathf.Sqrt(t.Count / (float)total), 0.16f, 0.5f);
+                    var dm = new FoodSubstanceMesh.Dims { Rx = r, Rz = r, H = r * Mathf.Max(0.3f, t.Sub.FloorSlope) * 0.85f, Edge = 0f, RectN = 2f };
+                    int seed = t.Id * 131 + 7;
+                    FoodSubstanceMesh.SpoilK = FoodStateInfo.IsSpoiled(t.State) ? 1f : 0f;
+                    if (t.Sub.Look == SubstanceLook.Powder) FoodSubstanceMesh.Powder(t.Mesh, dm, t.Sub.Wonky, c, seed);
+                    else if (t.Sub.Look == SubstanceLook.Crystals) FoodSubstanceMesh.Crystals(t.Mesh, dm, t.Sub.CrystalSize, t.Sub.CrystalDensity, c, seed);
+                    else if (t.Sub.Look == SubstanceLook.Spread) FoodSubstanceMesh.Spread(t.Mesh, dm, t.Sub.Curl * 0.6f, c, seed);
+                    else FoodSubstanceMesh.ButterSmear(t.Mesh, dm, 0f, c, seed);
+                    FoodSubstanceMesh.SpoilK = 0f;
+                    Material m = t.Sub.GetMaterial();
+                    if (m != null) t.Mr.sharedMaterial = m;
+                }
+                float ang = t.Ang + _mixP * _mixP * 7.5f;                        // мешаешь — закручиваются к центру
+                float dist = R * t.Dist * (1f - 0.85f * _mixP);
+                Vector3 local = new Vector3(Mathf.Cos(ang) * dist, _lc + lift, Mathf.Sin(ang) * dist);
+                t.Go.transform.SetPositionAndRotation(transform.position + transform.rotation * (local * S),
+                                                      transform.rotation * Quaternion.Euler(0f, -ang * Mathf.Rad2Deg, 0f));
+                float sc = Mathf.Pow(1f - _mixP, 0.8f);                            // и тают
+                t.Go.transform.localScale = Vector3.one * sc;
+                bool show = _surfaceOk && sc > 0.03f;
+                if (t.Go.activeSelf != show) t.Go.SetActive(show);
+            }
+        }
+
+        private Material PowderMat
+        {
+            get
+            {
+                if (_powderSub != null && _powderSub.Material != null) return _powderSub.Material;
+                if (_powderMat == null && !_powderMatTried)
+                {
+                    _powderMatTried = true;
+                    Shader sh = Shader.Find("CatCooks/Powder Heap");
+                    if (sh != null) _powderMat = new Material(sh) { name = "CC Powder (auto)", hideFlags = HideFlags.DontSave };
+                    else Debug.LogWarning("[Жидкость] нет шейдера «CatCooks/Powder Heap» — порошок будет как паста. Меню CatCooks → Огонь и жар → 2");
+                }
+                return _powderMat;
+            }
+        }
+
+        /// <summary>
+        /// Рельеф порошка (оси тары, м): мягкая горка, рыхлые бугорки, мелкое зерно, редкие комочки;
+        /// ямки от носика/мастерка — воронка с осыпавшимся валиком.
+        /// </summary>
+        private static float Hash01(int x, int y, int k)
+        {
+            unchecked
+            {
+                uint h = (uint)(x * 73856093) ^ (uint)(y * 19349663) ^ (uint)(k * 83492791);
+                h ^= h >> 13; h *= 0x5bd1e995; h ^= h >> 15;
+                return (h & 0xFFFFFF) / 16777215f;
+            }
+        }
+
+        /// <summary>Глыбы порошка: ближайшая «клетка» (9 соседей), у каждой своя высота и радиус. 0..1.</summary>
+        private static float PowderChunks(float u, float v)
+        {
+            int iu = Mathf.FloorToInt(u), iv = Mathf.FloorToInt(v);
+            float best = 0f;
+            for (int dy = -1; dy <= 1; dy++)
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    int cx = iu + dx, cy = iv + dy;
+                    float px = cx + 0.1f + 0.8f * Hash01(cx, cy, 1), py = cy + 0.1f + 0.8f * Hash01(cx, cy, 2);
+                    float rad = 0.35f + 0.5f * Hash01(cx, cy, 3);
+                    float d = Mathf.Sqrt((u - px) * (u - px) + (v - py) * (v - py));
+                    float k = Mathf.Clamp01(1f - d / rad);
+                    float hk = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(k / 0.55f)) * (0.3f + 0.7f * Hash01(cx, cy, 4));
+                    if (hk > best) best = hk;
+                }
+            return best - 0.35f;
+        }
+
+        private float PowderH(float x, float z, float rho, float t, float pa)
+        {
+            float R = Mathf.Max(0.05f, RadiusAtRim);
+            float rel = _pasteRelief * PasteReliefK * _powderRelief * pa;
+            // v17.2: дешевле — горка и крупные бугры; мелкие комочки и зерно рисует шейдер (без сетки)
+            float dome = 0.55f * (1f - rho * rho);
+            float lumps = (Mathf.PerlinNoise(x / (R * 0.32f) + 5.3f, z / (R * 0.32f) + 9.1f) - 0.5f) * 0.3f;
+            float h = (dome + lumps - 0.2f) * rel;
+            // v17.3: неровные куски — у каждой клетки своя высота и размер (рисунок высот и в сетке)
+            h += PowderChunks(x / (R * 0.24f), z / (R * 0.24f)) * rel * 0.9f;
+            h += rel * 0.22f * Mathf.SmoothStep(0.8f, 1f, rho);            // чуть налип у стенки
+            Vector2 q = new Vector2(x, z);
+            for (int i = 0; i < _dents.Length; i++)
+            {
+                Vector4 dn = _dents[i];
+                if (dn.z <= 0f) continue;
+                float dd = Vector2.Distance(q, new Vector2(dn.x, dn.y));
+                if (dd > dn.z * 2.6f) continue;
+                float r2 = dn.z * dn.z;
+                h -= dn.w * 0.8f * Mathf.Exp(-dd * dd / (r2 * 0.45f)) * pa;       // воронка
+                float ring = dd - dn.z * 1.1f;
+                h += dn.w * 0.35f * Mathf.Exp(-ring * ring / (r2 * 0.18f)) * pa;  // осыпавшийся валик
+            }
+            return h;
+        }
+
         public bool TryGetChurnPair(Cookware cw, out ProductDef from, out ProductDef to, out bool thick)
         {
             from = null; to = null; thick = false;
@@ -645,6 +1120,14 @@ namespace CatCooks.Food
             float r = _dent.x * UnityEngine.Random.Range(0.85f, 1.2f);
             _dents[_dentNext] = new Vector4(q.x, q.y, r, _dent.y * UnityEngine.Random.Range(0.8f, 1.15f));
             _dentNext = (_dentNext + 1) % _dents.Length;
+            // v18: эффекты и звук вещества при зачерпывании (пыль у порошка, «чпок» у масла)
+            FoodSubstance sub = Powder ? _powderSub : Slab ? _slabSub : null;
+            if (sub != null)
+            {
+                float ry;
+                Vector3 at = TryGetSurfaceY(worldPoint, out ry) ? new Vector3(worldPoint.x, ry, worldPoint.z) : worldPoint;
+                FoodSubstanceFx.Scoop(sub, at, _pasteColor, Mathf.Max(0.05f, r * Scale * 2f));
+            }
         }
 
         /// <summary>Круг на поверхности (сюда льётся струя). Визуал.</summary>
@@ -656,16 +1139,71 @@ namespace CatCooks.Food
             _ringNext = (_ringNext + 1) % _ringData.Length;
             // Струя толкает поверхность — лёгкая волна.
             _bounceVel -= 0.02f * _maxHeight;
+            // v4: и бегущий круг от точки падения
+            Vector3 l = Quaternion.Inverse(transform.rotation) * (worldPoint - transform.position) / Scale;
+            EmitWave(new Vector2(l.x, l.z), 0.0018f);
+        }
+
+        /// <summary>v4: бегущий круг из точки (оси тары, м) силой amp (м). Только вид.</summary>
+        public void EmitWave(Vector2 local, float amp)
+        {
+            if (_waves <= 0f || amp <= 0f) return;
+            _wv[_wvNext] = new Vector4(local.x, amp, local.y, Time.time);
+            _wvNext = (_wvNext + 1) % _wv.Length;
+        }
+
+        /// <summary>v4: высота бегущих волн и «сетки» от движения в точке (оси тары), м.</summary>
+        private float WaveH(float x, float z, float t)
+        {
+            if (_waves <= 0f) return 0f;
+            float lam = Mathf.Max(0.02f, _waveLength);
+            float k = 6.2831853f / lam, h = 0f;
+            for (int i = 0; i < _wv.Length; i++)
+            {
+                Vector4 w = _wv[i];
+                if (w.y <= 0f) continue;
+                float a = t - w.w;
+                if (a < 0f || a > 2.6f) continue;
+                float dx = x - w.x, dz = z - w.z;
+                float r = Mathf.Sqrt(dx * dx + dz * dz);
+                float u = r - a * _waveSpeed;
+                float env = Mathf.Exp(-u * u / (lam * lam * 1.6f)) * Mathf.Exp(-a * 1.4f) / (1f + r * 5f);
+                // отражение от стенки: тот же фронт, бегущий назад от края
+                float R = Mathf.Max(0.03f, RadiusAtRim);
+                float ur = (2f * R - r) - a * _waveSpeed;
+                float envR = a * _waveSpeed > R - r ? Mathf.Exp(-ur * ur / (lam * lam * 1.6f)) * Mathf.Exp(-a * 1.9f) * 0.55f / (1f + r * 5f) : 0f;
+                h += w.y * (env * Mathf.Cos(u * k) + envR * Mathf.Cos(ur * k));
+            }
+            if (_moveWaves > 0f && _moveSpeed > 0.04f)
+            {
+                // «сетка» косых волн по ходу движения — поверхность живая, а не плоский диск
+                float amp = Mathf.Min(0.0032f, _moveSpeed * 0.0024f) * _moveWaves;
+                float a1 = (x * _moveDirL.x + z * _moveDirL.y) * k * 0.75f - t * 5.3f;
+                float a2 = (-x * _moveDirL.y + z * _moveDirL.x) * k * 0.55f + t * 2.9f;
+                h += amp * (0.65f * Mathf.Sin(a1) + 0.35f * Mathf.Sin(a1 * 0.6f + a2) * Mathf.Cos(a2 * 0.8f));
+            }
+            return h * _waves * (_waterLike ? 1f : 1f - 0.45f * _milkBody);
         }
 
         /// <summary>
         /// Взбивание в точке (щуп вибратора). Вызывать каждый кадр, пока взбивают.
         /// Только вид: воронка, закрученные сливки, пена, дрожь.
         /// </summary>
+        /// <summary>v19.1: мешает инструмент со своей «скоростью» эффектов (большой миксер — 0.5: тучки и пыль медленнее).</summary>
+        public void Stir(Vector3 worldPoint, float strength, float fxSpeed)
+        {
+            _stirFxK = Mathf.Clamp(fxSpeed, 0.1f, 3f);
+            _stirFxUntil = Time.time + 0.3f;
+            Stir(worldPoint, strength);
+        }
+
+        private float _stirFxK = 1f, _stirFxUntil;
+
         public void Stir(Vector3 worldPoint, float strength = 1f)
         {
             Vector3 l = Quaternion.Inverse(transform.rotation) * (worldPoint - transform.position) / Scale;
             _stirLocal = Vector2.Lerp(_stirLocal, new Vector2(l.x, l.z), _stirAmt < 0.05f ? 1f : 0.25f);
+            _stirRawLocal = new Vector2(l.x, l.z);           // v8: без сглаживания — туча взбивания стоит ровно у щупа
             _stirAmt = Mathf.Max(_stirAmt, Mathf.Clamp01(strength));
             _stirUntil = Time.time + 0.25f;
         }
@@ -690,6 +1228,11 @@ namespace CatCooks.Food
         {
             if (_cookware == null || _products == null) return;
             _liquid = _layer = _floating = _paste = _thick = _ice = _frozenN = _spoiledN = 0;
+            _powderN = 0;
+            _pasteBest = 0; _baseId = 0;
+            _slabN = 0;
+            _slabThickN = 0;
+            _slabSpoilN = 0;
             int waterBest = 0;
             _waterLike = false;
             for (int i = 0; i < _cookware.ViewCount; i++)
@@ -706,9 +1249,9 @@ namespace CatCooks.Food
                             if (v.Count > waterBest) { waterBest = v.Count; _waterLike = IsWater(e.Product) && e.Color.a <= 0.01f; }
                             break;
                         case Role.TopLayer: _layer += v.Count; _layerColor = col; break;
-                        case Role.Floating: _floating += v.Count; _floatColor = col; if (_paste == 0) _pasteColor = col; break;
-                        case Role.Paste: _paste += v.Count; _pasteColor = col; break;
-                        case Role.Thick: _thick += v.Count; _thickColor = col; if (v.State == FoodState.Spoiled) _spoiledN += v.Count; break;
+                        case Role.Floating: _floating += v.Count; _floatColor = col; if (v.Count > _pasteBest) { _pasteBest = v.Count; _pasteColor = col; _baseId = e.Product.Id; } if (IsPowder(e.Product, v.State)) _powderN += v.Count; else if (IsSlab(e.Product, v.State)) { _slabN += v.Count; if (FoodStateInfo.IsSpoiled(v.State)) _slabSpoilN += v.Count; } break;
+                        case Role.Paste: _paste += v.Count; if (v.Count > _pasteBest) { _pasteBest = v.Count; _pasteColor = col; _baseId = e.Product.Id; } if (IsPowder(e.Product, v.State)) _powderN += v.Count; else if (IsSlab(e.Product, v.State)) { _slabN += v.Count; if (FoodStateInfo.IsSpoiled(v.State)) _slabSpoilN += v.Count; } break;
+                        case Role.Thick: _thick += v.Count; _thickColor = col; if (v.State == FoodState.Spoiled) _spoiledN += v.Count; if (IsSlab(e.Product, v.State)) _slabThickN += v.Count; break;
                         case Role.IceCream: _ice += v.Count; _iceColor = col; break;
                     }
                     // заморожено азотом (не мороженое) — покрыто льдом, пока не оттает
@@ -716,6 +1259,9 @@ namespace CatCooks.Food
                 }
             }
             CountSolids();
+            LogSubstanceMode();
+            RebuildToppings();
+            _mixP = 0f;                                                          // состав сменился — смешивание заново
             // Кусочки лежат в жидкости — вытесняют её: поверхность поднимается над ними (суп, а не «вода + горка»).
             int displaced = _liquid > 0 ? _solidN : 0;
             _targetVolume = (_liquid + _layer * _creamVolume + Butter * _pasteVolume + _thick * _thickVolume + _ice * _iceVolume + displaced) * _portionVolume;
@@ -855,7 +1401,18 @@ namespace CatCooks.Food
         /// <summary>Где точка относительно стенки: ≤1 — внутри (по радиусу).</summary>
         private float Radial(float x, float z, float y)
         {
-            if (_form == Form.Round) return Mathf.Sqrt(x * x + z * z) / WallR(y);
+            if (_form == Form.Round)
+            {
+                float r = Mathf.Sqrt(x * x + z * z);
+                if (_wallSides >= 3 && r > 1e-6f)
+                {
+                    // многогранная стенка: WallR — расстояние до середины грани; к углам — дальше
+                    float seg = Mathf.PI * 2f / _wallSides;
+                    float t = Mathf.Repeat(Mathf.Atan2(z, x) - _wallPhase * Mathf.Deg2Rad + seg * 0.5f, seg) - seg * 0.5f;
+                    r *= Mathf.Cos(t);
+                }
+                return r / WallR(y);
+            }
             Vector4 bp = BoxAt(y);
             float u = Mathf.Abs(x - bp.z) / Mathf.Max(1e-4f, bp.x), w = Mathf.Abs(z - bp.w) / Mathf.Max(1e-4f, bp.y);
             float u2 = u * u, w2 = w * w, u8 = u2 * u2 * u2 * u2, w8 = w2 * w2 * w2 * w2;
@@ -1084,6 +1641,7 @@ namespace CatCooks.Food
             _frozenShown = Mathf.MoveTowards(_frozenShown, frozenTarget, dt * (frozenTarget > _frozenShown ? _freezeSpeed : _thawSpeed));
             if (_liquid + _layer == 0 && Butter > 0) pasteTarget = 1f;
             _pasteShown = Mathf.MoveTowards(_pasteShown, pasteTarget, dt * _pasteGrowSpeed * (pasteTarget > _pasteShown ? 1f : 2f));
+            if (Powder && pasteTarget > 0.5f) _pasteShown = pasteTarget;     // v17.4: порошок появляется сразу (без «масла» и синевы)
             if (_stirAmt > 0.3f)
             {
                 // Взбивают — паста закручивается: складки-спирали остаются следом.
@@ -1101,13 +1659,26 @@ namespace CatCooks.Food
             Vector2 slopeLocal = new Vector2(_nL.x, _nL.z);
             _creamDrift = Vector2.Lerp(_creamDrift, slopeLocal * RadiusAtRim * 0.35f, 1f - Mathf.Exp(-dt * 2f));
 
+            UpdateTrailAndStirWaves(dt);
             if (_mf != null)
             {
                 float dens = _waterLike ? 0f : _density;
                 Material want = SurfaceOverride != null ? SurfaceOverride : dens >= 0.99f ? DenseMat(SurfaceMat) : SurfaceMat;
+                if (Powder && PowderMat != null) want = PowderMat;          // v17.4: порошок — сразу своим материалом
+                else if (Slab)
+                {
+                    Material bm = _slabSub.GetMaterial();                    // v18: масло — своим материалом (лёгкий блеск)
+                    if (bm != null && _pasteShown > 0.5f) want = bm;                   // v18.2: масло закрыло поверхность — свой материал (без «крапинок» жидкости)
+                }
+                else if (SlabThick && _thickShown > 0.5f)
+                {
+                    Material bm = _slabSub.GetMaterial();
+                    if (bm != null) want = bm;
+                }
                 if (_mr.sharedMaterial != want) _mr.sharedMaterial = want;
                 _mr.enabled = _surfaceOk;
                 if (_surfaceOk) BuildSurface(ag, dt);
+                UpdateToppings(dt);
 
                 _ringCooldown -= dt;
                 for (int i = 0; i < _ringData.Length; i++)
@@ -1133,11 +1704,29 @@ namespace CatCooks.Food
                 float soupK = _soupTint > 0.001f ? Mathf.Clamp01(_soupShown / _soupTint) : 0f;
                 _mpb.SetFloat(OpacityId, Mathf.Lerp(baseOpacity, Mathf.Max(baseOpacity, _soupOpacity), soupK));
                 _mpb.SetFloat(PasteId, 0f);        // масло задаётся по вершинам (растёт от стенок), см. SetVertex
+                // v4: жирные глазки — только на молоке/сливках (не вода, не густое)
+                float fat = _waterLike || _liquid + _layer == 0 ? 0f : _fatSpots * (1f - Stiff) * (1f - _soupShown);
+                _mpb.SetFloat(FatId, fat);
+                _mpb.SetFloat(FatScaleId, _fatScale);
+                for (int i = 0; i < _trail.Length; i++) _trailSend[i] = _trail[i];
+                _mpb.SetVectorArray(TrailId, _trailSend);
+                _mpb.SetFloat(TrailAmountId, _waterLike ? _stirTrails * 0.4f : _stirTrails);
+                // v7: молоко матовое — меньше блика, отсвета и френеля, свет площе (не «металл», не вода)
+                float matte = _waterLike ? 0f : _milkMatte * (1f - _soupShown);
+                if (want != null)
+                {
+                    _mpb.SetFloat(GlintStrengthId, Mathf.Lerp(MatF(want, GlintStrengthId, 1.3f), 0.28f, matte));
+                    _mpb.SetFloat(GlintSizeId, Mathf.Lerp(MatF(want, GlintSizeId, 0.965f), 0.988f, matte));
+                    _mpb.SetFloat(SheenStrengthId, Mathf.Lerp(MatF(want, SheenStrengthId, 0.25f), 0.06f, matte));
+                    _mpb.SetFloat(FresnelStrengthId, Mathf.Lerp(MatF(want, FresnelStrengthId, 0.35f), 0.1f, matte));
+                    _mpb.SetFloat(FlatId, Mathf.Lerp(MatF(want, FlatId, 0.6f), 0.85f, matte));
+                }
                 _mr.SetPropertyBlock(_mpb);
 
                 UpdateLumps(ag);
                 UpdateBits(ag);
                 UpdateBubbles(ag);
+                EmitWhipEpicenter(dt);
                 EmitFermentBubbles(dt);
                 EmitColdVapor(dt);
                 if (_splashFx) UpdateSplashFx(dt);
@@ -1186,6 +1775,11 @@ namespace CatCooks.Food
             Vector2 drive = new Vector2(-_accF.x, -_accF.z) / 9.81f * _sloshGain * fluid;
             float bDrive = -_accF.y / 9.81f * R * 0.12f * _bounceGain * fluid;
             z1Damp += Stiff * 12f;
+            // v7: «тело» молока — тяжелее: слабее толчки, быстрее успокаивается
+            float bodyK = _waterLike ? 0f : _milkBody;
+            drive *= 1f - 0.35f * bodyK;
+            bDrive *= 1f - 0.3f * bodyK;
+            z1Damp += 2f * 0.1f * bodyK * w1;
             UpdateJelly(dt, jerk);
             // Толчок (шаг, остановка) — «подпрыгивание»: изменение ускорения за кадр.
             float dAcc = Mathf.Min(new Vector2(jerk.x, jerk.z).magnitude * dt, 20f);
@@ -1237,6 +1831,16 @@ namespace CatCooks.Food
                 if (_bounce * _bounceVel > 0f && Mathf.Abs(_bounceVel) > _rimHit) { _rimHit = Mathf.Abs(_bounceVel); _rimHitDir = Vector2.zero; }
                 _bounce = Mathf.Sign(_bounce) * bMax; _bounceVel *= -0.3f;
             }
+
+            // v4: шаг «подбросил» молоко — от центра бежит круг.
+            if (_prevBounceVel > 0f && _bounceVel <= 0f && _bounce > R * 0.004f)
+                EmitWave(new Vector2(_center.x, _center.z), Mathf.Min(0.004f, _bounce * 0.6f));
+            _prevBounceVel = _bounceVel;
+            // v4: направление и скорость движения в осях тары — для «сетки» волн
+            Vector3 vL = Quaternion.Inverse(transform.rotation) * _velF;
+            Vector2 v2 = new Vector2(vL.x, vL.z);
+            _moveSpeed = Mathf.Lerp(_moveSpeed, v2.magnitude, 1f - Mathf.Exp(-dt * 3f));
+            if (v2.sqrMagnitude > 0.0025f) _moveDirL = Vector2.Lerp(_moveDirL, v2.normalized, 1f - Mathf.Exp(-dt * 4f)).normalized;
 
             // Щуп вибратора: мелкая дрожь поверхности.
             if (_stirAmt > 0.01f)
@@ -1432,8 +2036,19 @@ namespace CatCooks.Food
                 float a = s / (float)Dirs * Mathf.PI * 2f;
                 Vector3 u = _e1 * Mathf.Cos(a) + _e2 * Mathf.Sin(a);
                 _tEdge[s] = EdgeT(c, u, out _wallEdge[s]);
-                _tEdgeMin = Mathf.Min(_tEdgeMin, _tEdge[s]);
             }
+            // v12.2: убрать «хвостик» — одиночное направление, где край вдруг сильно дальше соседей
+            // (у неровной банки луч в угол проскакивал дальше стенки). И не дальше разумного предела.
+            float capT = 1.6f * _rMax / Mathf.Max(0.3f, Mathf.Abs(_nL.y));
+            for (int pass = 0; pass < 2; pass++)
+            for (int s = 0; s < Dirs; s++)
+            {
+                float ta = _tEdge[(s + Dirs - 1) % Dirs], tb = _tEdge[(s + 1) % Dirs];
+                float m = Mathf.Max(ta, tb);
+                if (_tEdge[s] > m * 1.12f + 0.005f) _tEdge[s] = 0.5f * (ta + tb);
+                if (_tEdge[s] > capT) _tEdge[s] = capT;
+            }
+            for (int s = 0; s < Dirs; s++) _tEdgeMin = Mathf.Min(_tEdgeMin, _tEdge[s]);
 
             // Перевод «оси тары, метры» → локальные координаты объекта поверхности.
             Transform frame = _mf.transform;
@@ -1491,14 +2106,21 @@ namespace CatCooks.Food
             // Волны вдоль нормали поверхности.
             float d = _bounce * J0n(rho) * Mathf.Clamp01(1.2f - Mathf.Abs(_nL.y - 1f) * 3f);
             if (wob > 0f) d += wob * Mathf.Sin(p.x * 40f + t * 17f) * Mathf.Cos(p.z * 37f - t * 13f) * (1f - rho * 0.5f);
+            d += WaveH(p.x, p.z, t) * (1f - Stiff);                             // v4: бегущие волны
             if (_stirAmt > 0.01f)
             {
                 float sd = new Vector2(p.x - _stirLocal.x, p.z - _stirLocal.y).magnitude;
+                // v4: ЭПИЦЕНТР — объёмный горб бурления: пузыри кипят и вспучивают поверхность у щупа
+                float br = Mathf.Max(0.02f, _whipBoilRadius);
+                float fall = Mathf.Exp(-sd * sd / (br * br));
+                float boilA = Mathf.PerlinNoise(p.x * 70f + t * 9f, p.z * 70f - t * 8f) - 0.35f;
+                float boilB = Mathf.PerlinNoise(p.x * 140f - t * 15f, p.z * 140f + t * 13f) - 0.5f;
+                d += _stirAmt * _whipBoil * fall * (0.55f + boilA + boilB * 0.7f);
                 d += _stirAmt * 0.0035f * Mathf.Sin(sd * 140f - t * 38f) * Mathf.Exp(-sd / 0.06f);
-                d -= _stirAmt * 0.006f * Mathf.Exp(-sd * sd / 0.0012f);            // воронка у щупа
-                // Кипит: пузыри вспучивают поверхность вокруг щупа.
+                d -= _stirAmt * 0.004f * Mathf.Exp(-sd * sd / 0.0005f);            // ямка прямо у щупа
+                // Кипит и вокруг: пузыри вспучивают поверхность шире.
                 float boil = Mathf.PerlinNoise(p.x * 60f + t * 6f, p.z * 60f - t * 5f) - 0.45f;
-                d += _stirAmt * 0.004f * boil * Mathf.Exp(-sd / 0.1f);
+                d += _stirAmt * 0.004f * boil * Mathf.Exp(-sd / 0.12f);
             }
             // Брожение: поверхность медленно «дышит» — закваска работает.
             if (_fermenting && _fermentHeave > 0f)
@@ -1516,7 +2138,11 @@ namespace CatCooks.Food
                 // кромка масла чуть светлее — читается край наплыва
                 float edge = pm * (1f - pm) * 4f;
                 pc = Color.Lerp(pc, Color.Lerp(pasteC, Color.white, 0.35f), edge * 0.35f);
-                col = (Color32)new Color(pc.r * ao, pc.g * ao, pc.b * ao, 1f);
+
+                // v19.1: рельеф видно за счёт обводок шейдера Toon Food (тёмные «пиксели» по высоте убраны — мерцали)
+                if (Slab && SlabSpoil > 0.001f) pc = FoodSubstanceMesh.SpoilColor(pc, p.x * Scale, p.z * Scale, SlabSpoil);
+                if (_mixP > 0.001f && (Slab || Powder)) pc = MixSwirl(pc, p.x, p.z);   // смешивание: разводы цвета результата по спирали
+                col = (Color32)new Color(Mathf.Min(1f, pc.r * ao), Mathf.Min(1f, pc.g * ao), Mathf.Min(1f, pc.b * ao), 1f);
                 if (lip) lift *= 1f - pm;
             }
             Vector3 jellyShear = Vector3.zero;
@@ -1543,6 +2169,7 @@ namespace CatCooks.Food
                     tc = Color.Lerp(tc, sour, _spoiledShown);
                     tc = Color.Lerp(tc, _wheyColor, fold * 1.6f * _spoiledShown);
                 }
+                if (SlabThick) tc = _thickColor;                                  // v19.1: ровный цвет, рельеф — обводками шейдера
                 Color basec = (Color)col;
                 Color mixc = Color.Lerp(basec, tc, tm);
                 col = (Color32)new Color(mixc.r, mixc.g, mixc.b, basec.a);
@@ -1611,6 +2238,7 @@ namespace CatCooks.Food
         /// </summary>
         private float ThickH(float x, float z, float rho, float t, float tm)
         {
+            if (SlabThick) return SlabH(x, z, rho, t, tm);                 // v18.1: масло ролью Thick — тоже пласт
             float k = 1f / Mathf.Max(0.02f, _thickBlob);
             float n1 = Mathf.PerlinNoise(x * k + 5.1f, z * k + 12.7f);
             float n2 = Mathf.PerlinNoise(x * k * 1.9f + 27.3f, z * k * 1.9f + 2.2f);
@@ -1868,6 +2496,8 @@ namespace CatCooks.Food
         /// </summary>
         private float PasteH(float x, float z, float rho, float t, float pa)
         {
+            if (Powder) return PowderH(x, z, rho, t, pa);
+            if (Slab) return SlabH(x, z, rho, t, pa);                      // v18: пласт масла с мазками
             Vector2 q = new Vector2(x, z);
             // Закрутка вокруг места, где взбивали, — складки спиралью.
             Vector2 d0 = q - _pasteSwirlC;
@@ -1936,6 +2566,13 @@ namespace CatCooks.Food
             float hitNow = _rimHit;
             Vector2 hitDir = _rimHitDir;
             _rimHit = 0f;
+            if (hitNow > 0.015f && hitDir.sqrMagnitude > 0.5f)
+            {
+                // v4: волна ударила в борт — от этого места бежит круг обратно
+                Vector3 hl = Quaternion.Inverse(transform.rotation) * new Vector3(hitDir.x, 0f, hitDir.y);
+                Vector2 h2 = new Vector2(hl.x, hl.z);
+                if (h2.sqrMagnitude > 1e-6f) EmitWave(h2.normalized * RadiusAtRim * 0.92f, Mathf.Min(0.006f, hitNow * 0.03f));
+            }
             if (hitNow > 0.02f && _splashT <= 0f)
             {
                 float pw = Mathf.Clamp01(hitNow * 5f) * _splashPower;
@@ -2132,7 +2769,7 @@ namespace CatCooks.Food
                 }
             }
             if (_bubbles == null) return;
-            if (!on) { CCRuntimeParticles.SetStream(_bubbles, false, default, default, default, default, 0f); return; }
+            if (!on) { CCRuntimeParticles.SetStream(_bubbles, false, Vector3.zero, Vector3.zero, Color.clear, Color.clear, 0f); return; }
             Vector3 local;
             if (_stirAmt > 0.05f && UnityEngine.Random.value < 0.7f)
             {
@@ -2148,6 +2785,170 @@ namespace CatCooks.Food
             Vector3 at = transform.position + transform.rotation * (local * Scale);
             CCRuntimeParticles.SetStream(_bubbles, true, at, Vector3.up, Color.white, LiquidBase, _bubblesPerSecond * amount, 0.3f);
             EmitWhipBubbles();
+        }
+
+        /// <summary>v4: след щупа (полоса пены) и круги от него. Только вид.</summary>
+        private void UpdateTrailAndStirWaves(float dt)
+        {
+            for (int i = 0; i < _trail.Length; i++)
+            {
+                if (_trail[i].w <= 0f) continue;
+                _trail[i].z += dt;
+                if (_trail[i].z > 3.2f) _trail[i].w = 0f;
+            }
+            if (_stirAmt < 0.3f || !_surfaceOk) return;
+            _trailT -= dt;
+            if (_trailT <= 0f)
+            {
+                _trailT = 0.055f;
+                for (int i = _trail.Length - 1; i > 0; i--) _trail[i] = _trail[i - 1];
+                _trail[0] = new Vector4(_stirLocal.x - _creamDrift.x, _stirLocal.y - _creamDrift.y, 0f, _stirAmt);
+            }
+            _wvStirT -= dt;
+            if (_wvStirT <= 0f)
+            {
+                _wvStirT = 0.2f;
+                EmitWave(_stirLocal, 0.0024f * _stirAmt);
+            }
+        }
+
+        /// <summary>
+        /// v4: ЭПИЦЕНТР ВЗБИВАНИЯ — там, где водят щупом: кипящий горб крупных пузырей,
+        /// фонтанчик живых капель вверх-в стороны и «туча» клубов пены над точкой.
+        /// </summary>
+        private float _poofBurstT;
+        private Vector3 _stirPrevW, _stirVelW;
+        private bool _stirPrevOk;
+        private Vector2 _stirRawLocal;
+        private ParticleSystem _whipCloud;
+        private bool _whipCloudTried;
+
+        /// <summary>Случайный разрешённый вид взрывчика; -1 — все выключены.</summary>
+        private int PickBurstKind()
+        {
+            int total = LiquidFx.WhipBurstKinds;
+            int start = UnityEngine.Random.Range(0, total);
+            for (int k = 0; k < total; k++)
+            {
+                int kind = (start + k) % total;
+                if (_whipBurstKinds == null || kind >= _whipBurstKinds.Length || _whipBurstKinds[kind]) return kind;
+            }
+            return -1;
+        }
+
+        private void EmitWhipEpicenter(float dt)
+        {
+            if (_stirAmt < 0.4f || !_surfaceOk || _pasteShown > 0.6f || (_lid != null && _lid.HasLid))
+            { _sprayAcc = _puffAcc = _epiAcc = 0f; _stirPrevOk = false; _stirVelW = Vector3.zero; return; }
+            Vector3 local = new Vector3(_stirLocal.x, 0f, _stirLocal.y);
+            local += _nL * Vector3.Dot(_center - local, _nL);
+            if (!Inside(local)) return;
+            float S = Scale;
+            Quaternion rot = transform.rotation;
+            Vector3 at = transform.position + rot * (local * S) + _nDynW * (_whipBoil * 0.5f * S);
+            Color c = LiquidColor;
+            float wet = 1f - _thickShown;
+
+            // v8: туча взбивания — своя система в локальных координатах, стоит ровно у щупа
+            // (без сглаживания) и едет за ним целиком.
+            Vector3 rawL = new Vector3(_stirRawLocal.x, 0f, _stirRawLocal.y);
+            rawL += _nL * Vector3.Dot(_center - rawL, _nL);
+            if (!Inside(rawL)) rawL = local;
+            Vector3 atRaw = transform.position + rot * (rawL * S) + _nDynW * (_whipBoil * 0.5f * S);
+            if (!_whipCloudTried)
+            {
+                _whipCloudTried = true;
+                _whipCloud = LiquidFx.CreateWhipCloud("CC Whip Cloud (auto)");
+                if (_whipCloud != null) { ParticleSystem.MainModule wm = _whipCloud.main; wm.simulationSpeed = _whipFxSpeed; }   // v18.8: тучки живут вдвое быстрее
+            }
+            float fxk = Mathf.Max(0.1f, _whipFxSpeed * (Time.time < _stirFxUntil ? _stirFxK : 1f));   // большой миксер — медленнее вибратора
+            dt *= fxk;                                                           // v18.8: и появляются вдвое чаще
+            if (_whipCloud != null) _whipCloud.transform.parent.SetPositionAndRotation(atRaw, Quaternion.identity);
+
+            // v5: редкие крупные капли — вверх и в стороны
+            _sprayAcc += dt * _whipDrops * _stirAmt * wet;
+            int n = Mathf.Min(4, (int)_sprayAcc);
+            _sprayAcc -= n;
+            for (int i = 0; i < n; i++)
+            {
+                Vector2 j = UnityEngine.Random.insideUnitCircle * 0.025f;
+                Vector3 off = rot * new Vector3(j.x, 0f, j.y);
+                Vector3 rad = off.sqrMagnitude > 1e-8f ? off.normalized : rot * Vector3.right;
+                Vector3 vel = _nDynW * UnityEngine.Random.Range(0.9f, 1.8f) + rad * UnityEngine.Random.Range(0.3f, 0.85f) + _velF;
+                float size = UnityEngine.Random.Range(_whipDropSize.x, Mathf.Max(_whipDropSize.x, _whipDropSize.y)) * S;
+                LiquidFx.Drop(at + off * S, vel, size, c, UnityEngine.Random.Range(0.5f, 0.9f));
+            }
+
+            // v7/v8: «возня» — крупные комки-тучки разной формы шапкой у щупа. Если есть туча
+            // взбивания (локальная система) — комки живут в ней и едут за щупом целиком; клубятся шумом.
+            Vector3 stirVel = Vector3.zero;
+            if (_stirPrevOk) stirVel = Vector3.ClampMagnitude((atRaw - _stirPrevW) / Mathf.Max(1e-3f, dt / fxk), 3f);
+            _stirPrevW = atRaw; _stirPrevOk = true;
+            _stirVelW = Vector3.Lerp(_stirVelW, stirVel, 1f - Mathf.Exp(-dt / 0.06f));
+            float follow = _whipPoofFollow;
+            float pScale = _whipPoofScale * 1.9f;                            // v9: ещё крупнее
+            bool inCloud = _whipCloud != null && follow > 0.01f;
+            _puffAcc += dt * _whipDust * _stirAmt * (0.6f + 0.4f * _whipFoam) / Mathf.Max(1f, pScale * 0.5f);
+            n = Mathf.Min(16, (int)_puffAcc);
+            _puffAcc -= n;
+            Color foamC = Color.Lerp(c, Color.white, 0.5f);
+            for (int i = 0; i < n; i++)
+            {
+                Vector2 j = UnityEngine.Random.insideUnitCircle;
+                Vector3 h = rot * new Vector3(j.x, 0f, j.y);
+                Vector3 dirH = h.sqrMagnitude > 1e-6f ? h.normalized : rot * Vector3.forward;
+                float burst = _whipDustBurst * UnityEngine.Random.Range(0.3f, 1f) * (1f - 0.75f * follow);
+                Vector3 vel = dirH * burst + _nDynW * (burst * UnityEngine.Random.Range(0.2f, 0.6f) + 0.06f);
+                float size = UnityEngine.Random.Range(_whipDustSize.x, Mathf.Max(_whipDustSize.x, _whipDustSize.y)) * S * pScale * (0.6f + 0.25f * _whipFoam)
+                           * UnityEngine.Random.Range(0.7f, 1.3f);
+                Vector3 pos = atRaw + h * (size * 0.7f) + _nDynW * (size * UnityEngine.Random.Range(0.05f, 0.4f));
+                float life = UnityEngine.Random.Range(0.32f, 0.55f) + 0.3f * follow;
+                if (inCloud) LiquidFx.PoofInto(_whipCloud, pos, vel, size, foamC, life);
+                else LiquidFx.Poof(pos, (vel + _stirVelW * (0.85f * follow) + _velF) * fxk, size, foamC, life / fxk);
+                // v9: мелкие детали — 2–3 крошечных комка вокруг большого (тучка не «грубая»)
+                int bits = UnityEngine.Random.Range(1, 4);
+                for (int k = 0; k < bits; k++)
+                {
+                    Vector3 o = UnityEngine.Random.onUnitSphere;
+                    if (Vector3.Dot(o, _nDynW) < 0f) o = Vector3.Reflect(o, _nDynW);
+                    Vector3 bp = pos + o * size * UnityEngine.Random.Range(0.45f, 0.75f);
+                    Vector3 bv = vel * 1.3f + o * burst * 0.6f;
+                    float bs = size * UnityEngine.Random.Range(0.16f, 0.32f);
+                    Color bc = Color.Lerp(foamC, Color.white, UnityEngine.Random.Range(0f, 0.3f));
+                    float bl = life * UnityEngine.Random.Range(0.6f, 0.9f);
+                    if (inCloud) LiquidFx.PoofInto(_whipCloud, bp, bv, bs, bc, bl);
+                    else LiquidFx.Poof(bp, (bv + _stirVelW * (0.85f * follow) + _velF) * fxk, bs, bc, bl / fxk);
+                }
+            }
+
+            // v6: взрывчики разных видов — то клубок, то взрыв с искрами, то кольцо, то столбик
+            _poofBurstT -= dt * _stirAmt;
+            if (_whipBursts > 0f && _poofBurstT <= 0f)
+            {
+                float mean = 1f / _whipBursts;
+                _poofBurstT = UnityEngine.Random.Range(mean * 0.4f, mean * 1.6f);
+                int kind = PickBurstKind();
+                if (kind >= 0)
+                {
+                    Vector2 j = UnityEngine.Random.insideUnitCircle * 0.03f;
+                    Vector3 pos = atRaw + rot * new Vector3(j.x, 0f, j.y) * S;
+                    bool cloud = _whipCloud != null && _whipPoofFollow > 0.5f;
+                    LiquidFx.WhipBurst(pos, _nDynW, Color.Lerp(c, Color.white, 0.2f),
+                                       S * _whipBurstSize * (0.85f + 0.3f * _whipFoam),
+                                       cloud ? Vector3.zero : _velF + _stirVelW * (0.7f * _whipPoofFollow), kind,
+                                       _whipPoofScale * 1.1f, Mathf.Lerp(1f, 0.45f, _whipPoofFollow), cloud ? _whipCloud : null);
+                }
+            }
+
+            _epiAcc += dt * _whipEpicenterBubbles * _stirAmt;
+            n = Mathf.Min(10, (int)_epiAcc);
+            _epiAcc -= n;
+            for (int i = 0; i < n; i++)
+            {
+                Vector2 j = UnityEngine.Random.insideUnitCircle * 0.035f;
+                Vector3 pos = at + rot * new Vector3(j.x, 0f, j.y) * S;
+                LiquidFx.Bubble(pos, _nDynW, _whipBubbleSize * S * UnityEngine.Random.Range(0.8f, 1.7f), c, _velF);
+            }
         }
 
         /// <summary>
@@ -2190,56 +2991,76 @@ namespace CatCooks.Food
 
 #if UNITY_EDITOR
         /// <summary>
-        /// Меряет внутреннюю стенку по вершинам модели тары: на каждой высоте —
-        /// ближайшие к оси вершины стенки. Результат — Wall Profile. Жидкость
-        /// после этого ложится ровно по стенке (ни щели, ни торчания).
+        /// v4: Меряет внутреннюю стенку по ТРЕУГОЛЬНИКАМ модели: на каждой высоте режет стенки
+        /// плоскостью и берёт ближайшее к оси расстояние до грани (не до вершины — у лоу-поли
+        /// ведра середина плоской грани ближе угла на ~3.5%, жидкость выпирала сквозь стенку).
+        /// Заодно находит число граней и их поворот — край жидкости идёт ровно по граням.
+        /// Выключенные меши (старая модель) и сама жидкость не учитываются.
         /// </summary>
         [ContextMenu("Подогнать под стенки модели")]
         private void FitToModelWalls()
         {
             Transform root = _cookware != null ? _cookware.transform : (transform.parent != null ? transform.parent : transform);
-            const int Bands = 12, Sectors = 24;
-            var minR = new float[Bands, Sectors];
-            for (int b = 0; b < Bands; b++) for (int s = 0; s < Sectors; s++) minR[b, s] = float.MaxValue;
+            const int Bands = 24;
             float H = _maxHeight, guess = Mathf.Max(_radiusTop, _radiusBottom);
+            var minR = new float[Bands];
+            for (int b = 0; b < Bands; b++) minR[b] = float.MaxValue;
+            var angles = new List<float>();
+            var angR = new List<float>();
             int used = 0;
+            Quaternion inv = Quaternion.Inverse(transform.rotation);
             foreach (MeshFilter mf in root.GetComponentsInChildren<MeshFilter>(true))
             {
                 if (mf.sharedMesh == null || mf.transform.IsChildOf(transform)) continue;
+                MeshRenderer mr = mf.GetComponent<MeshRenderer>();
+                if (mr == null || !mr.enabled || !mf.gameObject.activeInHierarchy) continue;      // старая модель выключена
                 string n = mf.gameObject.name;
                 if (n.Contains("(auto)") || n.Contains("AutoColliders") || n.Contains("HeapAnchor")) continue;
-                Vector3[] verts = mf.sharedMesh.vertices;
+                Transform hp = root.Find("HandlePivot");
+                if (hp != null && mf.transform.IsChildOf(hp)) continue;                 // дужка — не стенка
+                Mesh mesh = mf.sharedMesh;
+                Vector3[] verts = mesh.vertices;
+                int[] tris = mesh.triangles;
                 Matrix4x4 m = mf.transform.localToWorldMatrix;
+                var loc = new Vector3[verts.Length];
+                for (int i = 0; i < verts.Length; i++)
+                    loc[i] = inv * (m.MultiplyPoint3x4(verts[i]) - transform.position) / Scale;
                 used++;
-                foreach (Vector3 v in verts)
+                for (int t = 0; t + 2 < tris.Length; t += 3)
                 {
-                    Vector3 l = Quaternion.Inverse(transform.rotation) * (m.MultiplyPoint3x4(v) - transform.position) / Scale;
-                    if (l.y < -0.01f || l.y > H * 1.02f) continue;
+                    Vector3 a = loc[tris[t]], b = loc[tris[t + 1]], c = loc[tris[t + 2]];
+                    Vector3 nrm = Vector3.Cross(b - a, c - a);
+                    float nm = nrm.magnitude;
+                    if (nm < 1e-9f || Mathf.Abs(nrm.y / nm) > 0.75f) continue;        // дно, кромка сверху — не стенка
+                    float ymin = Mathf.Min(a.y, Mathf.Min(b.y, c.y)), ymax = Mathf.Max(a.y, Mathf.Max(b.y, c.y));
+                    for (int k = 0; k < Bands; k++)
+                    {
+                        float h = (k + 0.5f) / Bands * H;
+                        if (h < ymin || h > ymax) continue;
+                        Vector2 p0, p1;
+                        if (!Slice(a, b, c, h, out p0, out p1)) continue;
+                        float d = SegDist(p0, p1);
+                        if (d < guess * 0.3f || d > guess * 2.2f) continue;            // мусор у оси / ручка снаружи
+                        if (d < minR[k]) minR[k] = d;
+                    }
+                }
+                // вершины середины высоты — для числа граней
+                foreach (Vector3 l in loc)
+                {
+                    if (l.y < H * 0.12f || l.y > H * 0.85f) continue;
                     float r = new Vector2(l.x, l.z).magnitude;
-                    if (r < guess * 0.45f || r > guess * 1.8f) continue;     // не стенка (ручка, дно, мусор внутри)
-                    int b = Mathf.Clamp(Mathf.FloorToInt(l.y / H * Bands), 0, Bands - 1);
-                    int s = Mathf.Clamp(Mathf.FloorToInt((Mathf.Atan2(l.z, l.x) / (Mathf.PI * 2f) + 0.5f) * Sectors), 0, Sectors - 1);
-                    if (r < minR[b, s]) minR[b, s] = r;
+                    if (r < guess * 0.4f || r > guess * 1.6f) continue;
+                    angles.Add(Mathf.Atan2(l.z, l.x)); angR.Add(r);
                 }
             }
             var prof = new float[Bands];
             var have = new bool[Bands];
-            var tmp = new List<float>(Sectors);
-            for (int b = 0; b < Bands; b++)
-            {
-                tmp.Clear();
-                for (int s = 0; s < Sectors; s++) if (minR[b, s] < float.MaxValue) tmp.Add(minR[b, s]);
-                if (tmp.Count < 4) continue;
-                tmp.Sort();
-                prof[b] = tmp[tmp.Count / 2];
-                have[b] = true;
-            }
-            // Пустые полосы (у лоу-поли моделей вершины только сверху и снизу) — по прямой между соседями.
-            int first = -1, last = -1;
-            for (int b = 0; b < Bands; b++) if (have[b]) { if (first < 0) first = b; last = b; }
+            for (int b = 0; b < Bands; b++) { have[b] = minR[b] < float.MaxValue; if (have[b]) prof[b] = minR[b]; }
+            int first = -1;
+            for (int b = 0; b < Bands; b++) if (have[b]) { first = b; break; }
             if (first < 0)
             {
-                Debug.LogWarning($"[Жидкость] «{name}»: не нашёл вершин стенки (моделей: {used}). Проверь Radius Top / Max Height.", this);
+                Debug.LogWarning($"[Жидкость] «{name}»: не нашёл стенок (моделей: {used}). Проверь Radius Top / Max Height и что модель включена.", this);
                 return;
             }
             for (int b = 0; b < Bands; b++)
@@ -2251,14 +3072,68 @@ namespace CatCooks.Food
                 else if (hi >= Bands) prof[b] = prof[lo];
                 else prof[b] = Mathf.Lerp(prof[lo], prof[hi], (b - lo) / (float)(hi - lo));
             }
+            // Число граней: самая малая N (≥5), при которой вершины ложатся ровно через 360/N.
+            int sides = 0; float phase = 0f;
+            if (angles.Count >= 10)
+            {
+                float medR = 0f;
+                var rs = new List<float>(angR); rs.Sort(); medR = rs[rs.Count / 4];
+                for (int N = 5; N <= 40 && sides == 0; N++)
+                {
+                    float cx = 0f, cy = 0f; int cnt = 0;
+                    for (int i = 0; i < angles.Count; i++)
+                    {
+                        if (angR[i] > medR * 1.15f) continue;                        // только внутренняя стенка
+                        cx += Mathf.Cos(angles[i] * N); cy += Mathf.Sin(angles[i] * N); cnt++;
+                    }
+                    if (cnt < 8) break;
+                    float R = Mathf.Sqrt(cx * cx + cy * cy) / cnt;
+                    if (R > 0.96f)
+                    {
+                        sides = N;
+                        float vAng = Mathf.Atan2(cy, cx) / N;                         // угол вершины
+                        phase = (vAng + Mathf.PI / N) * Mathf.Rad2Deg;               // середина грани
+                    }
+                }
+            }
             UnityEditor.Undo.RecordObject(this, "Подогнать жидкость под стенки");
             _wallProfile = prof;
             _radiusBottom = prof[0];
             _radiusTop = prof[Bands - 1];
+            _wallSides = sides;
+            _wallPhase = phase;
             _geomDirty = true;
             UnityEditor.EditorUtility.SetDirty(this);
-            Debug.Log($"[Жидкость] «{name}»: стенка подогнана — низ {prof[0]:0.###} м, верх {prof[Bands - 1]:0.###} м, " +
-                      $"моделей {used}", this);
+            Debug.Log($"[Жидкость] «{name}»: стенка подогнана по граням — низ {prof[0]:0.###} м, уже всего {Mathf.Min(prof):0.###} м, " +
+                      $"верх {prof[Bands - 1]:0.###} м, " + (sides >= 3 ? $"граней {sides} (поворот {phase:0.#}°)" : "круглая") + $", моделей {used}", this);
+        }
+
+        /// <summary>Сечение треугольника плоскостью y = h → отрезок (x, z).</summary>
+        private static bool Slice(Vector3 a, Vector3 b, Vector3 c, float h, out Vector2 p0, out Vector2 p1)
+        {
+            p0 = p1 = Vector2.zero;
+            int n = 0;
+            Vector3[] e = { a, b, b, c, c, a };
+            for (int i = 0; i < 6; i += 2)
+            {
+                Vector3 u = e[i], v = e[i + 1];
+                if ((u.y - h) * (v.y - h) > 0f || Mathf.Approximately(u.y, v.y)) continue;
+                float k = (h - u.y) / (v.y - u.y);
+                Vector3 q = Vector3.Lerp(u, v, k);
+                if (n == 0) p0 = new Vector2(q.x, q.z); else p1 = new Vector2(q.x, q.z);
+                n++;
+                if (n == 2) break;
+            }
+            return n == 2;
+        }
+
+        /// <summary>Расстояние от оси (0,0) до отрезка.</summary>
+        private static float SegDist(Vector2 p0, Vector2 p1)
+        {
+            Vector2 d = p1 - p0;
+            float L = d.sqrMagnitude;
+            float t = L > 1e-12f ? Mathf.Clamp01(-Vector2.Dot(p0, d) / L) : 0f;
+            return (p0 + d * t).magnitude;
         }
 
         [ContextMenu("Сбросить профиль стенок (прямой конус)")]
@@ -2266,6 +3141,7 @@ namespace CatCooks.Food
         {
             UnityEditor.Undo.RecordObject(this, "Сбросить профиль стенок");
             _wallProfile = new float[0];
+            _wallSides = 0;
             _geomDirty = true;
             UnityEditor.EditorUtility.SetDirty(this);
         }

@@ -113,10 +113,29 @@ public class PlayerHand : NetworkBehaviour
         if (!base.IsOwner) return;
 
         InteractableItem item = HeldItem;
-        if (item == null) return;
+        if (item == null) { _blockFor = null; return; }
 
         item.UpdateHeldPose(_handAnchor);
+
+        // v17.3: любой предмет в руке не проходит сквозь стены, стол и другие предметы —
+        // упирается и отъезжает к камере. Тару и продукты не считаем (черпать, мешать, долбить можно).
+        if (HeldBlocking && item.UseHeldBlocking)
+        {
+            if (_blockFor != item) { _blockFor = item; _blocker = new CatCooks.Food.HeldBlocker(item.transform) { IgnoreWorkTargets = true }; }
+            if (_blockCam == null) { Camera c = GetComponentInChildren<Camera>(true); if (c != null) _blockCam = c.transform; }
+            if (_blockCam != null)
+            {
+                Transform t = item.transform;
+                t.position = _blocker.Solve(t.position, t.rotation, _blockCam.position);
+            }
+        }
     }
+
+    /// <summary>v17.3: выключатель общей «несквозности» предметов в руке.</summary>
+    public static bool HeldBlocking = true;
+    private InteractableItem _blockFor;
+    private CatCooks.Food.HeldBlocker _blocker;
+    private Transform _blockCam;
 
     // ───────── СЕРВЕРНЫЕ МЕТОДЫ ─────────
 

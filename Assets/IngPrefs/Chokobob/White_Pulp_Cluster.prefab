@@ -18,6 +18,7 @@ GameObject:
   - component: {fileID: 9048158247808674019}
   - component: {fileID: 1372397689024449244}
   - component: {fileID: 7213246721190254877}
+  - component: {fileID: 2514795000444823270}
   m_Layer: 7
   m_Name: White_Pulp_Cluster
   m_TagString: Untagged
@@ -300,6 +301,10 @@ MonoBehaviour:
   _roastSeconds: 20
   _torchSpeed: 1.5
   _stayWholeUntilRoasted: 1
+  _absorbWhenRoasted: 0
+  _groundProduct: {fileID: 0}
+  _grindSeconds: 8
+  _powderColor: {r: 0.45, g: 0.28, b: 0.17, a: 1}
   _roastedColor: {r: 0.3, g: 0.16, b: 0.08, a: 1}
   _roastedMaterial: {fileID: 0}
   _smoke: 1
@@ -323,3 +328,28 @@ MonoBehaviour:
   _spinGain: 0.05
   _stiffness: 90
   _damping: 7
+--- !u!114 &2514795000444823270
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8858418764403159187}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fb73e09833554011ae842b7e741c2719, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CatCooks.Food.FoodBurnable
+  _componentIndexCache: 255
+  _addedNetworkObject: {fileID: 9020009014968215110}
+  _networkObjectCache: {fileID: 0}
+  _torchSeconds: 8
+  _burnFromC: 210
+  _panSeconds: 14
+  _coolRate: 0.06
+  _smokeFrom: 0.35
+  _flameSeconds: 4
+  _crumbleSeconds: 1.6
+  _ashLifetime: 120
+  _burnWhenHeld: 0
+  _log: 1

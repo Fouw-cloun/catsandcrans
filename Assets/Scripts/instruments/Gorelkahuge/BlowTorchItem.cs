@@ -26,6 +26,8 @@ using UnityEngine;
 /// </summary>
 public class BlowTorchItem : InteractableItem, CatCooks.Food.IHeatJet
 {
+
+    public override bool UseHeldBlocking => false;     // v17.3: своя логика столкновений/позы
     [Header("Положение в руке")]
     [SerializeField] private Vector3 _holdPositionOffset = new Vector3(0.18f, -0.2f, 0.35f);
     [SerializeField] private Vector3 _holdEulerOffset = Vector3.zero;
@@ -61,6 +63,12 @@ public class BlowTorchItem : InteractableItem, CatCooks.Food.IHeatJet
     [SerializeField] private Color _flameCore = new Color(0.55f, 0.75f, 1f);
     [SerializeField] private Color _flameTip = new Color(1f, 0.6f, 0.15f);
     [SerializeField] private float _flamePerSecond = 130f;
+    [Tooltip("v14: мультяшная газовая струя (шейдер CatCooks/Toon Flame). Выкл — старые частицы")]
+    [SerializeField] private bool _toonFlame = true;
+    [Tooltip("v14: толщина струи на вид, доля Flame Radius (радиус нагрева широкий, пламя — тоньше)")]
+    [Range(0.1f, 2f)][SerializeField] private float _toonWidth = 0.45f;
+    [Tooltip("v16: в руке не проходит сквозь стены, стол и предметы — упирается и отъезжает к игроку")]
+    [SerializeField] private bool _blockByWorld = true;
 
     [Header("Фиксатор и подставка")]
     [Tooltip("ПКМ включает постоянное пламя (как фиксатор на кнопке)")]
@@ -97,6 +105,9 @@ public class BlowTorchItem : InteractableItem, CatCooks.Food.IHeatJet
 
     private ParticleSystem _flame;
     private float _flameCarry;
+    private CatCooks.Food.ToonGasFlame _toon;
+    private CatCooks.Food.HeldBlocker _blocker;
+    private bool _toonFailed;
     private bool _fireRegistered;
 
     private string _status = "—";
@@ -149,7 +160,7 @@ public class BlowTorchItem : InteractableItem, CatCooks.Food.IHeatJet
     public static bool GuessNozzlePose(Transform root, out Vector3 pos, out Quaternion rot)
     {
         pos = root.position; rot = root.rotation;
-        Bounds b = default;
+        Bounds b = default(Bounds);
         bool any = false;
         foreach (Renderer r in root.GetComponentsInChildren<Renderer>(true))
         {
@@ -179,6 +190,7 @@ public class BlowTorchItem : InteractableItem, CatCooks.Food.IHeatJet
         if (_fireRegistered) IgnitionRegistry.Unregister(Nozzle);
         CatCooks.Food.HeatJets.Unregister(this);
         if (_flame != null) Destroy(_flame.gameObject);
+        if (_toon != null) Destroy(_toon.gameObject);
     }
 
     private void EnsureLight()
@@ -287,7 +299,7 @@ public class BlowTorchItem : InteractableItem, CatCooks.Food.IHeatJet
             if (on)
             {
                 // Пламя дышит: ровный свет выглядит как фонарик, а не как огонь.
-                float f = 0.8f + Mathf.PerlinNoise(Time.time * 18f, 0f) * 0.4f;
+                float f = 0.95f + Mathf.PerlinNoise(Time.time * 2f, 0f) * 0.1f;            // v19: ровный свет, едва дышит
                 _flameLight.color = Color.Lerp(_flameTip, _flameCore, 0.4f);
                 _flameLight.intensity = _lightIntensity * f;
                 _flameLight.range = _lightRange;
@@ -298,6 +310,21 @@ public class BlowTorchItem : InteractableItem, CatCooks.Food.IHeatJet
         {
             if (on && !_hissLoop.isPlaying) _hissLoop.Play();
             else if (!on && _hissLoop.isPlaying) _hissLoop.Stop();
+        }
+
+        // v14: мультяшная струя (разгорается и гаснет плавно — поэтому тикаем и когда погасла)
+        if (_toonFlame)
+        {
+            if (_toon == null && !_toonFailed && on)
+            {
+                _toon = CatCooks.Food.ToonGasFlame.Create("BlowTorchToonFlame (auto)", CatCooks.Food.ToonGasFlame.Kind.Blow);
+                _toonFailed = _toon == null;
+            }
+            if (_toon != null)
+            {
+                _toon.Tick(Nozzle, on ? 1f : 0f, _flameLength, _flameRadius * _toonWidth, transform);
+                return;
+            }
         }
 
         if (!on || _flame == null) return;
@@ -478,6 +505,11 @@ public class BlowTorchItem : InteractableItem, CatCooks.Food.IHeatJet
         Quaternion rot = handAnchor.rotation * Quaternion.Euler(_holdEulerOffset);
         // сопло — туда, куда смотришь: модель может быть повёрнута как угодно
         if (_aimNozzle && _nozzle != null && _nozzle != transform) rot = rot * Quaternion.Inverse(_nozzleLocalRot);
+        if (_blockByWorld && _holderCam != null)
+        {
+            if (_blocker == null) _blocker = new CatCooks.Food.HeldBlocker(transform);
+            pos = _blocker.Solve(pos, rot, _holderCam.position);
+        }
         transform.SetPositionAndRotation(pos, rot);
     }
 

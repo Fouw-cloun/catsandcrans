@@ -35,6 +35,11 @@ namespace CatCooks.Food
         [Tooltip("Затухание: больше — меньше колыханий после удара")]
         [Range(0.5f, 40f)][SerializeField] private float _damping = 7f;
 
+        [Header("v18: только сырое")]
+        [Tooltip("Обжаренное (FoodRoastable) больше не пружинит: гнётся только сырое. По мере обжарки — всё твёрже")]
+        [SerializeField] private bool _onlyRaw = true;
+        private FoodRoastable _roast;
+
         private struct Part
         {
             public MeshFilter Filter;
@@ -80,6 +85,7 @@ namespace CatCooks.Food
             _parts = list.ToArray();
             _prevPos = transform.position;
             _prevRot = transform.rotation;
+            _roast = GetComponentInParent<FoodRoastable>();
             _started = true;
         }
 
@@ -113,6 +119,12 @@ namespace CatCooks.Food
             {
                 Vector3 ax = transform.InverseTransformDirection(_parts[0].Filter.transform.TransformDirection(_parts[0].Axis)).normalized;
                 sT = -Vector3.Cross(omL, ax) * _spinGain;
+            }
+            // v18: обжаренное — твёрдое (сырое пружинит, по мере обжарки меньше, готовое — совсем нет)
+            if (_onlyRaw && _roast != null)
+            {
+                float soft = _roast.IsRoasted ? 0f : 1f - _roast.Roast01;
+                uT *= soft; sT *= soft;
             }
             Spring(ref _u, ref _uVel, uT, dt);
             Spring(ref _s, ref _sVel, sT, dt);

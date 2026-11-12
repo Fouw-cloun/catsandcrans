@@ -18,6 +18,9 @@
 //    – v3.1: плотность (_Density) — молоко не просвечивает, меньше «плоского»
 //      пересвета, тёплая глубина у стенок; пенка (_Skin) — мелкие пузырьки
 //      кольцом у стенок и пятнами; пена при взбивании — крупные пузыри с тенью.
+//    – v4: жирные «глазки» на молоке (_Fat): круглые блестящие капли жира с тонкой
+//      мультяшной обводкой и бликом, сбиваются к стенкам; след щупа (_Trail,
+//      _TrailAmount): светлая полоса пены там, где водили вибратором, тает.
 //  Всё новое по умолчанию выключено — лужи и старые материалы выглядят как раньше.
 // ============================================================================
 Shader "CatCooks/Liquid Surface"
@@ -71,6 +74,22 @@ Shader "CatCooks/Liquid Surface"
         _FlowStreaks ("Прожилки струи", Range(0, 1)) = 0
         _StreakScale ("Прожилки: частота", Float) = 9
 
+        [Header(Milk fat and trails v4)]
+        _Fat ("Жирные глазки (скрипт)", Range(0, 1)) = 0
+        _FatScale ("Глазки: размер (больше — мельче)", Float) = 42
+        _FatColor ("Глазки: цвет жира", Color) = (1.0, 0.95, 0.78, 1)
+        _FatLine ("Глазки: обводка", Range(0, 1)) = 0.55
+        _TrailAmount ("След щупа (скрипт)", Range(0, 1)) = 0
+        _TrailWidth ("След: ширина, м", Float) = 0.014
+
+        [Header(Butter v10)]
+        _ButterCream ("Масло: светлый сливочный верх", Color) = (1.0, 0.97, 0.8, 1)
+        _ButterDeep ("Масло: тёплая тень (золотистая)", Color) = (0.93, 0.68, 0.28, 1)
+        _ButterCurd ("Масло: рыхлость (комочки)", Range(0, 1)) = 0.7
+        _ButterMarks ("Масло: следы взбивания", Range(0, 1)) = 0.75
+        _ButterSoft ("Масло: мягкость переходов света (мультяшно — меньше)", Range(0, 1)) = 0.25
+        _ButterBeans ("Масло: белые блики-бобы", Range(0, 1)) = 0.8
+
         // Режим рисования (плотное молоко ставит скрипт: One/Zero/ZWrite 1, очередь 2450).
         [HideInInspector] _SrcBlend ("", Float) = 5
         [HideInInspector] _DstBlend ("", Float) = 10
@@ -94,7 +113,11 @@ Shader "CatCooks/Liquid Surface"
                 half4 _CreamColor; half _CreamCover; float _CreamScale; half _CreamFold, _CreamShadow, _CreamRim;
                 float4 _Swirl; half _SwirlAmount; half _Foam; float _FoamScale; half _Skin, _Density, _Paste;
                 half _Meniscus, _FlowStreaks; float _StreakScale;
+                half _Fat; float _FatScale;
+                half4 _ButterCream, _ButterDeep; half _ButterCurd, _ButterMarks, _ButterSoft, _ButterBeans; half4 _FatColor; half _FatLine; half _TrailAmount; float _TrailWidth;
             CBUFFER_END
+            // След щупа: xy — точка (оси тары), z — возраст, с, w — сила (0 — нет). [0] — свежая.
+            float4 _Trail[8];
             // Круги от струи: xyz — центр (мир), w — возраст, с (<0 — нет)
             float4 _Rings[4];
         ENDHLSL
@@ -223,6 +246,24 @@ Shader "CatCooks/Liquid Surface"
                 return smoothstep(thr - 0.05, thr + 0.05, n);
             }
 
+            // v10.2: МУЛЬТЯШНОЕ масло — крупные простые комочки + несколько чистых спиральных бороздок.
+            // groove — линия бороздки 0..1 (для цвета), curd — «шапка» комочка 0..1.
+            float ButterH(float2 q, out float curd, out float groove)
+            {
+                float rr = length(q);
+                float ang = atan2(q.y, q.x);
+                float wob = vnoise(q * 7.0 + 3.7);
+                // следы щупа: 2 спирали, тонкие чистые линии; к центру гаснут (без «звёздочки»)
+                float m1 = sin(rr * 95.0 + ang * 2.0 + wob * 2.5);
+                float m2 = sin(rr * 61.0 - ang * 1.0 + wob * 2.0 + 1.7);
+                groove = max(smoothstep(0.86, 0.97, m1), smoothstep(0.9, 0.98, m2) * 0.8);
+                groove *= smoothstep(0.03, 0.09, rr) * smoothstep(0.3, 0.55, vnoise(q * 4.0 + 9.1) + 0.25);
+                // крупные мягкие комочки (рыхлость), мелочи нет — мультяшно
+                float c1 = cells(q * 13.0 + 5.1);
+                curd = 1.0 - smoothstep(0.15, 0.6, c1);
+                return curd * 0.8 * _ButterCurd - groove * 0.6 * _ButterMarks;
+            }
+
             half4 frag(V i) : SV_Target
             {
                 half pk = saturate(max(_Paste, i.paste));       // масло: общее (скрипт) или по вершинам
@@ -238,15 +279,17 @@ Shader "CatCooks/Liquid Surface"
                 float3 rip = float3(-(hx - h0) / e, 0, -(hz - h0) / e);
                 float3 nWS = normalize(normalize(i.normalWS) + rip);
 
-                // Паста: мелкое «зерно» и мазки — поверхность масла матовая и шершавая.
+                // v10: масло — рыхлое, комочками, со следами взбивания (мягкий рельеф вместо «наждака»)
+                float butterCurd = 0, butterH = 0, butterGroove = 0;
                 if (pk > 0.001)
                 {
-                    float2 gp = i.uv.zw * 160.0;
-                    float g0 = vnoise(gp), gx = vnoise(gp + float2(0.35, 0)), gz = vnoise(gp + float2(0, 0.35));
-                    float2 sp2 = i.uv.zw * 38.0;
-                    float s0 = vnoise(sp2), sx = vnoise(sp2 + float2(0.3, 0)), sz = vnoise(sp2 + float2(0, 0.3));
-                    float3 grain = float3(-(gx - g0) * 0.9 - (sx - s0) * 1.6, 0, -(gz - g0) * 0.9 - (sz - s0) * 1.6);
-                    nWS = normalize(nWS + grain * pk * 0.6);
+                    float be = 0.005;
+                    float cdx, cdz, gdx, gdz;
+                    butterH = ButterH(i.uv.zw, butterCurd, butterGroove);
+                    float hx2 = ButterH(i.uv.zw + float2(be, 0), cdx, gdx);
+                    float hz2 = ButterH(i.uv.zw + float2(0, be), cdz, gdz);
+                    float3 bn = float3(-(hx2 - butterH) / be, 0, -(hz2 - butterH) / be) * 0.01;
+                    nWS = normalize(nWS + bn * pk);
                 }
 
                 // Мороженое: шершавое, с мелкими ямками-дырочками (как после ложки-скупа).
@@ -315,6 +358,36 @@ Shader "CatCooks/Liquid Surface"
                 half rim = saturate(cm * (1.0 - cm) * 4.0) * _CreamRim;
                 half3 col = lerp(milk, cream * (1.0h + rim * 0.25h), cm) * diffuse;
 
+                // ── v10: МАСЛО — сливочное, желтоватое, мягкие переходы (как на картинках):
+                // светлый бледно-кремовый верх → золотистая тёплая тень, в ямках и следах — теплее, на комочках — светлее.
+                if (pk > 0.001)
+                {
+                    half3 prod = i.color.rgb;                                           // цвет продукта (масло)
+                    half3 creamTop = lerp(prod, _ButterCream.rgb, 0.55h);
+                    half3 deep = prod * _ButterDeep.rgb * 1.05h;
+                    half3 midC = lerp(prod, creamTop, 0.35h);
+                    // v10.2: ТРИ ТОНА, как в мультике: золотистая тень → основной → бледный сливочный свет
+                    half nl = dot(nWS, light.direction) * 0.5h + 0.5h + (butterCurd - 0.5h) * 0.18h;
+                    half soft = lerp(0.015h, 0.12h, _ButterSoft);
+                    half b1 = smoothstep(0.42h - soft, 0.42h + soft, nl);
+                    half b2 = smoothstep(0.7h - soft, 0.7h + soft, nl);
+                    half3 bcol = lerp(lerp(deep, midC, b1), creamTop, b2);
+                    // бороздки — нарисованная тёплая линия со светлой кромкой с одной стороны
+                    half3 grooveC = deep * 0.92h;
+                    bcol = lerp(bcol, grooveC, butterGroove * 0.85h * _ButterMarks);
+                    bcol *= lerp(0.82h, 1.0h, step(0.5h, sh));                          // тень от предметов — ступенькой
+                    bcol *= lerp(half3(1, 1, 1), light.color, 0.3h);
+                    // белые блики-бобы на верхушках комочков (мультяшные)
+                    float3 Vb = normalize(GetWorldSpaceViewDir(i.positionWS));
+                    half nhB = saturate(dot(nWS, normalize(light.direction + Vb)));
+                    half bean = step(0.93h, nhB + butterCurd * 0.06h) * step(0.55h, butterCurd);
+                    bcol = lerp(bcol, half3(1.0h, 0.99h, 0.93h), bean * _ButterBeans);
+                    // у стенки — тёплая тёмная кромка (мультяшный «контур» по форме ведра)
+                    half wallLine = smoothstep(0.9, 0.97, i.uv.x);
+                    bcol = lerp(bcol, deep * 0.85h, wallLine * 0.7h);
+                    col = lerp(col, bcol, pk);
+                }
+
                 // ── пенка: мелкие пузырьки кольцом у стенки и пятнами (на молоке всегда) ──
                 if (_Skin > 0.001)
                 {
@@ -349,6 +422,68 @@ Shader "CatCooks/Liquid Surface"
                     half froth = saturate(foam * 1.5h);
                     half3 foamCol = lerp(half3(1, 1, 1), _CreamColor.rgb, cm * 0.6h) * diffuse * 1.04h;
                     col = lerp(col, foamCol * (1.0h - bigShade * froth) + big * 0.06h * froth, froth * (0.5h + 0.5h * max(bub, big)));
+                }
+
+                // ── v4: след щупа — светлая полоса пены по пути вибратора ──
+                if (_TrailAmount > 0.001)
+                {
+                    float2 q = i.uv.zw;
+                    half tr = 0;
+                    [unroll] for (int k = 0; k < 7; k++)
+                    {
+                        float4 A = _Trail[k], B = _Trail[k + 1];
+                        if (A.w <= 0 || B.w <= 0) continue;
+                        float2 ab = B.xy - A.xy;
+                        float hh = saturate(dot(q - A.xy, ab) / max(1e-6, dot(ab, ab)));
+                        float dd = length(q - A.xy - ab * hh);
+                        float age = lerp(A.z, B.z, hh);
+                        float w = _TrailWidth * (1.0 + age * 0.9);               // расплывается
+                        half fade = saturate(1.0 - age / 3.0) * min(A.w, B.w);
+                        // рваный край полосы — пена, а не краска
+                        half rag = 0.7h + 0.6h * vnoise(q * 140.0 + k * 3.1);
+                        tr = max(tr, exp(-dd * dd / max(1e-6, w * w)) * fade * rag);
+                    }
+                    tr = saturate(tr) * _TrailAmount * (1.0h - pk) * (1.0h - tk) * (1.0h - ik);
+                    if (tr > 0.001)
+                    {
+                        float c2 = cells(i.uv.zw * _FoamScale * 1.6 + _Time.y * 0.3);
+                        half rim2 = 1.0h - smoothstep(0.05, 0.13, abs(c2 - 0.3));
+                        half3 froth2 = half3(1.0h, 0.995h, 0.98h) * diffuse * 1.05h;
+                        col = lerp(col, froth2 + rim2 * 0.05h * diffuse, tr * 0.8h);
+                    }
+                }
+
+                // ── v4: жирные глазки — круглые капли жира с тонкой обводкой и бликом ──
+                half fatHl = 0;
+                if (_Fat > 0.001)
+                {
+                    float2 fq = SwirlUV(i.uv.zw) * _FatScale + float2(_Time.y * 0.015, -_Time.y * 0.011);
+                    float2 fi = floor(fq), ff = frac(fq);
+                    float dmin = 8; float2 dvec = 0; float rr = 0.3;
+                    [unroll] for (int fy = -1; fy <= 1; fy++)
+                    [unroll] for (int fx = -1; fx <= 1; fx++)
+                    {
+                        float2 g = float2(fx, fy);
+                        float2 h2 = hash22(fi + g);
+                        float2 o = h2 * 0.7 + 0.15;
+                        float2 dv2 = g + o - ff;
+                        float dl = length(dv2) / (0.16 + h2.x * 0.22);          // свой размер у каждого
+                        if (dl < dmin) { dmin = dl; dvec = dv2; rr = h2.y; }
+                    }
+                    // глазки гуще у стенок и пятнами; где сливки — сливаются в шапку
+                    half where = saturate(smoothstep(0.55, 0.95, i.uv.x) * 0.8h + saturate(fbm(i.uv.zw * 7.0) * 1.7 - 0.6));
+                    half exists = step(rr, saturate(where * 1.2h)) * (1.0h - cm * 0.85h) * (1.0h - pk) * (1.0h - tk) * (1.0h - ik) * (1.0h - fk);
+                    half body = (1.0h - smoothstep(0.92, 1.0, dmin)) * exists;
+                    if (body > 0.001)
+                    {
+                        half lineK = smoothstep(0.78, 0.9, dmin) * (1.0h - smoothstep(0.96, 1.02, dmin));
+                        half3 fatC = lerp(col, _FatColor.rgb * diffuse * 1.04h, 0.55h);
+                        fatC = lerp(fatC, fatC * 0.72h, lineK * _FatLine);           // мультяшная обводка
+                        col = lerp(col, fatC, body * _Fat);
+                        // блик-точка в верхнем левом углу глазка
+                        float2 hp = dvec + float2(0.06, -0.06) * (0.16 + rr * 0.22);
+                        fatHl = step(length(hp) / (0.16 + rr * 0.22), 0.28) * body * _Fat;
+                    }
                 }
 
                 // ── мороженое: тень в ямках, редкие крапинки ванили ──
@@ -404,6 +539,7 @@ Shader "CatCooks/Liquid Surface"
                 half fres = pow(1.0h - saturate(dot(nWS, Vd)), _FresnelPower) * _FresnelStrength;
                 fres *= 1.0h + fk;                                               // иней отливает по краям
                 col += (_GlintColor.rgb * glint * _GlintStrength + sheen) * light.color * sh + _FresnelColor.rgb * fres;
+                col = lerp(col, half3(1, 1, 1), fatHl * 0.85h);                  // v4: блик на жирных глазках
 
                 half edge = saturate(i.color.a / max(0.02h, _EdgeSoftness));
                 half a = saturate(max(max(max(lerp(_Opacity, 1.0h, cm), _Density), tk), max(ik, fk))) * edge;

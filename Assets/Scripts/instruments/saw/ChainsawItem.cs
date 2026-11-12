@@ -27,6 +27,8 @@ using UnityEngine;
 /// </summary>
 public class ChainsawItem : InteractableItem, ISawTool
 {
+
+    public override bool UseHeldBlocking => false;     // v17.3: своя логика столкновений/позы
     [Header("Анимация пиления")]
     [Tooltip("Animator пилы (можно на дочернем меше)")]
     [SerializeField] private Animator _animator;
@@ -72,9 +74,27 @@ public class ChainsawItem : InteractableItem, ISawTool
     [SerializeField] private Vector3 _holdPositionOffset = Vector3.zero;
     [SerializeField] private Vector3 _holdEulerOffset = Vector3.zero;
 
+    [Header("v14: столкновения в руке")]
+    [Tooltip("Пила в руке не проходит сквозь стены, стол и предметы — упирается и отъезжает к игроку")]
+    [SerializeField] private bool _blockByWorld = true;
+    [Tooltip("Слои, о которые упирается")]
+    [SerializeField] private LayerMask _blockMask = ~0;
+    [Tooltip("Насколько отъезжает к камере, упёршись (0 — до самой камеры, 1 — не отъезжает)")]
+    [Range(0f, 0.9f)][SerializeField] private float _retractTo = 0.35f;
+    [Tooltip("Работающая пила входит в то, что пилит (бревно, какао-боб, мясо), с этой скоростью (доля хода в секунду) — «тяжело»")]
+    [Range(0.05f, 3f)][SerializeField] private float _cutSinkSpeed = 0.45f;
+    [Tooltip("Свободно — догоняет руку с этой скоростью (доля хода в секунду)")]
+    [Range(1f, 40f)][SerializeField] private float _freeSpeed = 14f;
+    [Tooltip("Насколько замедляется игрок, пока пила в распиле")]
+    [Range(0.2f, 1f)][SerializeField] private float _cutWalkSlow = 0.6f;
+    [Tooltip("Дрожь пилы в распиле, м")]
+    [Range(0f, 0.02f)][SerializeField] private float _cutShake = 0.004f;
+    [Tooltip("Габарит пилы для проверки, доля (0.9 — чуть меньше модели, чтобы не цеплялась краешком)")]
+    [Range(0.5f, 1f)][SerializeField] private float _boxShrink = 0.88f;
+
     // ───────── СЕТЕВОЕ СОСТОЯНИЕ ─────────
-    private readonly SyncVar<bool> _sawing = new(false);       // пилит в руке (ЛКМ)
-    private readonly SyncVar<bool> _looseRunning = new(false); // убежала и ездит
+    private readonly SyncVar<bool> _sawing = new SyncVar<bool>(false);       // пилит в руке (ЛКМ)
+    private readonly SyncVar<bool> _looseRunning = new SyncVar<bool>(false); // убежала и ездит
 
     // ───────── ЛОКАЛЬНОЕ / СЕРВЕР ─────────
     private bool _lastHeld;
@@ -87,6 +107,16 @@ public class ChainsawItem : InteractableItem, ISawTool
     private Transform _holderCam;
 
     private const float MaxDt = 0.05f;
+
+    // v14: столкновения в руке (только у владельца — поза считается у него)
+    private bool _boxReady;
+    private Vector3 _boxCenter, _boxHalf;          // в осях корня, без масштаба корня
+    private float _push = 1f;                      // 1 — где рука, 0 — отъехала к камере
+    private bool _inCut;
+    private readonly Collider[] _overlap = new Collider[24];
+
+    /// <summary>Пока пила в распиле — игрок идёт медленнее.</summary>
+    public override float CarrySpeedMultiplier => _inCut ? _cutWalkSlow : 1f;
 
     // ───────── ISawTool: для ChainsawFoodProcessor ─────────
 
@@ -315,6 +345,109 @@ public class ChainsawItem : InteractableItem, ISawTool
 
         Vector3 pos = handAnchor.position + handAnchor.rotation * _holdPositionOffset;
         Quaternion rot = handAnchor.rotation * Quaternion.Euler(_holdEulerOffset);
+        if (_blockByWorld) pos = BlockedPose(pos, rot);
         transform.SetPositionAndRotation(pos, rot);
+    }
+
+    // ───────── v14: НЕ СКВОЗЬ ПРЕДМЕТЫ ─────────
+    //
+    // Габарит пилы — коробка по её мешам. Каждый кадр ищем, насколько далеко от камеры к руке
+    // пила может встать, ни во что не влезая (бисекция по ходу 0..1). Не заведена — упирается во всё.
+    // Заведена — то, что можно пилить (ICuttable, CanCut), её пускает, но медленно (Cut Sink Speed),
+    // с дрожью и замедлением игрока. Остальное (стол, стены, другие предметы) — всё равно упор.
+
+    private Vector3 BlockedPose(Vector3 want, Quaternion rot)
+    {
+        if (!_boxReady) BuildBox();
+        Vector3 cam = _holderCam != null ? _holderCam.position : want;
+        Vector3 back = cam + (want - cam) * _retractTo;
+        bool sawing = IsSawing;
+        float dt = Mathf.Min(Time.deltaTime, MaxDt);
+
+        // жёсткий предел: куда можно, если цели распила пропускают (когда пила работает)
+        float hard = MaxFree(back, want, rot, sawing);
+        // мягкий: где начинается цель распила
+        float soft = sawing ? MaxFree(back, want, rot, false) : hard;
+
+        if (_push > hard) _push = hard;                                    // упёрлась — сразу назад
+        else if (_push < soft) _push = Mathf.MoveTowards(_push, Mathf.Min(hard, soft), _freeSpeed * dt);
+        else _push = Mathf.MoveTowards(_push, hard, (soft < hard ? _cutSinkSpeed : _freeSpeed) * dt);
+        _inCut = sawing && _push > soft + 0.01f;
+
+        Vector3 p = Vector3.Lerp(back, want, _push);
+        if (_inCut && _cutShake > 0f)
+        {
+            float t = Time.time * 55f;
+            p += new Vector3(Mathf.PerlinNoise(t, 0.3f) - 0.5f, Mathf.PerlinNoise(t, 2.1f) - 0.5f, Mathf.PerlinNoise(t, 4.7f) - 0.5f) * (2f * _cutShake);
+        }
+        return p;
+    }
+
+    /// <summary>Наибольший ход 0..1, при котором пила ни во что не влезает. passCut — цели распила не мешают.</summary>
+    private float MaxFree(Vector3 back, Vector3 want, Quaternion rot, bool passCut)
+    {
+        if (!Blocked(want, rot, passCut)) return 1f;
+        if (Blocked(back, rot, passCut)) return 0f;
+        float lo = 0f, hi = 1f;
+        for (int i = 0; i < 7; i++)
+        {
+            float mid = (lo + hi) * 0.5f;
+            if (Blocked(Vector3.Lerp(back, want, mid), rot, passCut)) hi = mid; else lo = mid;
+        }
+        return lo;
+    }
+
+    private bool Blocked(Vector3 pos, Quaternion rot, bool passCut)
+    {
+        Vector3 ls = transform.lossyScale;
+        Vector3 c = pos + rot * Vector3.Scale(_boxCenter, ls);
+        Vector3 h = Vector3.Scale(_boxHalf, new Vector3(Mathf.Abs(ls.x), Mathf.Abs(ls.y), Mathf.Abs(ls.z))) * _boxShrink;
+        int n = Physics.OverlapBoxNonAlloc(c, h, _overlap, rot, _blockMask, QueryTriggerInteraction.Ignore);
+        for (int i = 0; i < n; i++)
+        {
+            Collider col = _overlap[i];
+            if (col == null || !col.enabled) continue;
+            if (col.transform.IsChildOf(transform)) continue;
+            if (col.GetComponentInParent<CharacterController>() != null) continue;      // игроки
+            if (col.GetComponentInParent<FirstPersonController>() != null) continue;
+            if (passCut)
+            {
+                ICuttable cut = col.GetComponentInParent<ICuttable>();
+                if (cut != null && cut.CanCut) continue;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>Коробка пилы по её мешам (в осях корня, без масштаба корня).</summary>
+    private void BuildBox()
+    {
+        _boxReady = true;
+        bool any = false;
+        Bounds b = new Bounds(Vector3.zero, Vector3.zero);
+        Vector3 ls = transform.lossyScale;
+        Vector3 inv = new Vector3(1f / Mathf.Max(1e-5f, Mathf.Abs(ls.x)), 1f / Mathf.Max(1e-5f, Mathf.Abs(ls.y)), 1f / Mathf.Max(1e-5f, Mathf.Abs(ls.z)));
+        foreach (MeshFilter mf in GetComponentsInChildren<MeshFilter>(true))
+        {
+            if (mf.sharedMesh == null || (mf.gameObject.hideFlags & HideFlags.DontSave) != 0) continue;
+            Bounds mb = mf.sharedMesh.bounds;
+            for (int k = 0; k < 8; k++)
+            {
+                Vector3 v = mb.center + Vector3.Scale(mb.extents, new Vector3((k & 1) == 0 ? -1 : 1, (k & 2) == 0 ? -1 : 1, (k & 4) == 0 ? -1 : 1));
+                Vector3 w = mf.transform.TransformPoint(v);
+                // в оси корня, но без его масштаба (масштаб умножим в Blocked)
+                Vector3 l = Quaternion.Inverse(transform.rotation) * (w - transform.position);
+                if (!any) { b = new Bounds(l, Vector3.zero); any = true; } else b.Encapsulate(l);
+            }
+        }
+        if (!any && _col != null)
+        {
+            Bounds cb = _col.bounds;
+            b = new Bounds(Quaternion.Inverse(transform.rotation) * (cb.center - transform.position), cb.size);
+        }
+        _boxCenter = Vector3.Scale(b.center, inv);
+        _boxHalf = Vector3.Scale(b.extents, inv);
+        Debug.Log($"[Бензопила] «{name}»: габарит для столкновений {Vector3.Scale(b.size, Vector3.one):0.00} м — в руке не проходит сквозь предметы", this);
     }
 }

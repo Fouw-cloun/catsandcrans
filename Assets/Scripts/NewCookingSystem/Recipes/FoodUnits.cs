@@ -14,25 +14,42 @@ namespace CatCooks.Food
     }
 
     /// <summary>
-    /// СИСТЕМА МЕР. Внутри тары всё лежит порциями; рецепты и игрок говорят
-    /// вёдрами, мастерками, лопатами и штуками.
+    /// СИСТЕМА МЕР (v2, ноябрь 2026). Внутри тары всё лежит порциями; рецепты и
+    /// игрок говорят дозами, мастерками, лопатами, штуками и вёдрами.
     ///
-    ///   1 ведро    = Portions Per Bucket порций жидкости (= вместимость ведра, 30)
-    ///   1 мастерок = Portions Per Trowel порций сыпучего (= Capacity мастерка, 2)
-    ///   1 лопата   = 2 мастерка (= Capacity лопаты, 4)
-    ///   1 штука    = 1 порция (яйцо)
+    ///   1 доза     = 1 порция            = ½ мастерка (банка ПКМ, щепотка)
+    ///   1 мастерок = Portions Per Trowel = 2 порции (Capacity мастерка)
+    ///   1 лопата   = 2 мастерка          = 4 порции (Capacity лопаты)
+    ///   1 ведро    = Portions Per Bucket = 20 порций = 10 мастерков = 5 лопат
     ///
-    /// Размер тары — в вёдрах: ведро 1, банка 8 (Capacity 240), дальше кастрюля,
-    /// сковорода, казан. Рецепт пишется НА 1 ВЕДРО и сам умножается на размер тары:
-    /// в банке мороженого — 8 вёдер сливок, 8 мастерков сахара, 8 яиц.
+    /// ШТУКА в рецепте — это физический предмет (яйцо, луковица, кость). Сколько
+    /// порций в нём, решает сам продукт (FoodPiece.Count) и поле «Порций в штуке»
+    /// у ингредиента. Standard Piece (= лопата, 4 порции) — объём «обычной штуки»
+    /// для подсказок и для новых продуктов, у которых своего размера ещё нет.
     ///
-    /// Свои числа — ассет Create → CatCooks → Меры («FoodUnits» в Resources).
+    /// Размер тары — в вёдрах (CookwareDef.Capacity = вёдра × 20): ведро 1,
+    /// ковши экскаватора 2 и 4, малая бетономешалка 4, ковш 6, банка и рюмка
+    /// бетона 8, большая бетономешалка 10, сковорода, вок и кастрюля по 32.
+    /// Рецепт пишется НА 1 ВЕДРО основы и сам умножается на размер тары.
+    ///
+    /// До v2 ведро было 30 порций. Перевод тары, мастерков и рецептов — окно
+    /// CatCooks → Кулинария → Новые меры. Свои числа — ассет
+    /// Create → CatCooks → Меры («FoodUnits» в Resources).
     /// </summary>
     [CreateAssetMenu(menuName = "CatCooks/Меры (вёдра, мастерки)", fileName = "FoodUnits")]
     public sealed class FoodUnits : ScriptableObject
     {
-        [Min(1)] public int PortionsPerBucket = 30;
+        /// <summary>Версия системы мер. Рецепт с CookRecipeDef.MeasureVersion меньше — ещё не переведён.</summary>
+        public const int Version = 2;
+        /// <summary>Сколько порций было в ведре до v2 (для перевода старой тары).</summary>
+        public const int OldBucket = 30;
+
+        [Tooltip("Порций в ведре. v2: 20 (= 10 мастерков = 5 лопат). Было 30")]
+        [Min(1)] public int PortionsPerBucket = 20;
+        [Tooltip("Порций в мастерке. Доза = 1 порция = полмастерка, поэтому 2")]
         [Min(1)] public int PortionsPerTrowel = 2;
+        [Tooltip("Объём «обычной штуки» в порциях (= лопата). Только для подсказок и новых продуктов")]
+        [Min(1)] public int PortionsPerStandardPiece = 4;
 
         private static FoodUnits _cfg;
         private static bool _loaded;
@@ -46,9 +63,14 @@ namespace CatCooks.Food
             }
         }
 
-        public static int Bucket => Cfg != null ? Cfg.PortionsPerBucket : 30;
+        /// <summary>Перечитать ассет мер (после правки в редакторе).</summary>
+        public static void Reload() { _loaded = false; _cfg = null; }
+
+        public static int Bucket => Cfg != null ? Cfg.PortionsPerBucket : 20;
         public static int Trowel => Cfg != null ? Cfg.PortionsPerTrowel : 2;
         public static int Shovel => Trowel * 2;
+        public static int Dose => 1;
+        public static int StandardPiece => Cfg != null ? Cfg.PortionsPerStandardPiece : Shovel;
 
         public static int PortionsOf(CookUnit u)
         {
@@ -57,8 +79,42 @@ namespace CatCooks.Food
                 case CookUnit.Bucket: return Bucket;
                 case CookUnit.Trowel: return Trowel;
                 case CookUnit.Shovel: return Shovel;
-                default: return 1;
+                case CookUnit.Dose: return Dose;
+                default: return 1;      // порция; штука — порции решает продукт (см. Ingredient.ToPortions)
             }
+        }
+
+        /// <summary>
+        /// «1 ведро 3 мастерка 1 доза» — разложить порции по крупным мерам (для подсказок и отчётов).
+        /// liquid — жидкое (вёдра + мастерки), иначе лопаты + мастерки.
+        /// </summary>
+        public static string DescribeBest(int portions, bool liquid)
+        {
+            if (portions <= 0) return "0";
+            var sb = new System.Text.StringBuilder();
+            int left = portions;
+            if (liquid && left >= Bucket)
+            {
+                int b = left / Bucket; left -= b * Bucket;
+                sb.Append(b).Append(' ').Append(Plural(b, "ведро", "ведра", "вёдер"));
+            }
+            else if (!liquid && left >= Shovel)
+            {
+                int s = left / Shovel; left -= s * Shovel;
+                sb.Append(s).Append(' ').Append(Plural(s, "лопата", "лопаты", "лопат"));
+            }
+            if (left >= Trowel)
+            {
+                int t = left / Trowel; left -= t * Trowel;
+                if (sb.Length > 0) sb.Append(' ');
+                sb.Append(t).Append(' ').Append(Plural(t, "мастерок", "мастерка", "мастерков"));
+            }
+            if (left > 0)
+            {
+                if (sb.Length > 0) sb.Append(' ');
+                sb.Append(left).Append(' ').Append(Plural(left, "доза", "дозы", "доз"));
+            }
+            return sb.ToString();
         }
 
         /// <summary>Порций в amount единиц.</summary>

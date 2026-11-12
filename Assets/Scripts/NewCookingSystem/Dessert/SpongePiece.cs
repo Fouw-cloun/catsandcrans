@@ -44,8 +44,16 @@ namespace CatCooks.Food
             if (product != 0 && prefab != null) _prefabs[product] = prefab;
         }
 
-        public static bool TryGetPrefab(ushort product, out GameObject prefab) =>
-            _prefabs.TryGetValue(product, out prefab) && prefab != null;
+        public static bool TryGetPrefab(ushort product, out GameObject prefab)
+        {
+            if (!_prefabs.TryGetValue(product, out prefab) || prefab == null) return false;
+            // v18.2: у вещества с профилем «мазок вместо кубика» (масло) на мастерке — красивая кучка,
+            // и с мастерка на пол — кучка, а не кубик (сам брусок по-прежнему режется на кубики)
+            FoodDatabase db = FoodDatabase.Instance;
+            FoodSubstance sub = db != null ? FoodSubstance.Of(db.Get(product), FoodState.None) : null;
+            if (sub != null && sub.OwnLook && sub.SmearNotPiece) { prefab = null; return false; }
+            return true;
+        }
 
         /// <summary>Размер из префаба (для вида на мастерке).</summary>
         public Vector3 DefaultSize => _size;

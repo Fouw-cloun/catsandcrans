@@ -64,7 +64,7 @@ namespace CatCooks.Food
 
         private bool IsIgnored(ushort id)
         {
-            if (_liquid != null && _liquid.Handles(id)) return true;
+            if (_liquid != null && (_liquid.Handles(id) || _liquid.ShowsTopping(id))) return true;   // v19.1: добавку поверх рисует LiquidAnchor
             if (_ignore == null) return false;
             foreach (ProductDef d in _ignore) if (d != null && d.Id == id) return true;
             return false;

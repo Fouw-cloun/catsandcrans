@@ -24,6 +24,6 @@ MonoBehaviour:
   Size: 0.06
   Looks: []
   MadeByRecipe: 1
-  HardensInto: {fileID: 11400000, guid: c8886fc347edfe348ac7f5a0000e036b, type: 2}
+  HardensInto: {fileID: 0}
   HardenSeconds: 90
   Solid: 0

@@ -95,6 +95,9 @@ namespace CatCooks.Food
             }
             j.LogProcess(kind, dt);
 
+            // v19: смесь по пропорциям (шоколадная паста): перебор → испорчено, досыпал → исправилось
+            if (kind == CookStepKind.Mix && FoodBlend.ServerMix(cw, dt)) return true;
+
             // «Варить помешивая»: миксер в таре — это помешивание (комки уходят), а не свой шаг
             if ((kind == CookStepKind.Mix || kind == CookStepKind.Whip) && j.Recipe != null && j.StepIndex < j.Recipe.Steps.Count &&
                 j.Recipe.Steps[j.StepIndex].Kind == CookStepKind.SimmerStir)
@@ -172,6 +175,8 @@ namespace CatCooks.Food
             if (cw == null || !cw.IsServerInitialized || kinds == null || kinds.Length == 0) return false;
             Ensure();
             if (_recipes.Count == 0) return ServerProcess(cw, kinds[0], seconds);
+            // v19: в таре смесь по пропорциям — это «перемешать»
+            if (System.Array.IndexOf(kinds, CookStepKind.Mix) >= 0 && FoodBlend.Applies(cw)) return ServerProcess(cw, CookStepKind.Mix, seconds);
             CookwareJournal j = CookwareJournal.Of(cw);
             j.Sync();
             CookStepKind pick = kinds[0];

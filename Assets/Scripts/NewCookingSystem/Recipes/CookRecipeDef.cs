@@ -74,6 +74,14 @@ namespace CatCooks.Food
                      "лишнее выкипит на огне в шаге «Уваривать» / «Варить» / «Варить помешивая», пока не останется норма")]
             public bool Reduces;
 
+            [Header("Допуски (новые меры v2)")]
+            [Tooltip("Строгость: насколько точно попасть в количество. «Старый допуск» — как раньше, по Tolerance рецепта")]
+            public FoodStrictness Strictness;
+            [Tooltip("Обязательный — без него провал. Желательный — без него блюдо засчитывается, но не выше «допустимо»")]
+            public FoodIngredientNeed Need;
+            [Tooltip("С какой стороны ошибка больнее: там зона «допустимо» вдвое уже (соль — больнее много)")]
+            public FoodPainSide Pain;
+
             /// <summary>Сколько порций в amount единиц этого ингредиента.</summary>
             public int ToPortions(float amount) =>
                 Unit == CookUnit.Piece && PortionsPerPiece > 1
@@ -144,6 +152,11 @@ namespace CatCooks.Food
         public ProductDef Result;
         [Tooltip("Это ОШИБКА повара (перебил меренгу): аналитик не подсказывает «сделай это»")]
         public bool IsMistake;
+
+        [Header("Служебное")]
+        [Tooltip("Версия системы мер, под которую переведён рецепт (FoodUnits.Version). 0 — старые меры (ведро 30). " +
+                 "Ставит окно CatCooks → Кулинария → Новые меры")]
+        public int MeasureVersion;
 
         /// <summary>Сколько «вёдер рецепта» в таре: по полной таре или по основе.</summary>
         public int BatchesFor(Cookware cw, int basePortions)

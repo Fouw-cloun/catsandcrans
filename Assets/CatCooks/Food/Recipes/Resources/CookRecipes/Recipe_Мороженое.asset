@@ -15,19 +15,36 @@ MonoBehaviour:
   Title: "\u041C\u043E\u0440\u043E\u0436\u0435\u043D\u043E\u0435"
   Driver: 0
   Base: {fileID: 11400000, guid: 87f8b892b2c188b4191c8617b50be2f7, type: 2}
+  BaseState: 0
   BaseAmount: 1
   BaseUnit: 1
   BaseFillsContainer: 1
   BaseMinFill: 0.9
+  PerContainer: 0
+  OnlyBaseBecomesResult: 0
   Ingredients:
   - Product: {fileID: 11400000, guid: b128facffd950224980d7a2a3036c3ad, type: 2}
     Alt: {fileID: 0}
     Amount: 1
     Unit: 2
+    PortionsPerPiece: 0
+    CleanOnly: 0
+    State: 0
+    Reduces: 0
+    Strictness: 1
+    Need: 0
+    Pain: 0
   - Product: {fileID: 11400000, guid: ad22c2d6dc3da9141b1fa16ae893bbb4, type: 2}
     Alt: {fileID: 11400000, guid: 0e99bea9728e78b4286a926c2c5b054f, type: 2}
     Amount: 1
     Unit: 4
+    PortionsPerPiece: 0
+    CleanOnly: 0
+    State: 0
+    Reduces: 0
+    Strictness: 2
+    Need: 0
+    Pain: 0
   OrderMatters: 0
   OnlyThese: 1
   Tolerance: 0
@@ -35,7 +52,11 @@ MonoBehaviour:
   - Kind: 1
     Seconds: 6
     Intermediate: {fileID: 0}
+    VolumeK: 0
   - Kind: 2
     Seconds: 2.5
     Intermediate: {fileID: 0}
+    VolumeK: 0
   Result: {fileID: 11400000, guid: e2155ebacbacb1a449923b5951f59aa2, type: 2}
+  IsMistake: 0
+  MeasureVersion: 2

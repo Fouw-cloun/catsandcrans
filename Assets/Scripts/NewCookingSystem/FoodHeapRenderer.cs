@@ -337,6 +337,10 @@ namespace CatCooks.Food
         private float _height;
 
         public Shape HeapShape => _shape;
+        /// <summary>v18.5: полуразмеры основания (полотно лопаты, дно тары), м.</summary>
+        public Vector2 Footprint => _footprint;
+        /// <summary>v18.5: объём одной порции, м³.</summary>
+        public float PortionVolume => _portionVolume;
 
         private const string MeshChildName = "HeapMesh (auto)";
 
@@ -748,9 +752,14 @@ namespace CatCooks.Food
         }
 
         /// <summary>Показать кучку. Зовётся при смене содержимого.</summary>
+        /// <summary>v18.6: зовётся при каждом Show (лопата сменила груз) — для ScoopSubstanceView.</summary>
+        public event System.Action Shown;
+
         public void Show(float portions, Color color, int seed)
         {
+            if (Shown != null && Application.isPlaying) Shown();
             EnsureMesh();
+            if (_subOn && _sub == null) LeaveSubstance();
             if (_runtimeLook == HeapPreset.Mince)
             {
                 _wormColor = MinceTint(color);
@@ -768,6 +777,12 @@ namespace CatCooks.Food
             _shownPortions = portions;
             _shownColor = color;
             _shownSeed = seed;
+
+            if (_sub != null && Application.isPlaying)
+            {
+                ShowSubstance(before, portions, color, seed);     // v18: вещество рисует само (масло, порошок)
+                return;
+            }
 
             if ((_runtimeLook == HeapPreset.Gnocchi || _runtimeLook == HeapPreset.Whole) && Application.isPlaying)
             {
@@ -931,6 +946,7 @@ namespace CatCooks.Food
         {
             if (_mf == null) return;
             if (_rebuildPending && Application.isPlaying) { _rebuildPending = false; RebuildNow(); }
+            if (_subOn && Application.isPlaying) { UpdateSubstance(); return; }
             Vector3 punch = Vector3.one;
             if (Application.isPlaying && _punchT < 1f)
             {
@@ -940,6 +956,7 @@ namespace CatCooks.Food
             }
             if (Application.isPlaying) punch = Vector3.Scale(punch, Vector3.Scale(ViscousScale(Time.deltaTime), _growScale));
             ApplyFrame(punch);
+            if (Application.isPlaying && OnTool) GlueToBlade();               // v18.4: любая горка лежит на полотне
             if ((_runtimeLook == HeapPreset.Gnocchi || _runtimeLook == HeapPreset.Whole) && Application.isPlaying) { DrawGnocchi(); return; }
             if (_grain == Grain.Particles) UpdateParticles();
         }
@@ -1003,7 +1020,7 @@ namespace CatCooks.Food
             Transform frame = _mf != null ? _mf.transform : transform;
             Material mat = _grainMaterial != null ? _grainMaterial : (_material != null ? _material : AutoMaterial);
             if (!mat.enableInstancing) mat.enableInstancing = true;
-            _mpb ??= new MaterialPropertyBlock();
+            if (_mpb == null) _mpb = new MaterialPropertyBlock();
             _mpb.SetColor(BaseColorId, _shownColor);
             if (_gnocBuf == null || _gnocBuf.Length < _gnoc.Count) _gnocBuf = new Matrix4x4[Mathf.Max(16, _gnoc.Count)];
             Matrix4x4 m = frame.localToWorldMatrix;
@@ -1348,7 +1365,7 @@ namespace CatCooks.Food
         {
             RebuildWorms(portions, seed);
             if (!_strands || _mesh == null) { _strandField?.Clear(); return; }
-            _strandField ??= new FoodStrandField();
+            if (_strandField == null) _strandField = new FoodStrandField();
             int count = Mathf.Min(_maxStrands, Mathf.RoundToInt(Mathf.Max(0f, portions) * _strandsPerPortion));
             _strandField.Build(_mesh, count, new FoodStrandField.Settings
             {
@@ -1384,7 +1401,7 @@ namespace CatCooks.Food
                 mat.enableInstancing = true;
             }
             EnsureGrainMeshes();
-            _mpb ??= new MaterialPropertyBlock();
+            if (_mpb == null) _mpb = new MaterialPropertyBlock();
             _mpb.SetColor(BaseColorId, _shownColor);
 
             Matrix4x4 m = frame.localToWorldMatrix;
@@ -1817,6 +1834,378 @@ namespace CatCooks.Food
         private Vector3[] _grad;
         private int[] _cellVert;
 
+        // ═════════════════════ v18: ВЕЩЕСТВО (FoodSubstance) ═════════════════════
+        //
+        // Если у продукта есть профиль вещества со своим видом (порошок, масло) — кучка рисуется
+        // по профилю: одна форма и один материал на полу, в таре (HeapAnchor) и на полотне
+        // мастерка/лопаты. Дрожь (джигл) — наклоном и приседанием меша, вес не меняется.
+
+        [System.NonSerialized] private FoodSubstance _sub;
+        [System.NonSerialized] private bool _subOn;
+        [System.NonSerialized] private int _toolState = -1;
+        private Vector3 _subPrevPos, _subPrevVel, _subAcc;
+        private bool _subTracked;
+        private Vector2 _tilt, _tiltVel;
+        private float _subSquash, _subSquashVel, _dripCd, _steamCd;
+
+        [System.NonSerialized] private bool _spoiled;
+
+        /// <summary>v19: испорчено (состояние «Испорчено») — серо-зелёные пятна на любом веществе. Звать перед Show.</summary>
+        public void SetSpoiled(bool on)
+        {
+            if (!Application.isPlaying || on == _spoiled) return;
+            _spoiled = on;
+            if (_sub != null && _shownPortions >= 0f)
+            {
+                float n = _shownPortions; Color c = _shownColor; int sd = _shownSeed;
+                _shownPortions = -1f;
+                Show(n, c, sd);
+            }
+        }
+
+        /// <summary>Профиль вещества, которым сейчас рисуется кучка (или null).</summary>
+        public FoodSubstance Substance => _sub;
+
+        /// <summary>Рисовать по профилю вещества (null или профиль без своего вида — как раньше). Звать перед Show.</summary>
+        public void SetSubstance(FoodSubstance s)
+        {
+            if (!Application.isPlaying) return;
+            if (s != null && !s.OwnLook) s = null;
+            if (s == _sub) return;
+            _sub = s;
+            if (_shownPortions >= 0f)
+            {
+                float n = _shownPortions; Color c = _shownColor; int sd = _shownSeed;
+                _shownPortions = -1f;
+                Show(n, c, sd);
+            }
+        }
+
+        /// <summary>Полотно мастерка/лопаты (не тара и не кучка на полу).</summary>
+        private bool OnTool
+        {
+            get
+            {
+                if (_toolState < 0)
+                    _toolState = GetComponentInParent<Cookware>() == null && GetComponentInParent<FoodHeap>() == null
+                                 && GetComponentInParent<CarriedContainer>() == null ? 1 : 0;
+                return _toolState == 1;
+            }
+        }
+
+        private float WorldK
+        {
+            get
+            {
+                if (_ignoreParentScale) return 1f;
+                Vector3 ls = transform.lossyScale;
+                return (Mathf.Abs(ls.x) + Mathf.Abs(ls.y) + Mathf.Abs(ls.z)) / 3f;
+            }
+        }
+
+        private void LeaveSubstance()
+        {
+            _subOn = false;
+            _subTracked = false;
+            _tilt = _tiltVel = Vector2.zero;
+            _subSquash = _subSquashVel = 0f;
+            if (_mr != null) _mr.sharedMaterial = _material != null ? _material : AutoMaterial;
+            _refFull = false;
+            _builtFor = 0f;
+        }
+
+        private void ShowSubstance(float before, float portions, Color color, int seed)
+        {
+            _subOn = true;
+            _pile = null;
+            _growScale = Vector3.one;
+            _strandField?.Clear();
+            if (_wormMr != null) _wormMr.enabled = false;
+            if (portions <= 0.001f)
+            {
+                _mesh.Clear();
+                _mr.enabled = false;
+                Radius = 0f; Height = 0f;
+                return;
+            }
+            Color col = _sub.ColorFor(color);
+            FoodSubstanceMesh.Dims d = SubstanceDims(portions);
+            bool tool = OnTool;
+            FoodSubstanceMesh.SpoilK = _spoiled ? 1f : 0f;                     // v19: испорчено — видно на любом веществе
+            if (_sub.Look == SubstanceLook.Powder)
+                FoodSubstanceMesh.Powder(_mesh, d, _sub.Wonky, col, seed);
+            else if (_sub.Look == SubstanceLook.Crystals)
+                FoodSubstanceMesh.Crystals(_mesh, d, _sub.CrystalSize, _sub.CrystalDensity, col, seed);
+            else if (_sub.Look == SubstanceLook.Spread)
+                FoodSubstanceMesh.Spread(_mesh, d, _shape == Shape.Fill && !tool ? _sub.Curl * 0.5f : _sub.Curl, col, seed);
+            else
+            {
+                float curl = _shape == Shape.Fill && !tool ? _sub.Curl * 0.5f : _sub.Curl;
+                float depth = _sub.SmearDepth * (_shape == Shape.Fill && !tool ? _sub.CookwareRelief : 1f);
+                if (tool) FoodSubstanceMesh.ButterSmear(_mesh, d, curl, col, seed);
+                else FoodSubstanceMesh.Butter(_mesh, d, curl, _sub.Smears, depth, col, seed);
+            }
+            FoodSubstanceMesh.SpoilK = 0f;
+            Material m = _sub.GetMaterial();
+            if (m != null) _mr.sharedMaterial = m;
+            _mr.enabled = true;
+            Radius = Mathf.Max(d.Rx, d.Rz);
+            Height = d.H;
+
+            if (tool && before <= 0.001f)
+            {
+                PickBladeAxis();                                                  // зачерпнули на пустое полотно
+                if (_subLogged != _sub)
+                {
+                    _subLogged = _sub;
+                    Transform root = transform.root;
+                    Debug.Log($"[Вещества] полотно «{root.name}»: «{_sub.Title}» — горка {d.Rx * 2f:0.###}×{d.Rz * 2f:0.###}×{d.H:0.###} м " +
+                              $"(полотно {_footprint.x * 2f:0.###}×{_footprint.y * 2f:0.###}), нормаль полотна — ось {_bladeAxis}", this);
+                }
+            }
+            if (before < 0f || !Application.isPlaying) return;
+            float wk = WorldK;
+            Vector3 top = transform.position + Vector3.up * d.H * wk;
+            float size = Mathf.Max(d.Rx, d.Rz) * 2f * wk;
+            if (portions > before + 0.01f)
+            {
+                KickSub(0.8f);
+                if (tool) FoodSubstanceFx.Scoop(_sub, top, col, size);
+                else FoodSubstanceFx.Drop(_sub, top, col, size);
+            }
+            else if (portions < before - 0.01f)
+            {
+                KickSub(-1f);
+                if (!tool) FoodSubstanceFx.Scoop(_sub, top, col, size);
+            }
+        }
+
+        /// <summary>Размеры горки вещества: на полу и на полотне — горка, в таре — заполнение по дну.</summary>
+        private FoodSubstanceMesh.Dims SubstanceDims(float portions)
+        {
+            var d = new FoodSubstanceMesh.Dims();
+            d.RectN = 2f;
+            float volume = portions * _portionVolume;
+            bool tool = OnTool;
+            if (_shape == Shape.Mound || tool)
+            {
+                float slope = Mathf.Max(0.1f, _sub.FloorSlope * (tool ? _sub.BladeHeight : 1f));
+                // параболоид: V = π/2 · R² · H,  H = slope · R
+                float r = Mathf.Pow(2f * volume / (Mathf.PI * slope), 1f / 3f);
+                float rx = r, rz = r, h = slope * r;
+                if (tool)
+                {
+                    // v18.2: на полотне — горка ПО ФОРМЕ ПОЛОТНА и крупная: всегда не меньше BladeCover
+                    // полотна (больше половины), растёт до краёв; объём — с запасом (только вид)
+                    float fx = Mathf.Max(0.005f, _footprint.x * 0.94f), fz = Mathf.Max(0.005f, _footprint.y * 0.94f);
+                    float m = Mathf.Min(fx, fz), big = Mathf.Max(fx, fz);
+                    float vol = volume * _sub.BladeVolume;
+                    float rv = Mathf.Pow(2f * vol / (Mathf.PI * slope), 1f / 3f);
+                    float grow = Mathf.Clamp01(rv / big);
+                    float cover = Mathf.Lerp(_sub.BladeCover, 1f, grow);
+                    rx = fx * cover; rz = fz * cover;
+                    h = 2f * vol / (Mathf.PI * rx * rz);
+                    h = Mathf.Clamp(h, m * 0.35f, Mathf.Max(slope * m * 1.15f, m * 0.4f));
+                    d.RectN = Mathf.Lerp(2.6f, _fillRect ? Mathf.Clamp(_rectSharpness, 2.6f, 5f) : 2.6f, grow);
+                }
+                d.Rx = rx; d.Rz = rz; d.H = h; d.Edge = 0f;
+                return d;
+            }
+
+            float fxr = Mathf.Max(_footprint.x, _voxel), fzr = Mathf.Max(_footprint.y, _voxel);
+            FillMoments(out float aK, out float mom);
+            float area = aK * fxr * fzr;
+            float centre, edge;
+            if (_fillCapacity > 0) FillShape(Mathf.Clamp01(portions / _fillCapacity), out centre, out edge);
+            else FillFromVolume(volume, area, mom, out centre, out edge);
+            float hh = centre;
+            float minH = _voxel * 2f;
+            if (hh < minH)
+            {
+                float k = Mathf.Sqrt(Mathf.Max(0.05f, hh / minH));
+                fxr *= k; fzr *= k; hh = minH;
+            }
+            d.Rx = fxr; d.Rz = fzr; d.H = hh;
+            d.Edge = centre > 1e-5f ? Mathf.Clamp(edge / centre, 0.05f, 1f) : 0.5f;
+            d.RectN = _fillRect ? _rectSharpness : 2f;
+            return d;
+        }
+
+        // ═════════════════════ v18.4: ПОЛОТНО ЛОПАТЫ/МАСТЕРКА — САМ ===========
+        //
+        // Горка на полотне сама смотрит, что лежит на лопате (поля ScoopItem: продукт, состояние,
+        // количество), и если у продукта есть профиль вещества — рисует его, прячет кубик
+        // («BladePiece (auto)») и не слушает старые вызовы. Так вид не зависит от версии ScoopItem.
+
+        [System.NonSerialized] private bool _toolOverride, _fromPoll, _pollTried, _pollLogged;
+        [System.NonSerialized] private MonoBehaviour _scoop;
+        [System.NonSerialized] private System.Reflection.FieldInfo _fProd, _fState, _fCount;
+        [System.NonSerialized] private int _pollProd = -1, _pollState = -1, _pollCount = -1;
+
+        private static int SyncInt(System.Reflection.FieldInfo f, object owner)
+        {
+            if (f == null || owner == null) return -1;
+            object sv = f.GetValue(owner);
+            if (sv == null) return -1;
+            System.Reflection.PropertyInfo pv = sv.GetType().GetProperty("Value");
+            object v = pv != null ? pv.GetValue(sv, null) : sv;
+            try { return System.Convert.ToInt32(v); } catch { return -1; }
+        }
+
+        private void ToolPoll()
+        {
+            if (!_pollTried)
+            {
+                _pollTried = true;
+                foreach (MonoBehaviour mb in GetComponentsInParent<MonoBehaviour>(true))
+                    if (mb != null && mb.GetType().Name == "ScoopItem") { _scoop = mb; break; }
+                if (_scoop != null)
+                {
+                    var fl = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public;
+                    System.Type ty = _scoop.GetType();
+                    _fProd = ty.GetField("_loadProduct", fl);
+                    _fState = ty.GetField("_loadState", fl);
+                    _fCount = ty.GetField("_loadCount", fl);
+                }
+                bool ok = _scoop != null && _fProd != null && _fCount != null;
+                Debug.Log(ok ? $"[Вещества] полотно «{transform.root.name}»: горка v18.4 подключена — масло/порошок рисуются по профилю, горка лежит на полотне"
+                             : $"[Вещества] полотно «{transform.root.name}»: не нашёл у лопаты поля _loadProduct/_loadCount — вид по профилю на полотне не включится (пришли ScoopItem)", this);
+            }
+            if (_scoop == null || _fProd == null || _fCount == null) return;
+            int prod = SyncInt(_fProd, _scoop), st = Mathf.Max(0, SyncInt(_fState, _scoop)), cnt = Mathf.Max(0, SyncInt(_fCount, _scoop));
+            if (_toolOverride) HideBladePiece();
+            if (prod == _pollProd && st == _pollState && cnt == _pollCount) return;
+            _pollProd = prod; _pollState = st; _pollCount = cnt;
+
+            FoodDatabase db = FoodDatabase.Instance;
+            ProductDef def = db != null && prod > 0 ? db.Get((ushort)prod) : null;
+            FoodSubstance sub = def != null ? FoodSubstance.Of(def, (FoodState)st) : null;
+            bool own = sub != null && sub.OwnLook && cnt > 0;
+            if (!own)
+            {
+                if (_toolOverride)
+                {
+                    _toolOverride = false;              // дальше — как раньше (ScoopItem сам зовёт Show)
+                    SetSubstance(null);
+                    _fromPoll = true;
+                    if (cnt > 0 && def != null) FoodHeapLook.Apply(this, def, (FoodState)st);
+                    Show(cnt, FoodColors.Of(def, (FoodState)st), _shownSeed);
+                    _fromPoll = false;
+                }
+                return;
+            }
+            _toolOverride = true;
+            if (!_pollLogged || _sub != sub)
+            {
+                _pollLogged = true;
+                Debug.Log($"[Вещества] полотно «{transform.root.name}»: «{def.Title}» ×{cnt} → профиль «{sub.Title}»", this);
+            }
+            FishNet.Object.NetworkBehaviour nb = _scoop as FishNet.Object.NetworkBehaviour;
+            int seed = nb != null && nb.IsSpawned ? nb.ObjectId * 31 + 5 : 3;
+            _fromPoll = true;
+            FoodHeapLook.Apply(this, def, (FoodState)st);
+            SetSubstance(sub);
+            Show(cnt, FoodColors.Of(def, (FoodState)st), seed);
+            _fromPoll = false;
+            HideBladePiece();
+        }
+
+        private void HideBladePiece()
+        {
+            Transform bp = transform.Find("BladePiece (auto)");
+            if (bp != null && bp.gameObject.activeSelf) bp.gameObject.SetActive(false);
+        }
+
+        // v18.2: горка ЛЕЖИТ на полотне (поворачивается вместе с ним), а не стоит «вверх по миру»
+        [System.NonSerialized] private bool _bladeAxisSet;
+        [System.NonSerialized] private FoodSubstance _subLogged;
+        [System.NonSerialized] private Vector3 _bladeAxis = Vector3.up;
+
+        /// <summary>Какая ось Blade — «нормаль полотна»: та, что смотрела вверх, когда зачерпнули (обычно Y).</summary>
+        private void PickBladeAxis()
+        {
+            Vector3[] axes = { Vector3.up, Vector3.down, Vector3.right, Vector3.left, Vector3.forward, Vector3.back };
+            float best = Vector3.Dot(transform.up, Vector3.up);
+            _bladeAxis = Vector3.up;
+            if (best < 0.5f)
+                for (int i = 1; i < axes.Length; i++)
+                {
+                    float d = Vector3.Dot(transform.TransformDirection(axes[i]), Vector3.up);
+                    if (d > best) { best = d; _bladeAxis = axes[i]; }
+                }
+            _bladeAxisSet = true;
+        }
+
+        private void GlueToBlade()
+        {
+            if (!_bladeAxisSet) PickBladeAxis();
+            _mf.transform.localRotation = Quaternion.FromToRotation(Vector3.up, _bladeAxis);
+        }
+
+        private void KickSub(float s)
+        {
+            if (_sub == null) return;
+            float j = Mathf.Max(0.05f, _sub.Jiggle);
+            _subSquashVel += s * 2.2f * j;
+            _tiltVel += Random.insideUnitCircle * Mathf.Abs(s) * 0.8f * j;
+        }
+
+        private void UpdateSubstance()
+        {
+            float dt = Time.deltaTime;
+            if (dt <= 1e-5f || _sub == null) { ApplyFrame(Vector3.one); return; }
+            Vector3 pos = transform.position;
+            if (!_subTracked) { _subTracked = true; _subPrevPos = pos; _subPrevVel = Vector3.zero; _subAcc = Vector3.zero; }
+            Vector3 vel = (pos - _subPrevPos) / dt;
+            Vector3 acc = (vel - _subPrevVel) / dt;
+            _subPrevPos = pos; _subPrevVel = vel;
+            if (vel.sqrMagnitude > 900f) acc = Vector3.zero;                    // телепорт / спавн
+            _subAcc = Vector3.Lerp(_subAcc, acc, 1f - Mathf.Exp(-dt * 20f));    // сгладить сетевые рывки
+
+            // дрожь: верх отстаёт от рывка (наклон), от вертикального рывка — приседает
+            float jig = _sub.Jiggle;
+            Vector2 target = Vector2.ClampMagnitude(new Vector2(-_subAcc.x, -_subAcc.z) * 0.012f * jig, 0.35f);
+            float sq = Mathf.Clamp(-_subAcc.y * 0.004f * jig, -0.25f, 0.25f);
+            float k = Mathf.Lerp(320f, 90f, jig), damp = Mathf.Lerp(20f, 6f, jig);
+            int n = Mathf.Clamp(Mathf.CeilToInt(dt / 0.008f), 1, 8);
+            float h = dt / n;
+            for (int i = 0; i < n; i++)
+            {
+                Vector2 a = (target - _tilt) * k - _tiltVel * damp;
+                _tiltVel += a * h; _tilt += _tiltVel * h;
+                float sa = (sq - _subSquash) * k - _subSquashVel * damp;
+                _subSquashVel += sa * h; _subSquash += _subSquashVel * h;
+            }
+            _tilt = Vector2.ClampMagnitude(_tilt, 0.4f);
+            _subSquash = Mathf.Clamp(_subSquash, -0.3f, 0.3f);
+            ApplyFrame(new Vector3(1f - _subSquash * 0.5f, 1f + _subSquash, 1f - _subSquash * 0.5f));
+            if (OnTool) GlueToBlade();
+            Vector3 ax = new Vector3(_tilt.y, 0f, -_tilt.x);
+            float ang = ax.magnitude * Mathf.Rad2Deg;
+            if (ang > 0.01f) _mf.transform.rotation = Quaternion.AngleAxis(ang, ax / ax.magnitude) * _mf.transform.rotation;
+
+            if (_shownPortions <= 0.001f || !_mr.enabled) return;
+            float wk = WorldK;
+            // капли/крошки с края полотна, когда дёргаешь (только вид)
+            _dripCd -= dt;
+            if (_sub.EdgeDrips && OnTool && _dripCd <= 0f && _subAcc.magnitude > _sub.DripShake)
+            {
+                _dripCd = Random.Range(0.12f, 0.3f);
+                Vector3 side = Vector3.ProjectOnPlane(-_subAcc, Vector3.up);
+                side = side.sqrMagnitude > 1e-6f ? side.normalized : Random.onUnitSphere;
+                Vector3 at = pos + side * Radius * wk * 0.9f + Vector3.up * Height * wk * 0.3f;
+                float ds = Mathf.Max(0.006f, Radius * 2f * wk * _sub.DripSize);
+                FoodSubstanceFx.Drip(_sub, at, vel + side * 0.3f, _sub.ColorFor(_shownColor), ds);
+            }
+            // лёгкий пар
+            _steamCd -= dt;
+            if (_sub.Steam && _steamCd <= 0f)
+            {
+                _steamCd = Random.Range(0.5f, 1f);
+                FoodSubstanceFx.Steam(pos + Vector3.up * Height * wk + Random.insideUnitSphere * Radius * wk * 0.4f, Radius * wk);
+            }
+        }
+
         // ═════════════════════ ВЯЗКОСТЬ ═════════════════════
         //
         // Масса не пересчитывается каждый кадр (это дорого) — её растекание и
@@ -1859,6 +2248,15 @@ namespace CatCooks.Food
         public void SpawnDrops(Vector3 worldPoint, Vector3 outward, int count)
         {
             if (count <= 0 || _shownPortions < 0f) return;
+            if (_subOn && _sub != null)
+            {
+                // v18: капли/крошки — по веществу (комочки масла, крошки порошка)
+                Color sc = _sub.ColorFor(_shownColor);
+                float ds = Mathf.Max(0.006f, Radius * 2f * _sub.DripSize);
+                for (int i = 0; i < count; i++)
+                    FoodSubstanceFx.Drip(_sub, worldPoint + Random.insideUnitSphere * ds, outward * Random.Range(0.3f, 0.7f) + Vector3.up * 0.4f, sc, ds);
+                return;
+            }
             bool mass = _grain != Grain.Particles && _grain != Grain.Cubes && _grain != Grain.Shreds;
             Mesh mesh;
             Material mat;
@@ -2252,7 +2650,7 @@ namespace CatCooks.Food
             // увеличиваются (иначе дыры), а границы сетки пересчитываются под них
             // (иначе поверхность обрежется сверху — тоже дыры).
             float pad = 0f;
-            Vector3 min = default, max = default;
+            Vector3 min = default(Vector3), max = default(Vector3);
             int nx = 0, ny = 0, nz = 0;
             for (int pass = 0; pass < 2; pass++)
             {

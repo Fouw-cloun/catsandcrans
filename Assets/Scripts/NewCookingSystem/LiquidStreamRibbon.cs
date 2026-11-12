@@ -48,6 +48,8 @@ namespace CatCooks.Food
             public Vector3 Across;                   // направление кромки
             public bool Hit;
             public CookwareLiquidVisual Dive;       // летит внутрь тары — ищем поверхность жидкости
+            public Vector3 Checked;                  // v10.4: откуда считать следующий луч (лучи через кадр)
+            public bool HasChecked;
         }
 
         private Mesh _mesh;
@@ -91,6 +93,27 @@ namespace CatCooks.Food
 
         /// <summary>Характер жидкости. null — подбирается по цвету.</summary>
         public LiquidPourProfile Profile;
+        /// <summary>
+        /// v7: «шланг» — струя к концу не сужается, а расширяется конусом:
+        /// 0 — как раньше, 1 — к концу вдвое толще, 2 — втрое.
+        /// </summary>
+        public float Flare;
+        /// <summary>v7: брызг-капель в секунду, слетающих с толстой части струи (как у шланга). 0 — нет.</summary>
+        public float SprayPerSecond;
+        private float _sprayAcc;
+        /// <summary>
+        /// v9: «вес» струи — множитель тяжести для узлов (1 — как раньше). Тяжелее — струя
+        /// падает круче, ровнее, не болтается. Хозяин должен считать падение с тем же множителем.
+        /// </summary>
+        public float GravityScale = 1f;
+        /// <summary>v9: цельность 0..1 — меньше дрожи, разрывов хвоста и «ломкости» (1 — ровный жгут).</summary>
+        public float Steady;
+        /// <summary>v10: полосы пены по струе (как у водопада): &lt;0 — сами (молоко — да), 0 — нет, 0..1 — сила.</summary>
+        public float Bands = -1f;
+        /// <summary>v10: пенные комочки в месте падения, в секунду (0 — нет).</summary>
+        public float LandingFoam = 14f;
+        private float _foamAcc;
+        private static readonly int BandsId = Shader.PropertyToID("_Bands");
         private Vector3 _lipTangent;
         private float _lipWidth;
         private LiquidImpactFx.FoamPatch _patch;
@@ -130,7 +153,12 @@ namespace CatCooks.Food
             _mpb = new MaterialPropertyBlock();
             _splash = LiquidFx.CreateStream(transform, 0.022f, 1.2f);
             _patch = new LiquidImpactFx.FoamPatch(transform);
+            // v9.2: точка падения — за ней едут корона и «след рикошета»
+            _impactAnchor = new GameObject("ImpactAnchor") { hideFlags = HideFlags.DontSave }.transform;
+            _impactAnchor.SetParent(transform, false);
         }
+
+        private Transform _impactAnchor;
 
         /// <summary>
         /// Слив широким краем (ведро, кастрюля, противень): tangent — направление кромки,
@@ -141,6 +169,9 @@ namespace CatCooks.Food
             _lipTangent = tangent;
             _lipWidth = Mathf.Max(0f, lipWidth);
         }
+
+        /// <summary>Для прогрева шейдеров (LiquidFx.Warmup).</summary>
+        public static Material WarmupMaterial => Mat;
 
         private static Material Mat
         {
@@ -190,7 +221,7 @@ namespace CatCooks.Food
             }
             _lastStart = start; _hasLast = true;
             // Скорость вылета сглажена: рывки кромки не ломают струю.
-            _velS = _nodes.Count == 0 || !on ? velocity : Vector3.Lerp(_velS, velocity, 1f - Mathf.Exp(-dt / 0.06f));
+            _velS = _nodes.Count == 0 || !on ? velocity : Vector3.Lerp(_velS, velocity, 1f - Mathf.Exp(-dt / Mathf.Lerp(0.06f, 0.18f, Steady)));
 
             float r0 = width * 0.5f * Mathf.SmoothStep(0f, 1f, _amount);
 
@@ -202,14 +233,14 @@ namespace CatCooks.Food
                 while (_emitAcc >= EmitDt && guard++ < 6)
                 {
                     _emitAcc -= EmitDt;
-                    Vector3 v0 = _velS + _srcVel * 0.85f;
+                    Vector3 v0 = _velS + _srcVel * Mathf.Lerp(0.85f, 0.45f, Steady);   // v9: тяжёлая меньше «хлещет» от рывков
                     float pre = _emitAcc;                                   // догнать остаток кадра
                     Vector3 across = lipT.sqrMagnitude > 1e-6f ? lipT.normalized : Vector3.Cross(v0.sqrMagnitude > 1e-6f ? v0.normalized : Vector3.down, Vector3.up);
                     if (across.sqrMagnitude < 1e-6f) across = Vector3.right;
                     var n = new Node
                     {
-                        P = start + v0 * pre + 0.5f * Physics.gravity * pre * pre,
-                        V = v0 + Physics.gravity * pre,
+                        P = start + v0 * pre + 0.5f * Physics.gravity * GravityScale * pre * pre,
+                        V = v0 + Physics.gravity * GravityScale * pre,
                         R0 = r0, Speed0 = Mathf.Max(0.2f, v0.magnitude), Arc = _arc, Age = pre,
                         W0 = Mathf.Max(r0 * 2f, lipW * Mathf.SmoothStep(0f, 1f, _amount)),
                         Across = across.normalized,
@@ -231,8 +262,8 @@ namespace CatCooks.Food
                 n.Age += dt;
                 if (n.Hit) { n.HitAge += dt; _nodes[i] = n; if (firstHit < 0) firstHit = i; continue; }
                 Vector3 prev = n.P;
-                n.V += Physics.gravity * dt;
-                n.V *= 1f - 0.08f * dt;                                     // лёгкое сопротивление воздуха
+                n.V += Physics.gravity * GravityScale * dt;
+                n.V *= 1f - 0.08f * dt * (1f - Steady * 0.8f);              // лёгкое сопротивление воздуха (тяжёлой — меньше)
                 n.P += n.V * dt;
 
                 if (n.Dive != null)
@@ -243,11 +274,15 @@ namespace CatCooks.Food
                         Land(ref n, Vector3.up, true);
                     }
                 }
-                else
+                else if (((Time.frameCount + i) & 1) == 0 || i >= _nodes.Count - 3)
                 {
-                    Vector3 seg = n.P - prev;
+                    // v10.4: луч у каждого узла — через кадр (от прошлой проверки, поэтому без пропусков);
+                    // последние узлы хвоста — каждый кадр (они и падают)
+                    Vector3 from = n.HasChecked ? n.Checked : prev;
+                    n.Checked = n.P; n.HasChecked = true;
+                    Vector3 seg = n.P - from;
                     float len = seg.magnitude;
-                    if (len > 1e-6f && Hit(prev, seg / len, len, ignore, out RaycastHit h, out CookwareLiquidVisual dive))
+                    if (len > 1e-6f && Hit(from, seg / len, len, ignore, out RaycastHit h, out CookwareLiquidVisual dive))
                     {
                         if (dive != null && dive.TryGetSurfaceY(h.point, out float sy) && sy < h.point.y - 0.005f)
                         {
@@ -277,12 +312,33 @@ namespace CatCooks.Food
             _dropT -= dt;
             if (_nodes.Count > 6 && _dropT <= 0f && prof.DropsPerSecond > 0.01f)
             {
-                _dropT = Random.Range(0.6f, 1.4f) / Mathf.Max(0.1f, prof.DropsPerSecond);
+                _dropT = Random.Range(0.6f, 1.4f) / Mathf.Max(0.1f, prof.DropsPerSecond * (1f - 0.7f * Steady));
                 Node n = _nodes[Random.Range(_nodes.Count / 3, _nodes.Count)];
                 if (!n.Hit)
                     LiquidFx.Drop(n.P + Random.insideUnitSphere * n.R0, n.V + Random.insideUnitSphere * 0.25f,
                                   Mathf.Max(0.004f, n.R0 * Random.Range(0.4f, 0.8f)), color, 0.6f);
             }
+
+            // ── v7: брызги со струи — чем дальше от носика, тем шире разлёт ──
+            if (on && SprayPerSecond > 0f && _nodes.Count > 4)
+            {
+                _sprayAcc += dt * SprayPerSecond * _amount * (1f - visc * 0.6f);
+                int ns = Mathf.Min(8, (int)_sprayAcc);
+                _sprayAcc -= ns;
+                for (int k = 0; k < ns; k++)
+                {
+                    float u = Mathf.Sqrt(Random.value);                          // чаще к концу
+                    int idx = Mathf.Clamp((int)(u * (_nodes.Count - 1)), 0, _nodes.Count - 1);
+                    Node sn = _nodes[idx];
+                    if (sn.Hit) continue;
+                    Vector3 fwd = sn.V.sqrMagnitude > 1e-6f ? sn.V.normalized : Vector3.down;
+                    Vector3 side = Vector3.ProjectOnPlane(Random.onUnitSphere, fwd).normalized;
+                    float rr = sn.R0 * FlareK(sn.Age);
+                    LiquidFx.Drop(sn.P + side * rr * 1.05f, sn.V * Random.Range(0.85f, 1.05f) + side * Random.Range(0.25f, 0.8f) * (0.4f + u),
+                                  Mathf.Max(0.005f, sn.R0 * Random.Range(0.35f, 0.7f)), color, Random.Range(0.35f, 0.6f));
+                }
+            }
+            else _sprayAcc = 0f;
 
             bool visible = _nodes.Count >= 1 && (on || _nodes.Count >= 2);
             _mr.enabled = visible;
@@ -303,16 +359,55 @@ namespace CatCooks.Food
 
             // ── удар: корона-всплеск пульсами + пенное пятно (размер — от силы удара) ──
             float hitR = Mathf.Max(0.006f, r0 * 0.6f) * impactScale;
+            if (_impactAnchor != null && Landed) _impactAnchor.position = LandingPoint;
             if (Landed && on)
             {
                 _crownT -= dt;
                 if (_crownT <= 0f)
                 {
                     _crownT = Mathf.Lerp(0.09f, 0.3f, visc) * Random.Range(0.8f, 1.25f);
-                    LiquidImpactFx.Crown(LandingPoint, _landNormal, hitR, prof, color);
+                    LiquidImpactFx.Crown(LandingPoint, _landNormal, hitR, prof, color, _impactAnchor);
                 }
             }
             _patch.Tick(Landed && on, LandingPoint, _landNormal, hitR, prof, color, dt);
+
+            // v10: пена в месте падения — объёмные комочки кольцом (как пена под водопадом)
+            if (Landed && on && LandingFoam > 0f)
+            {
+                _foamAcc += dt * LandingFoam * _amount * (1f - visc * 0.5f);
+                int nf = Mathf.Min(6, (int)_foamAcc);
+                _foamAcc -= nf;
+                Vector3 nrm = _landNormal;
+                Color fc = Color.Lerp(color, Color.white, 0.6f);
+                for (int k = 0; k < nf; k++)
+                {
+                    Vector3 hd = Vector3.ProjectOnPlane(Random.onUnitSphere, nrm);
+                    if (hd.sqrMagnitude < 1e-6f) continue;
+                    hd.Normalize();
+                    float sz = hitR * Random.Range(0.7f, 1.6f);
+                    LiquidFx.Poof(LandingPoint + hd * hitR * Random.Range(0.8f, 1.6f) + nrm * sz * 0.2f,
+                                  hd * Random.Range(0.25f, 0.6f) + nrm * Random.Range(0.1f, 0.35f), sz, fc, Random.Range(0.35f, 0.6f));
+                }
+                // веер быстрых вытянутых брызг (как в splash-туториале)
+                if (Random.value < dt * 10f)
+                {
+                    int ns = Random.Range(2, 5);
+                    for (int k = 0; k < ns; k++)
+                    {
+                        Vector3 hd = Vector3.ProjectOnPlane(Random.onUnitSphere, nrm).normalized;
+                        LiquidFx.Jet(LandingPoint + nrm * 0.01f, (hd * Random.Range(0.6f, 1.2f) + nrm * Random.Range(1.2f, 2.2f)) * (0.7f + _impactK * 0.6f),
+                                     Mathf.Max(0.006f, hitR * Random.Range(0.25f, 0.45f)), color, Random.Range(0.3f, 0.5f));
+                    }
+                }
+            }
+            else _foamAcc = 0f;
+        }
+
+        /// <summary>v7: во сколько раз толще струя у узла этого возраста (конус «шланга»).</summary>
+        private float FlareK(float age)
+        {
+            if (Flare <= 0f) return 1f;
+            return 1f + Flare * Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(age / 0.45f));
         }
 
         private void ApplyLook(LiquidPourProfile prof, Color liquid)
@@ -329,9 +424,16 @@ namespace CatCooks.Food
             _mpb.SetFloat(StreakAmtId, prof.StreakAmount);
             _mpb.SetFloat(LipFoamId, prof.LipFoam);
             _mpb.SetFloat(BottomFoamId, prof.BottomFoam);
-            _mpb.SetFloat(BreakUpId, prof.BreakUp);
-            _mpb.SetFloat(WobbleId, prof.Wobble);
+            _mpb.SetFloat(BreakUpId, prof.BreakUp * (1f - Steady));
+            _mpb.SetFloat(WobbleId, prof.Wobble * (1f - 0.8f * Steady));
             _mpb.SetFloat(GlossId, prof.Gloss);
+            float bands = Bands;
+            if (bands < 0f)
+            {
+                Color.RGBToHSV(liquid, out float hh, out float ss, out float vv);
+                bands = vv > 0.78f && ss < 0.3f ? 0.55f : 0f;                     // молоко/сливки — полосы
+            }
+            _mpb.SetFloat(BandsId, bands);
             _mr.SetPropertyBlock(_mpb);
         }
 
@@ -355,7 +457,7 @@ namespace CatCooks.Food
         private bool Hit(Vector3 from, Vector3 dir, float len, Transform ignore, out RaycastHit best, out CookwareLiquidVisual dive)
         {
             int n = Physics.RaycastNonAlloc(from, dir, _hits, len, ~0, QueryTriggerInteraction.Collide);
-            best = default;
+            best = default(RaycastHit);
             dive = null;
             float bd = float.MaxValue;
             bool found = false;
@@ -390,8 +492,10 @@ namespace CatCooks.Food
             {
                 Node n = _nodes[i];
                 // Разгоняется — тоньше (сохранение расхода), не тоньше трети.
-                float thin = Mathf.Clamp(Mathf.Sqrt(n.Speed0 / Mathf.Max(0.2f, n.V.magnitude)), 0.33f, 1f);
-                if (n.Hit) { thin = 0.45f; tailHit = true; }
+                float thin = Mathf.Clamp(Mathf.Sqrt(n.Speed0 / Mathf.Max(0.2f, n.V.magnitude)), Mathf.Lerp(0.33f, 0.7f, Steady), 1f);
+                // v7: «шланг» — вместо сужения конус к концу
+                if (Flare > 0f) thin = Mathf.Lerp(thin, FlareK(n.Age), Mathf.Clamp01(Flare));
+                if (n.Hit) { thin = Flare > 0f ? Mathf.Max(0.45f, FlareK(n.Age) * 0.8f) : 0.45f; tailHit = true; }
                 // «Простыня» с края по пути сворачивается в струю (поверхностное натяжение)
                 float k = Mathf.Exp(-n.Age / Mathf.Max(0.05f, necking));
                 float w = Mathf.Lerp(n.R0 * 2f, n.W0, k) * Mathf.Lerp(thin, 1f, 0.35f);

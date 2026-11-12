@@ -1,0 +1,62 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6096c28212c4a15ace687fadc37fb31, type: 3}
+  m_Name: FoodSubstances
+  m_EditorClassIdentifier: Assembly-CSharp::CatCooks.Food.FoodSubstanceTable
+  Products:
+  - Product: {fileID: 11400000, guid: b8f60cfc546307b4a80dd9800b436c15, type: 2}
+    State: 0
+    Substance: {fileID: 11400000, guid: d057d81662587ae4381d7a26140ada4c, type: 2}
+  - Product: {fileID: 11400000, guid: b128facffd950224980d7a2a3036c3ad, type: 2}
+    State: 0
+    Substance: {fileID: 11400000, guid: 3fa80ea42a0e8514185c6ea644f393ff, type: 2}
+  - Product: {fileID: 11400000, guid: 6627430016ec7d143aac4e53d8ab38fe, type: 2}
+    State: 0
+    Substance: {fileID: 11400000, guid: 0eee35917f58e69458b89a7b273fc8f4, type: 2}
+  Names:
+  - On: 1
+    Words: "\u0442\u0451\u0440\u0442\u043E\u0435 \u043A\u0430\u043A\u0430\u043E,
+      \u0442\u0435\u0440\u0442\u043E\u0435 \u043A\u0430\u043A\u0430\u043E, \u043A\u0430\u043A\u0430\u043E-\u043F\u043E\u0440\u043E\u0448\u043E\u043A,
+      \u043A\u0430\u043A\u0430\u043E \u043F\u043E\u0440\u043E\u0448\u043E\u043A"
+    Except: 
+    State: 0
+    SkipLiquid: 0
+    Substance: {fileID: 11400000, guid: d057d81662587ae4381d7a26140ada4c, type: 2}
+  - On: 1
+    Words: "\u0441\u043B\u0438\u0432\u043E\u0447\u043D\u043E\u0435 \u043C\u0430\u0441\u043B\u043E"
+    Except: "\u0433\u043E\u0440\u0435\u043B, \u0448\u0430\u043B\u0444\u0435, \u0440\u0430\u0441\u0442\u043E\u043F\u043B\u0435\u043D"
+    State: 0
+    SkipLiquid: 1
+    Substance: {fileID: 11400000, guid: ecb37280fe2324b48bdf9edbdbf68249, type: 2}
+  - On: 0
+    Words: "\u0437\u0430\u043A\u0432\u0430\u0441\u043A, \u0441\u0430\u0445\u0430\u0440,
+      \u043C\u0443\u043A, \u0441\u043E\u043B\u044C, \u043F\u0435\u0440\u0435\u0446
+      \u043C\u043E\u043B\u043E\u0442, \u043F\u0430\u043F\u0440\u0438\u043A, \u0432\u0430\u043D\u0438\u043B,
+      \u0441\u043F\u0435\u0446\u0438, \u043A\u0440\u0430\u0445\u043C\u0430\u043B,
+      \u0434\u0440\u043E\u0436\u0436, \u0441\u043E\u0434\u0430, \u043C\u0438\u043D\u0434\u0430\u043B\u044C\u043D\u0430\u044F
+      \u0441\u043C\u0435\u0441\u044C, \u0441\u0443\u0445\u043E\u0439 \u0440\u0443\u0431,
+      \u0447\u0435\u0441\u043D\u043E\u043A \u0441\u0443\u0448"
+    Except: "\u043C\u0430\u0441\u043B\u043E, \u043F\u0430\u0441\u0442"
+    State: 0
+    SkipLiquid: 0
+    Substance: {fileID: 11400000, guid: d057d81662587ae4381d7a26140ada4c, type: 2}
+  - On: 1
+    Words: "\u0441\u043B\u0438\u0432\u043E\u0447\u043D\u043E\u0435 \u043C\u0430\u0441\u043B\u043E,
+      \u043C\u0430\u0441\u043B\u043E \u0441\u043B\u0438\u0432\u043E\u0447\u043D\u043E\u0435"
+    Except: "\u0433\u043E\u0440\u0435\u043B, \u0448\u0430\u043B\u0444\u0435, \u0440\u0430\u0441\u0442\u043E\u043F\u043B\u0435\u043D"
+    State: 0
+    SkipLiquid: 1
+    Substance: {fileID: 11400000, guid: ecb37280fe2324b48bdf9edbdbf68249, type: 2}
+  States: []
+  FloorHeapPrefab: {fileID: 2386447232289388406, guid: aaae33295fe80bf439486fd285cba16b, type: 3}
+  AutoAttachToScoops: 0
+  Log: 1

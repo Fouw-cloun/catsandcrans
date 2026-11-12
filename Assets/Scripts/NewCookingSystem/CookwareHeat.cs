@@ -77,6 +77,18 @@ namespace CatCooks.Food
         [Tooltip("Глубина дна под горловиной, м (откуда идёт дым у пустой тары)")]
         [SerializeField] private float _bottomDepth = 0.25f;
 
+        [Header("v14: марево и лёгкий пар от горячей тары")]
+        [Tooltip("Марево (воздух дрожит) над горячей тарой — и пустой, и с едой")]
+        [SerializeField] private bool _haze = true;
+        [Tooltip("С какой температуры содержимого/дна идёт марево, °C")]
+        [SerializeField] private float _hazeFromC = 70f;
+        [Tooltip("При какой температуре марево в полную силу, °C")]
+        [SerializeField] private float _hazeFullC = 220f;
+        [Range(0f, 2f)][SerializeField] private float _hazeStrength = 1f;
+        [Tooltip("Сухая (пустая) тара: с какой температуры идёт лёгкий полупрозрачный парок (до дыма), °C")]
+        [SerializeField] private float _lightWispFromC = 100f;
+        [SerializeField] private Color _lightWispColor = new Color(0.95f, 0.95f, 0.97f, 0.14f);
+
         [Header("Рецепт")]
         [Tooltip("Пока кипит — идёт шаг рецепта «Варить» (бульон)")]
         [SerializeField] private bool _recipeStep = true;
@@ -384,6 +396,7 @@ namespace CatCooks.Food
             bool syrup = SyrupOnly;                         // карамель: кипит с 160 °C, ниже — тихо
             bool liquid = HasLiquidShown() || syrup;
             float bc = BoilNowC;
+            HeatAirFx(dt, t, liquid);
 
             // Налили в раскалённую пустую кастрюлю — шипение, пар столбом.
             if (liquid && !syrup && _shownPrev > _drySmokeFromC && t <= _boilC + 5f)
@@ -503,6 +516,43 @@ namespace CatCooks.Food
                      _steamScale * Random.Range(0.9f, 1.6f), 0.6f, _steamColor);
             }
             if (_lv != null) _lv.Ripple(_cw.MouthPoint);
+        }
+
+        private SurfaceHeatGlow _glow;
+        private bool _glowChecked;
+        private float _lightWispAcc;
+
+        /// <summary>v14: марево над горячей тарой и лёгкий парок у сухой (до дыма).</summary>
+        private void HeatAirFx(float dt, float t, bool liquid)
+        {
+            if (!_glowChecked) { _glowChecked = true; _glow = GetComponent<SurfaceHeatGlow>(); }
+            float rim = _lv != null ? _lv.RadiusAtRimWorld : 0.15f * _fxScale;
+            Vector3 mouth = _cw.MouthPoint;
+            bool lid = _lid != null && _lid.HasLid;
+            if (_haze && _glow == null && t > _hazeFromC && !lid)                     // у ковша с раскалённым металлом марево рисует SurfaceHeatGlow
+            {
+                float k = Mathf.InverseLerp(_hazeFromC, _hazeFullC, t) * _hazeStrength;
+                Vector3 bottom = mouth;
+                if (liquid) { if (_lv != null && _lv.TryGetSurfaceY(mouth, out float y)) bottom.y = y; }
+                else bottom.y -= _bottomDepth * _fxScale * 0.7f;                     // пустая — от дна
+                CCHeatFx.Haze(bottom, rim * 2.2f, rim * 3.2f + (mouth.y - bottom.y), k * (liquid ? 0.6f : 1f));
+            }
+            if (!liquid && !lid && t > _lightWispFromC && t <= _drySmokeFromC + 40f)
+            {
+                float k = Mathf.InverseLerp(_lightWispFromC, _drySmokeFromC + 40f, t);
+                _lightWispAcc += dt * (0.8f + 2.2f * k);
+                if (_lightWispAcc >= 1f)
+                {
+                    _lightWispAcc -= 1f;
+                    Vector2 d = Random.insideUnitCircle * rim * 0.55f;
+                    Vector3 at = mouth + new Vector3(d.x, -_bottomDepth * _fxScale * 0.5f, d.y);
+                    float s = rim * Random.Range(0.5f, 0.9f);
+                    Color c = _lightWispColor; c.a *= 0.6f + 0.8f * k;
+                    CCHeatFx.Wisp(at, new Vector3(Random.Range(-0.03f, 0.03f), Random.Range(0.2f, 0.4f), Random.Range(-0.03f, 0.03f)) * Mathf.Sqrt(_fxScale),
+                                  s, c, Random.Range(1.1f, 1.7f));
+                }
+            }
+            else _lightWispAcc = 0f;
         }
 
         private void EmitDrySmoke(float k)

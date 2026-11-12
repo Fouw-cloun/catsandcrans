@@ -15,6 +15,7 @@ MonoBehaviour:
   Title: "\u041A\u0430\u0440\u0430\u043C\u0435\u043B\u044C"
   Driver: 0
   Base: {fileID: 11400000, guid: b128facffd950224980d7a2a3036c3ad, type: 2}
+  BaseState: 0
   BaseAmount: 3
   BaseUnit: 2
   BaseFillsContainer: 0
@@ -32,3 +33,4 @@ MonoBehaviour:
     VolumeK: 0
   Result: {fileID: 11400000, guid: 903449d94f619314795de7bc31295223, type: 2}
   IsMistake: 0
+  MeasureVersion: 2

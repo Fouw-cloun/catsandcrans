@@ -15,10 +15,13 @@ MonoBehaviour:
   Title: "\u0421\u043B\u0438\u0432\u043E\u0447\u043D\u043E\u0435 \u043C\u0430\u0441\u043B\u043E"
   Driver: 1
   Base: {fileID: 11400000, guid: 87f8b892b2c188b4191c8617b50be2f7, type: 2}
+  BaseState: 0
   BaseAmount: 1
   BaseUnit: 1
   BaseFillsContainer: 1
   BaseMinFill: 0.9
+  PerContainer: 0
+  OnlyBaseBecomesResult: 0
   Ingredients: []
   OrderMatters: 0
   OnlyThese: 1
@@ -27,4 +30,7 @@ MonoBehaviour:
   - Kind: 6
     Seconds: 30
     Intermediate: {fileID: 0}
+    VolumeK: 0
   Result: {fileID: 11400000, guid: 937a21879cdc07442baec95c58d5e01e, type: 2}
+  IsMistake: 0
+  MeasureVersion: 2

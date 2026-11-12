@@ -80,6 +80,25 @@ namespace CatCooks.Food
         [Tooltip("Сколько раз в секунду перекрашивать")]
         [Range(5f, 60f)][SerializeField] private float _updateRate = 20f;
 
+        [Header("v14: равномерный нагрев, марево, лёгкий пар")]
+        [Tooltip("Металл прогревается ровнее: тепло быстрее расходится от пятна (× к Spread, с подшагами — без «рябы»)")]
+        [Range(1f, 8f)][SerializeField] private float _spreadBoost = 3f;
+        [Tooltip("Весь ковш понемногу выравнивается к средней температуре (1/с): холодные края подтягиваются, пятно не «скачет»")]
+        [Range(0f, 2f)][SerializeField] private float _evenness = 0.35f;
+        [Tooltip("Пятно от струи мягче и шире (0 — как было, 1 — заметно шире)")]
+        [Range(0f, 1f)][SerializeField] private float _softSpot = 0.5f;
+        [Tooltip("Ступеньки цвета мягче (вместо Toon Bands). Меньше — ровнее покраснение")]
+        [Range(0f, 1f)][SerializeField] private float _toonBandsV14 = 0.3f;
+        [Tooltip("Марево (искажение воздуха) над горячим металлом")]
+        [SerializeField] private bool _haze = true;
+        [Tooltip("С какой доли шкалы нагрева идёт марево")]
+        [Range(0f, 1f)][SerializeField] private float _hazeFrom = 0.12f;
+        [Range(0f, 2f)][SerializeField] private float _hazeStrength = 1f;
+        [Tooltip("Лёгкий пар/дымок от раскалённого металла")]
+        [SerializeField] private bool _heatWisps = true;
+        [Range(0f, 1f)][SerializeField] private float _wispsFrom = 0.3f;
+        [SerializeField] private Color _wispColor = new Color(0.92f, 0.92f, 0.95f, 0.16f);
+
         [Header("Отладка")]
         [SerializeField] private bool _debugHud = true;
         [SerializeField] private bool _log = true;
@@ -116,6 +135,9 @@ namespace CatCooks.Food
         private ParticleSystem _lick;
         private float _lickAcc;
         private readonly RaycastHit[] _castHits = new RaycastHit[24];
+        private bool _lickStylized;
+        private int _hotIdx = -1;
+        private float _meanHeat, _wispAcc;
 
         /// <summary>Самая горячая точка, 0..1.</summary>
         public float MaxHeat01 => _maxHeat;
@@ -201,7 +223,7 @@ namespace CatCooks.Food
 
             // Где полость (жар отсюда идёт внутрь).
             Collider recv = _cw != null ? _cw.InsideVolume : null;
-            Bounds cav = default;
+            Bounds cav = default(Bounds);
             bool hasCav = recv != null;
             if (hasCav) { cav = recv.bounds; cav.Expand(_contactMargin * _sizeWorld * 2f); }
             float mouthY = _cw != null ? _cw.MouthPoint.y : float.MaxValue;
@@ -320,6 +342,32 @@ namespace CatCooks.Food
 
         // ───────────────────────── КАДР ─────────────────────────
 
+        // v17: для реакции игрока на жар (FireFlinch)
+        public static readonly List<SurfaceHeatGlow> All = new List<SurfaceHeatGlow>();
+        private void OnEnable() { if (!All.Contains(this)) All.Add(this); }
+        private void OnDisable() { All.Remove(this); }
+        /// <summary>Самая горячая точка (мир). false — холодный.</summary>
+        public bool TryHotPoint(out Vector3 p)
+        {
+            p = transform.position;
+            if (!_ready || _hotIdx < 0 || _maxHeat <= 0.01f) return false;
+            p = CellWorld(_hotIdx);
+            return true;
+        }
+        /// <summary>Габарит металла (мир).</summary>
+        public bool TryBounds(out Bounds b)
+        {
+            b = new Bounds(transform.position, Vector3.zero);
+            bool any = false;
+            if (_surfaces != null)
+                foreach (Renderer r in _surfaces)
+                {
+                    if (r == null) continue;
+                    if (!any) { b = r.bounds; any = true; } else b.Encapsulate(r.bounds);
+                }
+            return any;
+        }
+
         private void Update()
         {
             if (!_ready) return;
@@ -336,6 +384,7 @@ namespace CatCooks.Food
                 Repaint();
             }
             ServerFeedContents();
+            HeatAir(dt);
         }
 
         private void HeatFromJets(float dt)
@@ -374,7 +423,7 @@ namespace CatCooks.Food
             int n = Physics.SphereCastNonAlloc(o, r, d, _castHits, L, ~0, QueryTriggerInteraction.Ignore);
             float best = float.MaxValue;
             Collider bestC = null;
-            RaycastHit bestH = default;
+            RaycastHit bestH = default(RaycastHit);
             for (int i = 0; i < n; i++)
             {
                 RaycastHit h = _castHits[i];
@@ -404,7 +453,7 @@ namespace CatCooks.Food
         private void Deposit(Vector3 local, float radiusLocal, float amount)
         {
             if (amount <= 0f) return;
-            float r = Mathf.Max(radiusLocal, Mathf.Min(_cell.x, Mathf.Min(_cell.y, _cell.z)) * 0.75f);
+            float r = Mathf.Max(radiusLocal * (1f + 0.4f * _softSpot), Mathf.Min(_cell.x, Mathf.Min(_cell.y, _cell.z)) * 0.75f);
             int x0 = Mathf.Max(0, Mathf.FloorToInt((local.x - 2f * r - _min.x) / _cell.x));
             int x1 = Mathf.Min(_nx - 1, Mathf.CeilToInt((local.x + 2f * r - _min.x) / _cell.x));
             int y0 = Mathf.Max(0, Mathf.FloorToInt((local.y - 2f * r - _min.y) / _cell.y));
@@ -423,7 +472,7 @@ namespace CatCooks.Food
                 float d2 = (c - local).sqrMagnitude * inv;
                 if (d2 > 4f) continue;
                 float cap = wet && _contact[i] ? _wetMaxHeat : 1f;
-                _h[i] = Mathf.Min(cap, _h[i] + amount * Mathf.Exp(-d2 * 1.6f));
+                _h[i] = Mathf.Min(cap, _h[i] + amount * Mathf.Exp(-d2 * Mathf.Lerp(1.6f, 0.75f, _softSpot)));
             }
         }
 
@@ -432,11 +481,26 @@ namespace CatCooks.Food
         /// <summary>Тепло растекается по соседним клеткам металла и уходит в воздух.</summary>
         private void Diffuse(float dt)
         {
-            float a = Mathf.Clamp01(_spread * dt);
+            // v14: ровнее — тепло расходится быстрее, подшагами (явная схема устойчива при шаге ≤ 0.5)
+            float total = _spread * _spreadBoost * dt;
+            int steps = Mathf.Clamp(Mathf.CeilToInt(total / 0.45f), 1, 8);
+            for (int k = 0; k < steps; k++) DiffuseStep(dt / steps, total / steps, k == steps - 1);
+            // выравнивание к средней по металлу
+            if (_evenness > 0f && _meanHeat > 0.002f)
+            {
+                float e = Mathf.Clamp01(_evenness * dt);
+                for (int i = 0; i < _h.Length; i++)
+                    if (_solid[i]) _h[i] += (_meanHeat - _h[i]) * e * (_h[i] < _meanHeat ? 1f : 0.5f);
+            }
+        }
+
+        private void DiffuseStep(float dt, float spreadA, bool last)
+        {
+            float a = Mathf.Clamp01(spreadA);
             float keep = Mathf.Exp(-_cool * dt);
             bool wet = WetNow();
-            float max = 0f;
-            int hot = 0, solid = 0;
+            float max = 0f, sumAll = 0f;
+            int hot = 0, solid = 0, hotIdx = -1;
             for (int z = 0; z < _nz; z++)
             for (int y = 0; y < _ny; y++)
             for (int x = 0; x < _nx; x++)
@@ -457,12 +521,16 @@ namespace CatCooks.Food
                 if (v < 0.002f) v = 0f;
                 _tmp[i] = v;
                 solid++;
-                if (v > max) max = v;
+                sumAll += v;
+                if (v > max) { max = v; hotIdx = i; }
                 if (v > _glowFrom) hot++;
             }
             float[] t = _h; _h = _tmp; _tmp = t;
+            if (!last) return;
             _maxHeat = max;
             _hotShare = solid > 0 ? hot / (float)solid : 0f;
+            _meanHeat = solid > 0 ? sumAll / solid : 0f;
+            _hotIdx = hotIdx;
         }
 
         // ───────────────────────── СОДЕРЖИМОЕ (сервер) ─────────────────────────
@@ -527,13 +595,14 @@ namespace CatCooks.Food
             if (v <= _glowFrom) return new Color32(0, 0, 0, 0);
             float t = Mathf.InverseLerp(_glowFrom, 1f, v);
             // Мультяшные ступени: внутри ступени почти ровно, на границе — короткий переход.
-            if (_toonBands > 0f)
+            float bands = _toonBandsV14;
+            if (bands > 0f)
             {
                 float s = t * 4f, fl = Mathf.Floor(s), fr = s - fl;
-                float edge = Mathf.Lerp(0.5f, 0.12f, _toonBands);
+                float edge = Mathf.Lerp(0.5f, 0.12f, bands);
                 fr = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(1f - edge, 1f, fr));
                 float q = Mathf.Min(1f, (fl + fr) / 4f + 0.125f);          // середина ступени
-                t = Mathf.Lerp(t, q, _toonBands);
+                t = Mathf.Lerp(t, q, bands);
             }
             Color c;
             if (t < 0.33f) c = Color.Lerp(_dull, _red, t / 0.33f);
@@ -576,6 +645,14 @@ namespace CatCooks.Food
                                          : new Color(1f, 0.85f, 0.3f, 0.9f);
                 ep.startSize = size * Random.Range(0.7f, 1.5f);
                 ep.startLifetime = Random.Range(0.12f, 0.3f);
+                if (_lickStylized)
+                {
+                    // v17: языки-капли (шейдер Stylized Fire): R — зерно, G — яркость, A — «износ»
+                    ep.startColor = new Color(Random.value, Random.Range(0.6f, 1f), 0f, 1f);
+                    ep.startSize = size * Random.Range(1.1f, 2f);
+                    ep.startLifetime = Random.Range(0.2f, 0.35f);
+                    ep.rotation = Random.Range(-25f, 25f);
+                }
                 _lick.Emit(ep, 1);
             }
         }
@@ -612,6 +689,20 @@ namespace CatCooks.Food
             r.renderMode = ParticleSystemRenderMode.Billboard;
             r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             r.receiveShadows = false;
+            // v17: языки пламени по металлу — как огонёк Zelda (шейдер Stylized Fire), без квадратиков
+            Shader sf = Shader.Find("CatCooks/Stylized Fire");
+            if (sf != null)
+            {
+                _lickStylized = true;
+                r.sharedMaterial = new Material(sf) { name = "HeatLick Fire (auto)", hideFlags = HideFlags.DontSave };
+                var g2 = new Gradient();
+                g2.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                           new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0.6f, 0.5f), new GradientAlphaKey(0f, 1f) });
+                col.color = g2;
+                go.SetActive(true);
+                ps.Play();
+                return ps;
+            }
             Shader s = Shader.Find("Universal Render Pipeline/Particles/Unlit");
             if (s != null)
             {
@@ -630,6 +721,46 @@ namespace CatCooks.Food
             go.SetActive(true);
             ps.Play();
             return ps;
+        }
+
+        // ───────────────────────── v14: МАРЕВО И ЛЁГКИЙ ПАР ─────────────────────────
+
+        private Vector3 CellWorld(int i)
+        {
+            int x = i % _nx, y = (i / _nx) % _ny, z = i / (_nx * _ny);
+            return transform.TransformPoint(new Vector3(_min.x + x * _cell.x, _min.y + y * _cell.y, _min.z + z * _cell.z));
+        }
+
+        private void HeatAir(float dt)
+        {
+            if (_hotIdx < 0 || _maxHeat <= 0.01f) return;
+            Vector3 hot = CellWorld(_hotIdx);
+            if (_haze && _maxHeat > _hazeFrom)
+            {
+                float k = Mathf.InverseLerp(_hazeFrom, 0.75f, _maxHeat) * _hazeStrength;
+                float w = _sizeWorld * Mathf.Lerp(0.35f, 0.75f, Mathf.Clamp01(_hotShare * 3f));
+                CCHeatFx.Haze(hot - Vector3.up * w * 0.1f, w, w * 1.8f, k);
+                // весь ковш прогрелся — марево и над горловиной
+                if (_meanHeat > _hazeFrom * 0.8f && _cw != null)
+                {
+                    float km = Mathf.InverseLerp(_hazeFrom * 0.8f, 0.5f, _meanHeat) * _hazeStrength;
+                    CCHeatFx.Haze(_cw.MouthPoint, _sizeWorld * 0.8f, _sizeWorld * 1.5f, km * 0.8f);
+                }
+            }
+            if (_heatWisps && _maxHeat > _wispsFrom)
+            {
+                float k = Mathf.InverseLerp(_wispsFrom, 1f, _maxHeat);
+                _wispAcc += dt * (1.2f + 3f * k);
+                if (_wispAcc >= 1f)
+                {
+                    _wispAcc -= 1f;
+                    float s = _sizeWorld * Random.Range(0.12f, 0.22f);
+                    Color c = _wispColor; c.a *= 0.5f + k;
+                    CCHeatFx.Wisp(hot + Random.insideUnitSphere * _sizeWorld * 0.08f + Vector3.up * s * 0.3f,
+                                  new Vector3(Random.Range(-0.05f, 0.05f), Random.Range(0.25f, 0.5f), Random.Range(-0.05f, 0.05f)) * Mathf.Sqrt(_sizeWorld / 0.5f),
+                                  s, c, Random.Range(1f, 1.6f));
+                }
+            }
         }
 
         // ───────────────────────── ОТЛАДКА ─────────────────────────

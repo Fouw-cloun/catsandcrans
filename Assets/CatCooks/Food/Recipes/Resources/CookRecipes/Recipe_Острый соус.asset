@@ -15,6 +15,7 @@ MonoBehaviour:
   Title: "\u041E\u0441\u0442\u0440\u044B\u0439 \u0441\u043E\u0443\u0441"
   Driver: 0
   Base: {fileID: 11400000, guid: 6b6c5084bdb55ae4ca6130c1dc6c0e21, type: 2}
+  BaseState: 0
   BaseAmount: 1
   BaseUnit: 1
   BaseFillsContainer: 0
@@ -28,24 +29,44 @@ MonoBehaviour:
     Unit: 4
     PortionsPerPiece: 8
     CleanOnly: 0
+    State: 0
+    Reduces: 0
+    Strictness: 1
+    Need: 0
+    Pain: 1
   - Product: {fileID: 11400000, guid: 2017b971de7fff54c8585fa1193ae835, type: 2}
     Alt: {fileID: 0}
     Amount: 2
     Unit: 5
     PortionsPerPiece: 0
     CleanOnly: 0
+    State: 0
+    Reduces: 0
+    Strictness: 1
+    Need: 0
+    Pain: 1
   - Product: {fileID: 11400000, guid: 0231f5b8db8dfe94d8bcdbbce6dbe7a8, type: 2}
     Alt: {fileID: 0}
     Amount: 1
     Unit: 2
     PortionsPerPiece: 0
     CleanOnly: 0
+    State: 0
+    Reduces: 0
+    Strictness: 1
+    Need: 0
+    Pain: 1
   - Product: {fileID: 11400000, guid: c02991b7fe2f9da4d82ada248681086e, type: 2}
     Alt: {fileID: 0}
     Amount: 4
     Unit: 4
     PortionsPerPiece: 1
     CleanOnly: 0
+    State: 0
+    Reduces: 0
+    Strictness: 3
+    Need: 0
+    Pain: 1
   OrderMatters: 0
   OnlyThese: 1
   Tolerance: 0.25
@@ -53,10 +74,15 @@ MonoBehaviour:
   - Kind: 7
     Seconds: 8
     Intermediate: {fileID: 11400000, guid: 34a0880b02cdd884f9293b0cffc3e921, type: 2}
+    VolumeK: 0
   - Kind: 4
     Seconds: 40
     Intermediate: {fileID: 11400000, guid: 6b4d9b42267413c4685e5d57febadab9, type: 2}
+    VolumeK: 0
   - Kind: 5
     Seconds: 10
     Intermediate: {fileID: 0}
+    VolumeK: 0
   Result: {fileID: 11400000, guid: 6b4d9b42267413c4685e5d57febadab9, type: 2}
+  IsMistake: 0
+  MeasureVersion: 2

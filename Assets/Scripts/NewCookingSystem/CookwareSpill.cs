@@ -50,6 +50,12 @@ namespace CatCooks.Food
         [Tooltip("При таком наклоне выливается/высыпается ВСЁ, что осталось на дне (остатки сметаны, кусочки) — " +
                  "тара очищается и годится заново")]
         [Range(45f, 150f)][SerializeField] private float _drainTilt = 70f;
+        [Tooltip("v12.2: перевернули (наклон больше этого) — вытекает ВСЁ быстро, за Dump Seconds")]
+        [Range(60f, 180f)][SerializeField] private float _dumpTilt = 100f;
+        [Tooltip("v12.2: за сколько секунд выливается всё из перевёрнутой тары (большая банка тоже)")]
+        [Range(0.3f, 10f)][SerializeField] private float _dumpSeconds = 2f;
+        [Tooltip("v12.2: на боку и сильно наклонённой — слив быстрее (×, растёт от Drain Tilt к Dump Tilt)")]
+        [Range(1f, 10f)][SerializeField] private float _sideBoost = 4f;
         [Tooltip("Скорость опустошения остатков (доля от Max Rate)")]
         [Range(0.05f, 1f)][SerializeField] private float _drainRate = 0.6f;
 
@@ -97,6 +103,7 @@ namespace CatCooks.Food
 
         private void Awake()
         {
+            LiquidPuddle.RegisterDefault(_puddlePrefab);
             _cw = GetComponent<Cookware>();
             _lid = GetComponent<PotLidSocket>();
             _carry = GetComponent<CarriedContainer>();
@@ -173,7 +180,9 @@ namespace CatCooks.Food
         /// </summary>
         private bool DumpOne(Vector3 rim, Vector3 outward, float over)
         {
-            int took = _cw.ServerTakeTop(1, out ushort p, out FoodState s, out byte c);
+            // v19: что «липнет к таре» (масло, паста — свойство вещества) — остаётся внутри; высыпается остальное
+            if (!PickLoose(out ushort p, out FoodState s, out byte c)) { WarnStuck(); return false; }
+            int took = _cw.ServerTake(p, 1);
             if (took <= 0) return false;
             Vector3 vel = LipVelocity(outward, over) + (_liquid != null ? _liquid.ContainerVelocity * 0.85f : Vector3.zero);
             Vector3 land = Trace(rim + outward * 0.012f, vel, out Cookware direct);
@@ -189,9 +198,36 @@ namespace CatCooks.Food
                     return true;
                 }
             }
-            _cw.ServerSpillOver(p, s, took, c);
+            _cw.ServerSpillOverAt(p, s, took, c, rim, outward, land);          // v17.5: кучка там, куда упало, + струйка пыли
             if (_log && _cw.IsEmpty) Debug.Log($"[Выплеск] «{name}» опустошено до дна", this);
             return true;
+        }
+
+        /// <summary>v19: верхнее НЕ липкое содержимое (то, что может высыпаться). false — всё липнет.</summary>
+        private bool PickLoose(out ushort product, out FoodState state, out byte cook)
+        {
+            product = 0; state = FoodState.None; cook = 0;
+            FoodDatabase db = FoodDatabase.Instance;
+            for (int i = _cw.ViewCount - 1; i >= 0; i--)
+            {
+                BagView v = _cw.GetView(i);
+                if (v.Count == 0) continue;
+                ProductDef d = db != null ? db.Get(v.Product) : null;
+                FoodSubstance sub = d != null ? FoodSubstance.Of(d, v.State) : null;
+                if (sub != null && sub.StickToCookware) continue;
+                product = v.Product; state = v.State; cook = v.Cook;
+                return true;
+            }
+            return false;
+        }
+
+        private float _stuckLogAt;
+
+        private void WarnStuck()
+        {
+            if (!_log || _cw.IsEmpty || Time.time < _stuckLogAt) return;
+            _stuckLogAt = Time.time + 3f;
+            Debug.Log($"[Выплеск] «{name}»: перевернули — содержимое липнет к таре и не выпадает (вещество: «липнет к таре»). Выскреби мастерком", this);
         }
 
         /// <summary>Верхняя льющаяся — сметана (роль «Сметана»)?</summary>
@@ -202,7 +238,8 @@ namespace CatCooks.Food
         }
 
         /// <summary>Лужа этой тары — для перелива через край (Cookware).</summary>
-        public LiquidPuddle PuddlePrefab => _puddlePrefab;
+        /// <summary>v12.2: свой префаб лужи, а нет — общий (перелив из банки не пропадает).</summary>
+        public LiquidPuddle PuddlePrefab => _puddlePrefab != null ? _puddlePrefab : LiquidPuddle.DefaultPrefab;
 
         /// <summary>Профиль, которым сейчас льётся.</summary>
         public LiquidPourProfile CurrentProfile { get { PourLook(out _, out LiquidPourProfile p); return p; } }
@@ -247,6 +284,17 @@ namespace CatCooks.Food
                 slosh = false;
                 overS = Mathf.Max(overS, 0.08f * h);
             }
+            // v12.2: перевернули / на боку — вытекает всё. Вверх дном край считается криво — льём из горловины.
+            bool dump = !scooping && !LidClosed && !_cw.IsEmpty && tilt >= _dumpTilt;
+            if (dump)
+            {
+                pour = true; slosh = false;
+                Vector3 side = Vector3.ProjectOnPlane(tl.up, Vector3.up);
+                outS = side.sqrMagnitude > 1e-4f ? side.normalized : Vector3.ProjectOnPlane(transform.forward, Vector3.up).normalized;
+                if (outS.sqrMagnitude < 1e-4f) outS = Vector3.forward;
+                rimS = _cw.MouthPoint;
+                overS = Mathf.Max(overS, 0.3f * h);
+            }
             if (!pour && !slosh)
             {
                 if (_flow.Value != 0) _flow.Value = 0;
@@ -268,6 +316,10 @@ namespace CatCooks.Food
 
             float rate = drain ? _maxRate * _drainRate * (thick ? Mathf.Max(_thickRate, 0.3f) : 1f)
                                : _maxRate * flow01 * (pour ? 1f : _sloshLossScale) * (thick ? _thickRate : 1f);
+            // v12.2: сильно наклонили — быстрее (большая банка не сливается минуту); перевернули — всё за Dump Seconds
+            if (pour && tilt > _drainTilt)
+                rate *= Mathf.Lerp(1f, _sideBoost, Mathf.InverseLerp(_drainTilt, _dumpTilt, tilt));
+            if (dump) rate = Mathf.Max(rate, _cw.TotalCount / Mathf.Max(0.3f, _dumpSeconds));
             // Выливают из рук (ЛКМ) — полная тара уходит за Pour Time ведра (по умолчанию 2 с).
             if (_carry != null && _carry.CurrentAction == CarriedContainer.Action.Pour && pour)
                 rate = Mathf.Max(rate, _carry.PourRate);
@@ -277,7 +329,7 @@ namespace CatCooks.Food
                 _acc -= 1f;
                 if (SpillOne(rim, outward, over)) continue;
                 // Не жидкость (масло комком, кусочки, кучка) — высыпается через край кучкой.
-                if (drain && DumpOne(rim, outward, over)) continue;
+                if ((drain || dump) && DumpOne(rim, outward, over)) continue;     // v17.5: и при перевороте
                 _acc = 0f;
                 break;
             }
@@ -301,7 +353,7 @@ namespace CatCooks.Food
                 Tally(target);
                 return true;
             }
-            if (_puddlePrefab != null) LiquidPuddle.ServerAddAt(_puddlePrefab, product, land, 1);
+            if (PuddlePrefab != null) LiquidPuddle.ServerAddAt(PuddlePrefab, product, land, 1);
             Tally(null);
             return true;
         }
@@ -346,7 +398,7 @@ namespace CatCooks.Food
                 Vector3 seg = next - pos;
                 float len = seg.magnitude;
                 int n = len > 1e-5f ? Physics.RaycastNonAlloc(pos, seg / len, _hits, len, ~0, QueryTriggerInteraction.Collide) : 0;
-                float bd = float.MaxValue; bool found = false; RaycastHit best = default;
+                float bd = float.MaxValue; bool found = false; RaycastHit best = default(RaycastHit);
                 for (int j = 0; j < n; j++)
                 {
                     RaycastHit h = _hits[j];

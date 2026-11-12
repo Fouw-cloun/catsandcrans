@@ -95,6 +95,10 @@ namespace CatCooks.Food
         /// <summary>Обжарено на 0..1 (у всех).</summary>
         public float Roast01 => _roast.Value / 255f;
         public bool IsRoasted => _roast.Value >= 255;
+        /// <summary>Цвет обжаренных (FoodBurnable темнит от него).</summary>
+        public Color RoastedColor => _roastedColor;
+        /// <summary>v17.5: цвет какао-пыли (для эффектов отбойника).</summary>
+        public Color PowderColor => _powderColor;
 
         private void OnEnable() { if (!_all.Contains(this)) _all.Add(this); }
         private void OnDisable() { _all.Remove(this); }
@@ -349,29 +353,17 @@ namespace CatCooks.Food
             float s = SizeOf();
             Vector3 at = CenterOf() + Vector3.up * s * 0.35f;
             Color dark = _roastedColor, powder = _powderColor;
-            // пыль столбиком из-под носика
-            CCRuntimeParticles.Burst(at, Vector3.up, powder, dark, 4 + Mathf.RoundToInt(4f * k), CCRuntimeParticles.Look.Dust.Scaled(Mathf.Max(0.5f, s / 0.12f)));
-            // порошок разлетается в стороны
-            Vector2 r = Random.insideUnitCircle.normalized;
-            Vector3 side = new Vector3(r.x, 0.55f, r.y).normalized;
-            CCRuntimeParticles.Burst(at, side, powder, Color.Lerp(powder, dark, 0.4f), 3 + Mathf.RoundToInt(3f * k), CCRuntimeParticles.Look.Dust.Scaled(0.45f));
-            // крошки
-            if (Random.value < 0.25f + 0.35f * k)
-                CCRuntimeParticles.Burst(at, Vector3.up, dark, powder, 2, CCRuntimeParticles.Look.Chips.Scaled(Mathf.Max(0.3f, s / 0.25f)));
+            // v17.5: облачка какао-пыли и коричневые ошмётки (а не квадратики), к концу гуще
+            CCPowderFx.Pound(at, Vector3.up, Color.Lerp(powder, dark, Random.Range(0f, 0.35f)), Mathf.Max(0.12f, s * 1.2f), 0.4f + 0.6f * k);
         }
 
         /// <summary>Конец: гроздь разваливается — куски и облако какао-пыли (у всех).</summary>
         [ObserversRpc]
         private void RpcCrumble(Vector3 at, float size)
         {
-            float sc = Mathf.Max(0.5f, size / 0.12f);
-            CCRuntimeParticles.Burst(at, Vector3.up, _roastedColor, _powderColor, 14, CCRuntimeParticles.Look.Chips.Scaled(Mathf.Max(0.4f, size / 0.2f)));
-            CCRuntimeParticles.Burst(at, Vector3.up, _powderColor, _roastedColor, 16, CCRuntimeParticles.Look.Dust.Scaled(sc * 1.4f));
-            for (int i = 0; i < 4; i++)
-            {
-                float a = i * Mathf.PI * 0.5f + Random.Range(-0.4f, 0.4f);
-                CCRuntimeParticles.Burst(at, new Vector3(Mathf.Cos(a), 0.4f, Mathf.Sin(a)).normalized, _powderColor, _roastedColor, 5, CCRuntimeParticles.Look.Dust.Scaled(sc));
-            }
+            // v17.5: распалась на порошок — большое облако какао-пыли и горсть коричневых ошмётков
+            CCPowderFx.Impact(at, Vector3.up, _powderColor, Mathf.Max(0.15f, size * 1.3f), 1.6f);
+            CCPowderFx.Impact(at, Vector3.up, _roastedColor, Mathf.Max(0.12f, size), 0.6f);
         }
 
         private bool ServerAbsorb(Cookware cw)
@@ -463,14 +455,18 @@ namespace CatCooks.Food
         private void SmokeTick(float dt)
         {
             if (!_smoke || !_heating.Value) { _smokeAcc = 0f; return; }
-            _smokeAcc += dt * 4f;
+            // v14: мягкий дымок (клубки CCHeatFx), к готовности гуще и темнее; поверх — лёгкое марево
+            float k = Roast01;
+            _smokeAcc += dt * (2.5f + 3.5f * k);
+            float s = SizeOf();
+            Vector3 c = CenterOf();
+            CCHeatFx.Haze(c + Vector3.up * s * 0.2f, s * 1.3f, s * 2.4f, 0.5f + 0.4f * k);
             if (_smokeAcc < 1f) return;
             _smokeAcc -= 1f;
-            float s = SizeOf();
-            Vector3 at = CenterOf() + Vector3.up * s * 0.4f;
-            float k = Roast01;
-            Color a = Color.Lerp(new Color(0.85f, 0.85f, 0.85f, 0.6f), new Color(0.35f, 0.33f, 0.32f, 0.7f), k);
-            CCRuntimeParticles.Burst(at, Vector3.up, a, a * 0.8f, 3, CCRuntimeParticles.Look.Dust.Scaled(Mathf.Max(1f, s / 0.08f)));
+            Vector3 at = c + Vector3.up * s * 0.35f + Random.insideUnitSphere * s * 0.2f;
+            Color a = Color.Lerp(new Color(0.93f, 0.92f, 0.9f, 0.18f), new Color(0.42f, 0.38f, 0.35f, 0.32f), k);
+            CCHeatFx.Wisp(at, new Vector3(Random.Range(-0.05f, 0.05f), Random.Range(0.25f, 0.45f), Random.Range(-0.05f, 0.05f)) * Mathf.Sqrt(Mathf.Max(0.3f, s / 0.12f)),
+                          s * Random.Range(0.45f, 0.8f), a, Random.Range(1.1f, 1.8f));
         }
 
         private Vector3 CenterOf()

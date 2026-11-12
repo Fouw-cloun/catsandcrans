@@ -226,7 +226,7 @@ public class ChainsawFoodProcessor : NetworkBehaviour
 
     private ICuttable FindTargetMask(Transform aim, int mask, out RaycastHit bestHit)
     {
-        bestHit = default;
+        bestHit = default(RaycastHit);
         int n = Physics.RaycastNonAlloc(aim.position, aim.forward, _hits, _range,
                                         mask, QueryTriggerInteraction.Ignore);
         float nearest = float.MaxValue;
@@ -412,6 +412,8 @@ public class ChainsawFoodProcessor : NetworkBehaviour
 
         ICuttable s = t.GetComponent<ICuttable>();
         if (s == null) return;
+        // v13.4: цель рисует свои эффекты (какао-боб — объёмные ошмётки) — квадратные крошки не сыплем
+        if (s is CatCooks.Food.ISawOwnFx) return;
 
         // Цвет диктует цель: у картошки он берётся с ингредиента, у бревна
         // задан на самом бревне. Пила про это ничего не знает.

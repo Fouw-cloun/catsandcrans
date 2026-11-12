@@ -78,8 +78,8 @@ namespace CatCooks.Food
             }
 
             // Облачко сока/пыли.
-            CCRuntimeParticles.Burst(centre, Vector3.up, flesh, Color.white, 24,
-                                     CCRuntimeParticles.Look.Dust.Scaled(Mathf.Max(1f, size * 8f)));
+            // v17.5: облачка и ошмётки вместо квадратиков
+            CCPowderFx.Impact(centre, Vector3.up, flesh, Mathf.Max(0.12f, size), 1.2f);
         }
 
         /// <summary>6 угловатых осколков: искажённый октаэдр/коробка с плоскими гранями.</summary>

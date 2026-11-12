@@ -239,6 +239,7 @@ namespace CatCooks.Food
             if (nob != null && ToolActive && InReach(nob.transform.position))
             {
                 float dt = Time.deltaTime * Speed;
+                if (_source == Source.Jackhammer && _jack != null) dt *= Mathf.Clamp(_jack.WorkBoost, 1f, 3f);   // v17: водишь по таре — быстрее
 
                 FoodPiece piece = nob.GetComponent<FoodPiece>();
                 if (piece != null && !piece.IsConsumed && !piece.IsHeld)
@@ -297,14 +298,50 @@ namespace CatCooks.Food
             _lean = Vector3.Lerp(_lean, want, 1f - Mathf.Exp(-_leanSpeed * Time.deltaTime));
         }
 
+        private float _poundAt, _dentAt;
+        private bool _poundLogged;
+
+        private static Cookware FindCookwareNear(Vector3 p)
+        {
+            foreach (Cookware c in Cookware.All)
+            {
+                if (c == null) continue;
+                if (c.IsInside(p)) return c;
+                Collider iv = c.InsideVolume;
+                if (iv != null && iv.bounds.Contains(p)) return c;
+            }
+            return null;
+        }
+
+        /// <summary>v17: отбойник в таре — не стружка-квадратики, а пыль и ошмётки цвета содержимого.</summary>
+        private bool PoundFx(bool on)
+        {
+            if (_source != Source.Jackhammer) return false;
+            if (_stream != null) CCRuntimeParticles.SetStream(_stream, false, Vector3.zero, Vector3.zero, Color.clear, Color.clear, 0f);
+            if (!on) return true;
+            NetworkObject nob = _target.Value;
+            Cookware cw = nob != null ? CookwareLookup.Of(nob, transform.position) : null;
+            if (cw == null) cw = FindCookwareNear(_workPoint != null ? _workPoint.position : transform.position);
+            if (cw == null && nob != null && Time.time >= _poundAt)
+            {
+                // v17.4: долбит кусок не в таре — тоже облачка и ошмётки (а не квадратная стружка)
+                _poundAt = Time.time + Random.Range(0.15f, 0.22f);
+                Transform wp = _workPoint != null && _workPoint != transform ? _workPoint : (_jack != null && _jack.ProbePoint != null ? _jack.ProbePoint : transform);
+                CCPowderFx.Pound(ClosestPoint(nob, wp.position), Vector3.up, ChipColor(nob), 0.2f, 0.5f);
+            }
+            // в таре пыль и комочки рисует сам отбойник (JackhammerItem) — даже когда рецепт уже готов
+            return true;
+        }
+
         private void UpdateChips()
         {
             if (!_chips) return;
             bool on = _processing.Value && _target.Value != null;
+            if (PoundFx(on)) return;
             if (on && _stream == null) _stream = CCRuntimeParticles.CreateStream(transform, CCRuntimeParticles.Look.Chips);
             if (_stream == null) return;
 
-            if (!on) { CCRuntimeParticles.SetStream(_stream, false, default, default, default, default, 0f); return; }
+            if (!on) { CCRuntimeParticles.SetStream(_stream, false, Vector3.zero, Vector3.zero, Color.clear, Color.clear, 0f); return; }
 
             NetworkObject nob = _target.Value;
             Vector3 contact = ClosestPoint(nob, _workPoint.position);
@@ -339,7 +376,7 @@ namespace CatCooks.Food
 
         private void OnDisable()
         {
-            if (_stream != null) CCRuntimeParticles.SetStream(_stream, false, default, default, default, default, 0f);
+            if (_stream != null) CCRuntimeParticles.SetStream(_stream, false, Vector3.zero, Vector3.zero, Color.clear, Color.clear, 0f);
         }
     }
 }

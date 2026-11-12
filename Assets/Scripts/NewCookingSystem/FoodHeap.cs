@@ -110,24 +110,58 @@ namespace CatCooks.Food
                                                  byte cook, byte clean, Vector3 point, float mergeSlack, LayerMask heapMask)
         {
             if (portions <= 0) return null;
-            Collider[] near = Physics.OverlapSphere(point, 1.5f, heapMask, QueryTriggerInteraction.Collide);
+            // v18.1: большая кучка «собирает» всё рядом (как лужа): ищем шире, ближе к большой — легче влиться
+            Collider[] near = Physics.OverlapSphere(point, 3f, heapMask, QueryTriggerInteraction.Collide);
             FoodHeap best = null;
             float bestD = float.MaxValue;
             foreach (Collider c in near)
             {
                 FoodHeap h = c.GetComponentInParent<FoodHeap>();
                 if (h == null || h._gone || !h.IsSettled || h.ProductId != product || h.State != state) continue;
-                float d = Vector3.Distance(h.transform.position, point);
-                if (d > h.VisualRadius + mergeSlack || d >= bestD) continue;
+                float d = FlatDist(h.transform.position, point);
+                if (d > h.VisualRadius * 1.15f + mergeSlack || d >= bestD) continue;
                 best = h; bestD = d;
             }
-            if (best != null) { best.ServerAdd(portions, cook, clean); return best; }
+            if (best != null)
+            {
+                best.ServerAdd(portions, cook, clean);
+                best.ServerMergeAround(heapMask);
+                return best;
+            }
 
             if (prefab == null) return null;
             FoodHeap heap = Instantiate(prefab, point, Quaternion.identity);
             heap.ServerPreset(product, state, portions, cook, clean, true);
             FishNet.InstanceFinder.ServerManager.Spawn(heap.gameObject);
             return heap;
+        }
+
+        private static float FlatDist(Vector3 a, Vector3 b)
+        {
+            float dx = a.x - b.x, dz = a.z - b.z;
+            return Mathf.Sqrt(dx * dx + dz * dz);
+        }
+
+        /// <summary>
+        /// v18.1: кучка выросла — соседние такие же, которые она «накрыла», вливаются в неё
+        /// (много мелких из ковша → одна большая). Сервер.
+        /// </summary>
+        [Server]
+        public void ServerMergeAround(LayerMask heapMask)
+        {
+            if (_gone) return;
+            float r = VisualRadius;
+            Collider[] near = Physics.OverlapSphere(transform.position, r + 1.5f, heapMask, QueryTriggerInteraction.Collide);
+            foreach (Collider c in near)
+            {
+                FoodHeap h = c.GetComponentInParent<FoodHeap>();
+                if (h == null || h == this || h._gone || !h.IsSettled || !SameStuff(h)) continue;
+                float d = FlatDist(h.transform.position, transform.position);
+                if (d > (r + h.VisualRadius) * 0.9f) continue;
+                ServerAdd(h._count.Value, h._cook.Value, h._clean.Value);
+                if (_log) Debug.Log($"[Кучка] соседняя влилась в большую: {Count}", this);
+                h.Vanish();
+            }
         }
 
         /// <summary>Радиус лежащей горки, м — для поиска «рядом уже есть кучка».</summary>

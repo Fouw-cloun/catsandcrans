@@ -54,6 +54,9 @@ namespace CatCooks.Food.Tools
         [SerializeField] private float _refillPerSecond = 8f;
 
         [Header("Горка")]
+        [Tooltip("v19: рисовать горку в горловине мешка. Выкл (по умолчанию) — мешок просто болванка: " +
+                 "навёлся мастерком/лопатой, ЛКМ — набрал. Горка с физикой могла толкать мешок и всё вокруг")]
+        [SerializeField] private bool _showHeap = false;
         [Tooltip("Префаб кучки FoodHeap (тот же, что у лопаты)")]
         [SerializeField] private FoodHeap _heapPrefab;
         [Tooltip("Горловина мешка — где лежит горка")]
@@ -63,6 +66,17 @@ namespace CatCooks.Food.Tools
         [SerializeField] private bool _log = true;
 
         private FoodHeap _heap;
+
+        /// <summary>v19: свой префаб кучки, а не задан — общий из таблицы веществ (FoodSubstances → Floor Heap Prefab).</summary>
+        private FoodHeap HeapPrefab
+        {
+            get
+            {
+                if (_heapPrefab != null) return _heapPrefab;
+                FoodSubstanceTable t = FoodSubstanceTable.Instance;
+                return t != null ? t.FloorHeapPrefab : null;
+            }
+        }
 
         private float _acc, _check;
         private int _left;
@@ -79,7 +93,7 @@ namespace CatCooks.Food.Tools
 
         private void Update()
         {
-            if (!base.IsServerInitialized || _product == null || _heapPrefab == null) return;
+            if (!_showHeap || !base.IsServerInitialized || _product == null || HeapPrefab == null) return;
             float dt = Time.deltaTime;
             _check -= dt;
             if (_check > 0f) return;
@@ -106,7 +120,8 @@ namespace CatCooks.Food.Tools
 
         private void SpawnHeap()
         {
-            if (_product == null || _heapPrefab == null)
+            if (!_showHeap) return;                     // v19: мешок — болванка, горку не рисуем
+            if (_product == null || HeapPrefab == null)
             {
                 if (_log) Debug.LogWarning($"[Мешок] «{name}»: не задан Product или Heap Prefab", this);
                 return;
@@ -114,7 +129,7 @@ namespace CatCooks.Food.Tools
             int n = _infinite ? _keep : Mathf.Min(_keep, _left);
             if (n <= 0) return;
             if (!_infinite) _left -= n;
-            _heap = Instantiate(_heapPrefab, MouthPos, Quaternion.identity);
+            _heap = Instantiate(HeapPrefab, MouthPos, Quaternion.identity);
             _heap.ServerPreset(_product.Id, _state, n, 0, 100, true);   // сразу лежит, чистая
             base.Spawn(_heap.gameObject);
             if (_log) Debug.Log($"[Мешок] горка «{_product.Title}» ({n} порц.)", this);

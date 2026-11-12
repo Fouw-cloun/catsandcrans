@@ -1,0 +1,40 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 94171a219f17423583b1f3d0a8ca39fc, type: 3}
+  m_Name: Substance_CocoaPowder
+  m_EditorClassIdentifier: Assembly-CSharp::CatCooks.Food.FoodSubstance
+  Title: "\u041A\u0430\u043A\u0430\u043E-\u043F\u043E\u0440\u043E\u0448\u043E\u043A"
+  Look: 1
+  FallbackPreset: 5
+  UseProductColor: 1
+  Color: {r: 0.33, g: 0.19, b: 0.11, a: 1}
+  Brightness: 1
+  Material: {fileID: 2100000, guid: aee4257af72a3164cb1b7e9437e781ea, type: 2}
+  InCookware: 1
+  CookwareRelief: 1
+  Smears: 5
+  SmearDepth: 1
+  FloorSlope: 0.62
+  Wonky: 0.55
+  BladeHeight: 1.25
+  Curl: 0
+  Jiggle: 0.05
+  DustOnScoop: 1
+  DustAmount: 1
+  EdgeDrips: 1
+  DripShake: 22
+  DripSize: 0.07
+  Steam: 0
+  Flow: 1
+  ScoopSounds: []
+  DropSounds: []
+  Volume: 0.7

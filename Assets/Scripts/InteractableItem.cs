@@ -141,6 +141,10 @@ public abstract class InteractableItem : NetworkBehaviour
     /// Как предмет располагается в руке. База — жёстко в точке кисти.
     /// Переопределяется балансными предметами (наклон/качание).
     /// </summary>
+    /// <summary>v17.3: рука сама не даёт предмету пройти сквозь стены/стол/предметы (PlayerHand + HeldBlocker).
+    /// false — у предмета своя логика (пила, горелки, отбойник, кувалда, вибратор, ведро на дужке, бидон).</summary>
+    public virtual bool UseHeldBlocking => true;
+
     public virtual void UpdateHeldPose(Transform handAnchor)
     {
         transform.SetPositionAndRotation(handAnchor.position, handAnchor.rotation);

@@ -287,7 +287,13 @@ namespace CatCooks.Food
                  "собирается то, что осыпалось. Пусто — лишнее просто пропадает.")]
         [SerializeField] private FoodHeap _spillHeapPrefab;
         /// <summary>Префаб кучки этой тары — запасной для лопаты, если у неё свой не задан.</summary>
-        public FoodHeap SpillHeapPrefab => _spillHeapPrefab;
+        /// <summary>v18.1: свой → общий (таблица веществ, Spawnable Prefabs) — лопата и мастерок тоже его берут.</summary>
+        public FoodHeap SpillHeapPrefab => _spillHeapPrefab != null ? _spillHeapPrefab : (_defaultHeap != null ? _defaultHeap : FindHeapPrefab());
+
+        // v17.5: у тары нет своего префаба кучки (ковш экскаватора) — берём любой из сцены,
+        // иначе высыпанное просто пропадало
+        private static FoodHeap _defaultHeap;
+        private static bool _heapWarned;
         [Tooltip("Слой кучек — чтобы досыпать в уже лежащую у тары")]
         [SerializeField] private LayerMask _spillHeapMask = ~0;
         [Tooltip("Сколько кусочков срывается через борт при каждом переполнении (визуал)")]
@@ -563,6 +569,7 @@ namespace CatCooks.Food
 
         private void Awake()
         {
+            if (_spillHeapPrefab != null && _defaultHeap == null) _defaultHeap = _spillHeapPrefab;
             _temp = GetComponent<ITemperatureSource>();
             _soupFloat = GetComponent<CookwareSoupFloat>();
         }
@@ -777,9 +784,76 @@ namespace CatCooks.Food
 
             if (_spillDrops > 0) RpcSpillFx(rim, dir, Mathf.Min(_spillDrops + count / 3, 8));
 
-            if (_spillHeapPrefab == null) return;
-            Vector3 floor = FloorBeside(mouth + dir * (half + 0.15f));
-            FoodHeap.ServerDropOnFloor(_spillHeapPrefab, product, state, count, cook, 50, floor, 0.3f, _spillHeapMask);
+            DropHeap(product, state, count, cook, FloorBeside(mouth + dir * (half + 0.15f)));
+        }
+
+        /// <summary>
+        /// v17.5: высыпали (наклон/переворот тары — CookwareSpill): кучка ложится туда, куда долетело,
+        /// а всем — струйка пыли и комков цвета продукта от края до земли.
+        /// </summary>
+        [Server]
+        public void ServerSpillOverAt(ushort product, FoodState state, int count, byte cook, Vector3 rim, Vector3 outward, Vector3 land)
+        {
+            if (count <= 0) return;
+            FoodDatabase ldb = FoodDatabase.Instance;
+            ProductDef pdef = ldb != null ? ldb.Get(product) : null;
+            if (IsLiquidHere(product, pdef, state) || DoughSheetDump.ServerTryDump(this, product, state, count, rim, outward))
+            {
+                ServerSpillOver(product, state, count, cook);
+                return;
+            }
+            Color c = pdef != null ? FoodColors.Of(pdef, state) : new Color(0.45f, 0.28f, 0.18f);
+            CookwareLiquidVisual lv = GetComponentInChildren<CookwareLiquidVisual>();
+            if (lv != null && lv.TryGetRole(product, out CookwareLiquidVisual.Role role)
+                && (role == CookwareLiquidVisual.Role.Paste || role == CookwareLiquidVisual.Role.Floating)) c = lv.SurfaceColor;
+            RpcDumpFx(rim, outward, land, c);
+            DropHeap(product, state, count, cook, FloorBeside(land));
+        }
+
+        private void DropHeap(ushort product, FoodState state, int count, byte cook, Vector3 floor)
+        {
+            FoodHeap prefab = SpillHeapPrefab;
+            if (prefab == null) prefab = FindHeapPrefab();
+            if (prefab == null)
+            {
+                if (!_heapWarned) { _heapWarned = true; Debug.LogWarning($"[{Def?.Title}] высыпанное некуда положить: нет префаба кучки (FoodHeap) ни у тары, ни в Spawnable Prefabs — назначь Spill Heap Prefab", this); }
+                return;
+            }
+            FoodHeap h = FoodHeap.ServerDropOnFloor(prefab, product, state, count, cook, 50, floor, 0.45f, _spillHeapMask);   // v18.1: вливается в большую рядом
+            if (_log && h != null && Time.time >= _heapLogAt)
+            {
+                _heapLogAt = Time.time + 1f;
+                Debug.Log($"[{Def?.Title}] высыпано на пол: кучка «{h.name}» в {floor} (префаб «{prefab.name}»)", this);
+            }
+            else if (h == null && !_heapWarned) { _heapWarned = true; Debug.LogWarning($"[{Def?.Title}] кучка на полу не создалась (точка {floor})", this); }
+        }
+
+        private static float _heapLogAt;
+
+        /// <summary>v17.6: префаб кучки из Spawnable Prefabs FishNet (если ни у одной тары не назначен).</summary>
+        private static FoodHeap FindHeapPrefab()
+        {
+            if (_defaultHeap != null) return _defaultHeap;
+            FoodSubstanceTable tab = FoodSubstanceTable.Instance;            // v18: общий префаб кучки из таблицы веществ
+            if (tab != null && tab.FloorHeapPrefab != null) { _defaultHeap = tab.FloorHeapPrefab; return _defaultHeap; }
+            FishNet.Managing.NetworkManager nm = FishNet.InstanceFinder.NetworkManager;
+            if (nm == null || nm.SpawnablePrefabs == null) return null;
+            int n = nm.SpawnablePrefabs.GetObjectCount();
+            for (int i = 0; i < n; i++)
+            {
+                FishNet.Object.NetworkObject nob = nm.SpawnablePrefabs.GetObject(true, i);
+                FoodHeap fh = nob != null ? nob.GetComponent<FoodHeap>() : null;
+                if (fh != null) { _defaultHeap = fh; Debug.Log($"[Тара] префаб кучки взят из Spawnable Prefabs: «{fh.name}»"); return fh; }
+            }
+            return null;
+        }
+
+        [ObserversRpc]
+        private void RpcDumpFx(Vector3 rim, Vector3 outward, Vector3 land, Color c)
+        {
+            CookwareLiquidVisual lv = GetComponentInChildren<CookwareLiquidVisual>();
+            float size = lv != null ? Mathf.Clamp(lv.RadiusAtRimWorld, 0.1f, 0.8f) : 0.3f;
+            CCPowderFx.Fall(rim, outward, land, c, size);
         }
 
         /// <summary>Жидкость тут: LiquidAnchor тары считает продукт жидкостью, или это «налитое».</summary>
@@ -811,7 +885,7 @@ namespace CatCooks.Food
         /// <summary>Полуразмер тары по горизонтали в сторону dir (по габаритам мешей).</summary>
         private float HalfSizeAlong(Vector3 dir)
         {
-            Bounds b = default;
+            Bounds b = default(Bounds);
             bool any = false;
             foreach (Renderer r in GetComponentsInChildren<Renderer>())
             {

@@ -69,6 +69,9 @@ namespace CatCooks.Food
             mid = liquid;
             // тень: темнее и насыщеннее, чуть сдвинута по тону (мультяшная цветная тень)
             deep = Color.HSVToRGB(Mathf.Repeat(h + 0.015f, 1f), Mathf.Clamp01(s * 1.15f + 0.08f), v * 0.62f);
+            // v10: молоко/сливки (светлое, почти без цвета) — тень ХОЛОДНАЯ голубоватая, а не грязно-бежевая
+            float milky = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.72f, 0.92f, v)) * (1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.1f, 0.32f, s)));
+            deep = Color.Lerp(deep, new Color(0.72f, 0.78f, 0.9f) * v, milky);
             light = Color.Lerp(liquid, Color.white, 0.45f);
             // пена: у светлых жидкостей почти белая, у тёмных (битум, соус) — светлая версия самой жидкости,
             // иначе под битумом появится белая «молочная» лужа
@@ -104,7 +107,8 @@ namespace CatCooks.Food
             p.FromLiquidColor = false;
             return p;
         }
-        public static LiquidPourProfile Milk() => _milk != null ? _milk : (_milk = Make("Milk (auto)", 0.12f, 1f, 2.2f, 0.16f, 0.45f, 0.5f, 0.5f, 3.2f, 10f, 0.8f));
+        // v7: молоко «с телом» — гуще воды (медленнее, толще, меньше рвётся и брызжет), матовое (мягкий блик)
+        public static LiquidPourProfile Milk() => _milk != null ? _milk : (_milk = Make("Milk (auto)", 0.3f, 1f, 1.7f, 0.08f, 0.35f, 0.55f, 0.15f, 3.6f, 6f, 0.35f));
         public static LiquidPourProfile Cream() => _cream != null ? _cream : (_cream = Make("Cream (auto)", 0.4f, 1f, 1.5f, 0.1f, 0.35f, 0.5f, 0.3f, 2.4f, 5f, 0.7f));
         public static LiquidPourProfile Oil() => _oil != null ? _oil : (_oil = Make("Oil (auto)", 0.45f, 0.85f, 1.4f, 0.08f, 0.4f, 0.55f, 0.25f, 2f, 4f, 1.6f));
         public static LiquidPourProfile Juice() => _juice != null ? _juice : (_juice = Make("Juice (auto)", 0.05f, 0.88f, 2.4f, 0.2f, 0.6f, 0.3f, 0.6f, 3.4f, 12f, 1f));

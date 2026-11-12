@@ -15,6 +15,7 @@ MonoBehaviour:
   Title: "\u0422\u0435\u0441\u0442\u043E \u0434\u043B\u044F \u043C\u0430\u043A\u0430\u0440\u043E\u043D"
   Driver: 0
   Base: {fileID: 11400000, guid: 650301a3670c6d04999b726747d4d67e, type: 2}
+  BaseState: 0
   BaseAmount: 10
   BaseUnit: 0
   BaseFillsContainer: 0
@@ -28,12 +29,22 @@ MonoBehaviour:
     Unit: 2
     PortionsPerPiece: 0
     CleanOnly: 0
+    State: 0
+    Reduces: 0
+    Strictness: 2
+    Need: 0
+    Pain: 0
   - Product: {fileID: 11400000, guid: b8f60cfc546307b4a80dd9800b436c15, type: 2}
     Alt: {fileID: 11400000, guid: 6627430016ec7d143aac4e53d8ab38fe, type: 2}
     Amount: 1
     Unit: 2
     PortionsPerPiece: 0
     CleanOnly: 0
+    State: 0
+    Reduces: 0
+    Strictness: 2
+    Need: 0
+    Pain: 0
   OrderMatters: 0
   OnlyThese: 1
   Tolerance: 0.3
@@ -44,3 +55,4 @@ MonoBehaviour:
     VolumeK: 0.8
   Result: {fileID: 11400000, guid: ca51aab7d6ee6d14e9338658b4b72578, type: 2}
   IsMistake: 0
+  MeasureVersion: 2

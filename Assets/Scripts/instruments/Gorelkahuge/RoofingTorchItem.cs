@@ -27,6 +27,8 @@ using UnityEngine;
 /// </summary>
 public class RoofingTorchItem : InteractableItem, IHeatJet
 {
+
+    public override bool UseHeldBlocking => false;     // v17.3: своя логика столкновений/позы
     [Header("Положение в руке")]
     [SerializeField] private Vector3 _holdPositionOffset = new Vector3(0.15f, -0.25f, 0.2f);
     [SerializeField] private Vector3 _holdEulerOffset = new Vector3(15f, 0f, 0f);
@@ -46,6 +48,10 @@ public class RoofingTorchItem : InteractableItem, IHeatJet
     [SerializeField] private Color _hoseColor = new Color(1f, 0.42f, 0.08f);
     [Tooltip("Баллон волочится, если шланг натянут (выкл — просто гаснет)")]
     [SerializeField] private bool _dragCylinder = true;
+    [Tooltip("v16: баллон стоит, где поставили, — шланг его НЕ тащит (Drag Cylinder не действует). Отошёл дальше шланга ×1.5 — гаснет: «подойди к баллону»")]
+    [SerializeField] private bool _cylinderStays = true;
+    [Tooltip("v16: в руке не проходит сквозь стены, стол и предметы — упирается и отъезжает к игроку")]
+    [SerializeField] private bool _blockByWorld = true;
     [Tooltip("Без баллона не горит. Выкл — горит и без него (для тестов)")]
     [SerializeField] private bool _needsCylinder = true;
 
@@ -57,6 +63,10 @@ public class RoofingTorchItem : InteractableItem, IHeatJet
     [SerializeField] private Color _flameCore = new Color(0.45f, 0.65f, 1f);
     [SerializeField] private Color _flameTip = new Color(1f, 0.55f, 0.12f);
     [SerializeField] private float _flamePerSecond = 260f;
+    [Tooltip("v14: мультяшный огонь (шейдер CatCooks/Toon Flame). Выкл — старые частицы")]
+    [SerializeField] private bool _toonFlame = true;
+    [Tooltip("v14: толщина пламени на вид, доля радиуса струи")]
+    [Range(0.2f, 4f)][SerializeField] private float _toonWidth = 1.6f;
 
     [Header("Подставка")]
     [SerializeField] private bool _standOnDrop = true;
@@ -83,6 +93,10 @@ public class RoofingTorchItem : InteractableItem, IHeatJet
     private bool _lastHeld;
     private bool _registered;
     private ParticleSystem _ps;
+    private ToonGasFlame _toon;
+    private HeldBlocker _blocker;
+    private Transform _holderCam;
+    private bool _toonFailed;
     private float _carry;
     private GasHose _hose;
     private TorchGasCylinder _cylLocal;
@@ -179,6 +193,7 @@ public class RoofingTorchItem : InteractableItem, IHeatJet
         HeatJets.Unregister(this);
         if (_registered) IgnitionRegistry.Unregister(Nozzle);
         if (_ps != null) Destroy(_ps.gameObject);
+        if (_toon != null) Destroy(_toon.gameObject);
         if (_hose != null) Destroy(_hose.gameObject);
     }
 
@@ -236,7 +251,7 @@ public class RoofingTorchItem : InteractableItem, IHeatJet
             {
                 float excess = d - _hoseLength;
                 Rigidbody rb = c.GetComponent<Rigidbody>();
-                if (_dragCylinder && rb != null && !rb.isKinematic && !c.IsCarried)
+                if (_dragCylinder && !_cylinderStays && rb != null && !rb.isKinematic && !c.IsCarried)
                 {
                     Vector3 dir = PortPoint - c.HoseOutletPoint;
                     dir.y = Mathf.Max(0f, dir.y) * 0.2f;
@@ -307,6 +322,20 @@ public class RoofingTorchItem : InteractableItem, IHeatJet
     {
         Vector3 pos = handAnchor.position + handAnchor.rotation * _holdPositionOffset;
         Quaternion rot = handAnchor.rotation * Quaternion.Euler(_holdEulerOffset);
+        if (_blockByWorld)
+        {
+            if (_holderCam == null)
+            {
+                FirstPersonController fpc = handAnchor.GetComponentInParent<FirstPersonController>();
+                Camera cam = fpc != null ? fpc.GetComponentInChildren<Camera>(true) : null;
+                if (cam != null) _holderCam = cam.transform;
+            }
+            if (_holderCam != null)
+            {
+                if (_blocker == null) _blocker = new HeldBlocker(transform);
+                pos = _blocker.Solve(pos, rot, _holderCam.position);
+            }
+        }
         if (_flame.Value) pos += Random.insideUnitSphere * 0.0015f;      // ревёт — рука подрагивает
         transform.SetPositionAndRotation(pos, rot);
     }
@@ -369,6 +398,21 @@ public class RoofingTorchItem : InteractableItem, IHeatJet
             if (on && !_roarLoop.isPlaying) _roarLoop.Play();
             else if (!on && _roarLoop.isPlaying) _roarLoop.Stop();
             _roarLoop.pitch = 0.85f + 0.25f * PressureK;
+        }
+
+        // v14: мультяшный огонь
+        if (_toonFlame)
+        {
+            if (_toon == null && !_toonFailed && _ignite > 0.01f)
+            {
+                _toon = ToonGasFlame.Create("RoofingToonFlame (auto)", ToonGasFlame.Kind.Roofing);
+                _toonFailed = _toon == null;
+            }
+            if (_toon != null)
+            {
+                _toon.Tick(Nozzle, _ignite, JetLength, JetRadius * _toonWidth, transform);
+                return;
+            }
         }
 
         if (_ignite <= 0.01f) return;

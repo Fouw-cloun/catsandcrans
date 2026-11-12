@@ -36,6 +36,8 @@ Shader "CatCooks/Liquid Stream"
         _Wobble ("Дрожание (доля радиуса)", Range(0, 0.6)) = 0.18
         _Gloss ("Блик-полоса", Range(0, 2)) = 0.8
         _ShadeStrength ("Тень от солнца", Range(0, 1)) = 0.35
+        _Bands ("v10: полосы пены бегут вниз (как у водопада)", Range(0, 1)) = 0
+        _BandFreq ("v10: полос на метр", Float) = 3.5
     }
 
     SubShader
@@ -50,6 +52,7 @@ Shader "CatCooks/Liquid Stream"
                 float _FlowSpeed;
                 float4 _StreakScale;
                 half  _StreakAmount, _EdgeDark, _CoreLight, _LipFoam, _BottomFoam, _BreakUp, _Wobble, _Gloss, _ShadeStrength;
+                half  _Bands; float _BandFreq;
             CBUFFER_END
         ENDHLSL
 
@@ -150,6 +153,10 @@ Shader "CatCooks/Liquid Stream"
                 col = lerp(col, _Light.rgb, step(thrL, streak));
                 half thrF = lerp(0.95, 0.68, _StreakAmount);
                 col = lerp(col, _FoamColor.rgb, step(thrF, streak));
+                // v10: полосы пены — рваные «ступеньки», бегут вниз по струе (стиль водопада)
+                float bn = vnoiseWrap(float2(around * cellsAround, along * 2.3 - t * _FlowSpeed * 0.4), cellsAround);
+                half band = step(0.78, frac(along * _BandFreq - t * _FlowSpeed * 0.9 + bn * 0.7));
+                col = lerp(col, lerp(_Light.rgb, _FoamColor.rgb, 0.6), band * _Bands);
 
                 // ── пена у кромки и внизу (рваная граница) ──
                 float fn = vnoiseWrap(float2(around * 10, along * 6 - t * _FlowSpeed * 0.6), 10);

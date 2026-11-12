@@ -24,6 +24,10 @@ namespace CatCooks.Food
     ///   Своё      тёртые овощи — как настроено на кучке (режимы измельчителя)
     ///
     /// Свои правила: ассет Create → CatCooks → Вид кучек («FoodHeapLooks» в Resources).
+    ///
+    /// v18: сначала спрашивается таблица ВЕЩЕСТВ (FoodSubstance, Resources/FoodSubstances):
+    /// если у продукта есть профиль — вид, материал и поведение (льётся/сыплется) берутся из него.
+    /// Этот класс остаётся прослойкой — старый код, который его зовёт, работает как раньше.
     /// </summary>
     [CreateAssetMenu(menuName = "CatCooks/Вид кучек", fileName = "FoodHeapLooks")]
     public sealed class FoodHeapLook : ScriptableObject
@@ -85,6 +89,8 @@ namespace CatCooks.Food
         /// </summary>
         public static bool IsLiquid(ProductDef p, FoodState state)
         {
+            FoodSubstance sub = FoodSubstance.Of(p, state);                 // v18: профиль решает «льётся или нет»
+            if (sub != null) return sub.Flow == SubstanceFlow.Pours;
             if (IsPowderName(p) || IsMassName(p)) return false;
             // Застывшее (шоколад) — не жидкость, даже «налитое» в таре. Густые пасты (шоколадная паста)
             // и меренга — тоже не жидкость: их берут мастерком, а не льют.
@@ -102,12 +108,16 @@ namespace CatCooks.Food
             // Текстуры кучек нарисованы под картошку — оставляем их ТОЛЬКО картошке.
             // Морковь, лук и прочее — те же формы (режимы измельчителя), но без картофельного узора, своим цветом.
             r.SetLook(Resolve(p, s), IsPotato(p));
+            r.SetSubstance(FoodSubstance.Of(p, s));                          // v18: масло, порошок — своим видом
+            r.SetSpoiled(FoodStateInfo.IsSpoiled(s));                        // v19: испорченная масса — видно
         }
 
         /// <summary>Вид кучки для продукта в состоянии. Custom — оставить как настроено на кучке.</summary>
         public static FoodHeapRenderer.HeapPreset Resolve(ProductDef p, FoodState state)
         {
             if (p != null && p.Title == GnocchiProduct.Title) return FoodHeapRenderer.HeapPreset.Gnocchi;   // рифлёные ньокки, а не кубики
+            FoodSubstance sub = FoodSubstance.Of(p, state);                 // v18: профиль вещества важнее слов
+            if (sub != null && sub.FallbackPreset != FoodHeapRenderer.HeapPreset.Custom) return sub.FallbackPreset;
             if (!_loaded) { _loaded = true; _table = Resources.Load<FoodHeapLook>("FoodHeapLooks"); }
             if (_table != null)
             {

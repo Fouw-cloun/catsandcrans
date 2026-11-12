@@ -18,6 +18,11 @@ namespace CatCooks.Food
     /// от ускорения + покачивание в такт шагам. Полное ведро при резком
     /// движении выплёскивается (это делает CookwareSpill — сам по наклону).
     ///
+    /// v4: ПОЗА СЧИТАЕТСЯ В LateUpdate — после того, как игрок сдвинулся (раньше рука и
+    /// ходьба шли в Update в случайном порядке — ведро дёргалось через кадр); положение
+    /// игрока дополнительно сглаживается. ЗА РУЧКУ: если на ведре есть BucketHandle —
+    /// ведро висит под точкой хвата (верх дужки) и качается маятником, а не «в двух руках».
+    ///
     /// ═══ ЛКМ / ПКМ (LMB Pour ✔, по умолчанию) ═══
     ///   • ЛКМ (держать) — ВЫЛИВАТЬ: смотришь на тару — ведро наклоняется к ней и
     ///     переливает (струя с края, куда упала — туда и попало); смотришь в пол — на пол (лужа).
@@ -29,8 +34,10 @@ namespace CatCooks.Food
     /// ═══ ТРЕБУЕТ ═══
     /// Вместо Pickup Item на корне тары. Рядом: Cookware, CookwareSpill.
     /// </summary>
+    [DefaultExecutionOrder(-30)]      // поза ведра — раньше жидкости (CookwareLiquidVisual) и ручки (BucketHandle)
     public sealed class CarriedContainer : PickupItem
     {
+        public override bool UseHeldBlocking => false;     // v17.3: своя логика столкновений/позы
         public enum Action : byte { None = 0, Pour = 1, Scoop = 2 }
 
         [Header("Как висит в руке")]
@@ -56,6 +63,19 @@ namespace CatCooks.Food
         [Range(0f, 0.15f)][SerializeField] private float _motionSmoothing = 0.05f;
         [Tooltip("При выливании ведро держится ровнее (0 — качается как обычно, 1 — не качается)")]
         [Range(0f, 1f)][SerializeField] private float _pourSteady = 0.75f;
+
+        [Header("Стабильность и хват за ручку (v4)")]
+        [Tooltip("Сглаживание положения игрока, с — ведро не дрожит от рывков кадров и сети")]
+        [Range(0f, 0.12f)][SerializeField] private float _followTime = 0.035f;
+        [Tooltip("Сглаживание поворота игрока, с")]
+        [Range(0f, 0.12f)][SerializeField] private float _yawTime = 0.04f;
+        [Tooltip("Держать за ручку (нужен BucketHandle на ведре): ведро висит под рукой и качается маятником")]
+        [SerializeField] private bool _holdByHandle = true;
+        [Tooltip("Где рука держит ручку относительно ног игрока, м (вправо, вверх, вперёд). " +
+                 "Нули — само: ведро остаётся там же, где было при Carry Offset")]
+        [SerializeField] private Vector3 _gripOffset = Vector3.zero;
+        [Tooltip("Раскачка ведра на ручке сильнее обычной (маятник), множитель")]
+        [Range(0.5f, 3f)][SerializeField] private float _handleSwayGain = 1.4f;
 
         [Header("Выливать (ЛКМ) / черпать (ПКМ)")]
         [SerializeField] private float _range = 2.6f;
@@ -113,6 +133,12 @@ namespace CatCooks.Food
         private float _poseT, _stepPhase, _walk01;
 
         // интерполяция Rigidbody в руке (иначе она перетирает позу каждый кадр — ведро дёргается)
+        private BucketHandle _handle;
+        private Transform _poseAnchor;
+        private int _poseFrame = -10;
+        private Vector3 _basePosF, _baseVelF;
+        private float _yawF, _yawVelF;
+        private bool _baseTracked;
         private RigidbodyInterpolation _savedInterp;
         private bool _interpSaved, _clientKinematic;
         private float _heldSeen = -10f;
@@ -155,6 +181,7 @@ namespace CatCooks.Food
         {
             base.Awake();
             _self = GetComponent<Cookware>();
+            _handle = GetComponent<BucketHandle>();
         }
 
         // ───────────────────────── ВЛАДЕЛЕЦ ─────────────────────────
@@ -437,13 +464,37 @@ namespace CatCooks.Food
 
         // ───────────────────────── ПОЗА (у всех) ─────────────────────────
 
+        /// <summary>
+        /// Рука зовёт в Update (порядок с ходьбой случайный) — запоминаем и ставим позу в LateUpdate,
+        /// когда игрок уже сдвинулся. Так ведро не дёргается через кадр.
+        /// </summary>
         public override void UpdateHeldPose(Transform handAnchor)
         {
             HoldBody();
+            _poseAnchor = handAnchor;
+            _poseFrame = Time.frameCount;
+        }
+
+        private void LateUpdate()
+        {
+            if (_poseAnchor == null || Time.frameCount - _poseFrame > 1) { _baseTracked = false; return; }
+            ApplyHeldPose(_poseAnchor);
+        }
+
+        private void ApplyHeldPose(Transform handAnchor)
+        {
             Transform body = handAnchor.root;
             float dt = Mathf.Clamp(Time.deltaTime, 1e-4f, 0.05f);
-            Quaternion yaw = Quaternion.Euler(0f, body.eulerAngles.y, 0f);
-            Vector3 pos = body.position + yaw * _carryOffset;
+            // v4: сглаженные положение и поворот игрока — без дрожи кадров/сети
+            float yawRaw = body.eulerAngles.y;
+            if (!_baseTracked) { _basePosF = body.position; _baseVelF = Vector3.zero; _yawF = yawRaw; _yawVelF = 0f; _baseTracked = true; }
+            _basePosF = _followTime > 0f ? Vector3.SmoothDamp(_basePosF, body.position, ref _baseVelF, _followTime, 100f, dt) : body.position;
+            _yawF = _yawTime > 0f ? Mathf.SmoothDampAngle(_yawF, yawRaw, ref _yawVelF, _yawTime, 5000f, dt) : yawRaw;
+            Quaternion yaw = Quaternion.Euler(0f, _yawF, 0f);
+            bool byHandle = _holdByHandle && _handle != null && _handle.Ready;
+            Vector3 gripLocal = byHandle ? _handle.GripLocal : Vector3.zero;
+            Vector3 grip = _gripOffset.sqrMagnitude > 1e-6f ? _gripOffset : _carryOffset + Vector3.up * gripLocal.y;
+            Vector3 pos = _basePosF + yaw * _carryOffset;
 
             // ── качание: пружина от ускорения + такт шагов ──
             // Скорость сглажена: персонаж двигается рывками кадров — без этого ведро дрожит.
@@ -456,7 +507,7 @@ namespace CatCooks.Food
             Vector3 acc = Vector3.ClampMagnitude((_velF - _lastVel) / dt, 40f);
             _lastVel = _velF;
             Vector3 accLocal = Quaternion.Inverse(yaw) * acc;
-            Vector2 drive = new Vector2(accLocal.z, -accLocal.x) * (_swayGain * 2.2f);     // градусы
+            Vector2 drive = new Vector2(accLocal.z, -accLocal.x) * (_swayGain * 2.2f * (byHandle ? _handleSwayGain : 1f));     // градусы
             int steps = Mathf.Clamp(Mathf.CeilToInt(dt * 240f), 1, 8);
             float h = dt / steps;
             for (int i = 0; i < steps; i++)
@@ -520,8 +571,17 @@ namespace CatCooks.Food
             // Подпрыгивание в такт шагам: вверх-вниз дважды за шаг, чуть вбок — раз за шаг.
             // От этого по молоку бегут ритмичные волны.
             float bounce = _walkBounce * _walk01 * calm;
-            pos += Vector3.up * ((Mathf.Abs(Mathf.Sin(_stepPhase)) - 0.63f) * bounce)
-                 + yaw * Vector3.right * (Mathf.Sin(_stepPhase) * bounce * 0.4f);
+            Vector3 bounceV = Vector3.up * ((Mathf.Abs(Mathf.Sin(_stepPhase)) - 0.63f) * bounce)
+                            + yaw * Vector3.right * (Mathf.Sin(_stepPhase) * bounce * 0.4f);
+            pos += bounceV;
+            // v4: за ручку — ведро висит ПОД точкой хвата: качание вращает его вокруг руки (маятник).
+            // При выливании/зачерпывании хват плавно переходит в обычную позу (вторая рука под дно).
+            if (byHandle)
+            {
+                Vector3 gripW = _basePosF + yaw * grip + bounceV;
+                Vector3 hung = gripW - rot * gripLocal;
+                pos = Vector3.Lerp(hung, pos, t);
+            }
             transform.SetPositionAndRotation(pos, rot);
         }
 

@@ -209,7 +209,7 @@ public class MixerItem : InteractableItem, ISpinningTool
         {
             Cookware cwv = FindWhiskCookware();
             CookwareLiquidVisual lv = cwv != null ? cwv.GetComponentInChildren<CookwareLiquidVisual>() : null;
-            if (lv != null && lv.HasLiquid && WhiskT != null) lv.Stir(WhiskT.position, 1f);
+            if (lv != null && lv.HasLiquid && WhiskT != null) lv.Stir(WhiskT.position, 1f, 0.5f);   // v19.1: большой миксер — эффекты вдвое медленнее вибратора
             // Шоколад под венчиком: брызги пасты / крошки застывшего, форма — рябь и закрутка.
             if (cwv != null && WhiskT != null) ChocolateWork.ClientStir(cwv, WhiskT.position, dt);
         }
