@@ -1291,6 +1291,9 @@ namespace CatCooks.Food
             _mr.enabled = _pile.Count > 0;
         }
 
+        private Vector3 _accLP;
+        private float _awakeT;
+
         private void UpdateParticles()
         {
             if (_pile == null || _pile.Count == 0 || !Application.isPlaying) return;
@@ -1304,7 +1307,9 @@ namespace CatCooks.Food
                 {
                     Vector3 vel = (fp - _lastFramePos) / Time.deltaTime;
                     Vector3 acc = (vel - _lastFrameVel) / Time.deltaTime;
-                    if (acc.sqrMagnitude > 1f) _pile.Shove(frame.InverseTransformDirection(acc), 1f / 60f);
+                    // v23.3 (FPS): ускорение сглаживаем — дрожь физики тары (ковш на технике) больше не будит горку каждый кадр
+                    _accLP = Vector3.Lerp(_accLP, Vector3.ClampMagnitude(acc, 60f), 1f - Mathf.Exp(-Time.deltaTime * 6f));
+                    if (_accLP.sqrMagnitude > 4f) _pile.Shove(frame.InverseTransformDirection(_accLP), 1f / 60f);
                     _lastFrameVel = vel;
                 }
                 _lastFramePos = fp;
@@ -1314,7 +1319,16 @@ namespace CatCooks.Food
                 Vector3 gLocal = frame.InverseTransformDirection(Physics.gravity);
                 // Масштаб рамки снят ApplyFrame, но на всякий случай нормируем к мировой длине.
                 gLocal = gLocal.normalized * Physics.gravity.magnitude;
-                _simAccum = Mathf.Min(_simAccum + Time.deltaTime, 3f / 60f);
+                // v23.3 (FPS): горка не засыпает дольше 4 с — укладываем как есть; далеко от камеры — не считаем вовсе
+                if (!_pile.Asleep)
+                {
+                    _awakeT += Time.deltaTime;
+                    if (_awakeT > 4f) { _pile.ForceSleep(); _awakeT = 0f; }
+                }
+                else _awakeT = 0f;
+                Camera cam = Camera.main;
+                bool far = cam != null && (cam.transform.position - fp).sqrMagnitude > 45f * 45f;
+                _simAccum = far ? 0f : Mathf.Min(_simAccum + Time.deltaTime, 2f / 60f);
                 while (_simAccum >= 1f / 60f)
                 {
                     _pile.Step(1f / 60f, gLocal);
@@ -1914,6 +1928,9 @@ namespace CatCooks.Food
             _builtFor = 0f;
         }
 
+        [System.NonSerialized] private float _handleAng = float.NaN;           // v23.25: сторона ручки в осях кучки
+        [System.NonSerialized] private bool _handleTried;
+
         private void ShowSubstance(float before, float portions, Color color, int seed)
         {
             _subOn = true;
@@ -1937,7 +1954,21 @@ namespace CatCooks.Food
             else if (_sub.Look == SubstanceLook.Crystals)
                 FoodSubstanceMesh.Crystals(_mesh, d, _sub.CrystalSize, _sub.CrystalDensity, col, seed);
             else if (_sub.Look == SubstanceLook.Spread)
+            {
+                if (tool)
+                {
+                    if (!_bladeAxisSet) PickBladeAxis();
+                    if (!_handleTried)
+                    {
+                        _handleTried = true;
+                        FishNet.Object.NetworkObject no = GetComponentInParent<FishNet.Object.NetworkObject>();
+                        _handleAng = FoodSubstanceMesh.HandleAngle(no != null ? no.transform : transform.parent, transform.rotation * Quaternion.FromToRotation(Vector3.up, _bladeAxis), transform.position, _mr);
+                    }
+                    FoodSubstanceMesh.SpreadTailAng = _handleAng;                 // v23.25: плоской частью к ручке
+                }
                 FoodSubstanceMesh.Spread(_mesh, d, _shape == Shape.Fill && !tool ? _sub.Curl * 0.5f : _sub.Curl, col, seed);
+                FoodSubstanceMesh.SpreadTailAng = float.NaN;
+            }
             else
             {
                 float curl = _shape == Shape.Fill && !tool ? _sub.Curl * 0.5f : _sub.Curl;

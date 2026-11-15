@@ -195,56 +195,39 @@ namespace CatCooks.Food
         private Transform _glow;
         private Material _glowMat;
 
-        private static Mesh _glowQuad;
-
-        private static Mesh GlowQuad()
-        {
-            if (_glowQuad != null) return _glowQuad;
-            _glowQuad = new Mesh { name = "Torch Glow Quad", hideFlags = HideFlags.DontSave };
-            _glowQuad.vertices = new[] { new Vector3(-0.5f, -0.5f, 0f), new Vector3(0.5f, -0.5f, 0f), new Vector3(0.5f, 0.5f, 0f), new Vector3(-0.5f, 0.5f, 0f) };
-            _glowQuad.uv = new[] { new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(0f, 1f) };
-            _glowQuad.triangles = new[] { 0, 2, 1, 0, 3, 2 };
-            _glowQuad.RecalculateBounds();
-            return _glowQuad;
-        }
-
         private void UpdateGlow()
         {
-            if (_glowOn <= 0.01f) { if (_glow != null && _glow.gameObject.activeSelf) _glow.gameObject.SetActive(false); return; }
+            // v19.2: свечение = КОПИЯ струи огня, чуть больше (×1.35 в ширину, ×1.15 в длину),
+            // прозрачная и аддитивная, без дыр; повторяет форму, длину и упор пламени — не прыгает
+            if (_layers == null || _layers[0] == null) return;
             if (_glow == null)
             {
-                var go = new GameObject("Glow (auto)") { hideFlags = HideFlags.DontSave };
+                var go = new GameObject("Flame Glow") { hideFlags = HideFlags.DontSave };
                 go.transform.SetParent(transform, false);
-                go.AddComponent<MeshFilter>().sharedMesh = GlowQuad();
+                go.AddComponent<MeshFilter>().sharedMesh = _cone;
                 MeshRenderer mr = go.AddComponent<MeshRenderer>();
                 mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 mr.receiveShadows = false;
-                Shader sh = Shader.Find("Universal Render Pipeline/Particles/Unlit");
-                _glowMat = new Material(sh != null ? sh : Shader.Find("Sprites/Default")) { name = "Torch Glow (auto)", hideFlags = HideFlags.DontSave };
-                if (_glowMat.HasProperty("_Surface")) _glowMat.SetFloat("_Surface", 1f);
-                if (_glowMat.HasProperty("_Blend")) _glowMat.SetFloat("_Blend", 2f);                // добавочное
-                if (_glowMat.HasProperty("_SrcBlend")) _glowMat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
-                if (_glowMat.HasProperty("_DstBlend")) _glowMat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.One);
-                if (_glowMat.HasProperty("_ZWrite")) _glowMat.SetFloat("_ZWrite", 0f);
-                _glowMat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-                _glowMat.renderQueue = 3100;
-                _glowMat.mainTexture = CCHeatFx.WispTexture();
-                if (_glowMat.HasProperty("_BaseMap")) _glowMat.SetTexture("_BaseMap", CCHeatFx.WispTexture());
+                _glowMat = new Material(_mats[0]) { name = "ToonFlame Glow (auto)", hideFlags = HideFlags.DontSave };
+                _glowMat.renderQueue = 2999;                                  // за оболочкой пламени
+                if (_glowMat.HasProperty("_Holes")) _glowMat.SetFloat("_Holes", 0f);
+                if (_glowMat.HasProperty("_Additive")) _glowMat.SetFloat("_Additive", 1f);
+                if (_glowMat.HasProperty("_Alpha")) _glowMat.SetFloat("_Alpha", 0.28f);
+                if (_glowMat.HasProperty("_Glow")) _glowMat.SetFloat("_Glow", 1.1f);
+                if (_glowMat.HasProperty("_BandNoise")) _glowMat.SetFloat("_BandNoise", 0.05f);
+                if (_glowMat.HasProperty("_Wobble")) _glowMat.SetFloat("_Wobble", 0.06f);
+                if (_glowMat.HasProperty("_Dissolve")) _glowMat.SetFloat("_Dissolve", 0.75f);
                 mr.sharedMaterial = _glowMat;
                 _glow = go.transform;
             }
-            if (!_glow.gameObject.activeSelf) _glow.gameObject.SetActive(true);
-            Camera cam = Camera.main;
-            if (cam != null) _glow.rotation = Quaternion.LookRotation(_glow.position - cam.transform.position, cam.transform.up);
-            float pulse = 1f + Mathf.Sin(Time.time * 3f + _seed) * 0.04f;                    // еле заметно дышит
-            Vector3 ls = transform.lossyScale;
-            float inv = 1f / Mathf.Max(1e-4f, (Mathf.Abs(ls.x) + Mathf.Abs(ls.y) + Mathf.Abs(ls.z)) / 3f);
-            _glow.localPosition = Vector3.forward * (_glowSize * 0.15f * inv);
-            _glow.localScale = Vector3.one * (_glowSize * pulse * inv);
-            Color c = _kind == Kind.Roofing ? new Color(1f, 0.55f, 0.25f, 0.35f) : new Color(0.45f, 0.65f, 1f, 0.35f);
-            c.a *= _glowOn;
-            if (_glowMat.HasProperty("_BaseColor")) _glowMat.SetColor("_BaseColor", c);
-            _glowMat.color = c;
+            bool on = _glowOn > 0.01f && _rends != null && _rends[0] != null && _rends[0].enabled;
+            if (_glow.gameObject.activeSelf != on) _glow.gameObject.SetActive(on);
+            if (!on) return;
+            Vector3 s0 = _layers[0].localScale;
+            _glow.localPosition = _layers[0].localPosition;
+            _glow.localRotation = _layers[0].localRotation;
+            _glow.localScale = new Vector3(s0.x * 1.35f, s0.y * 1.35f, s0.z * 1.15f);
+            if (_glowMat.HasProperty("_Alpha")) _glowMat.SetFloat("_Alpha", 0.28f * _glowOn);
         }
 
         private float ObstacleDistance(Vector3 o, Vector3 d, float L, float r, Transform ignoreRoot)

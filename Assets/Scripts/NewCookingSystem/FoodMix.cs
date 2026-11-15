@@ -37,9 +37,12 @@ namespace CatCooks.Food
         /// настоящая база игровой сцены уничтожала себя как дубликат. Менеджеры живут
         /// между сценами, поэтому им — только поиск.
         /// </summary>
+        private static FoodDatabase _sceneDb;
         private static FoodDatabase SceneDb()
         {
-            FoodDatabase db = FindAnyObjectByType<FoodDatabase>();
+            // v23.2 (FPS): ищем по сцене один раз, дальше — из кэша (поиск звался на каждый тик тары)
+            if (_sceneDb == null) _sceneDb = FindAnyObjectByType<FoodDatabase>();
+            FoodDatabase db = _sceneDb;
             return db != null && db.Table != null ? db : null;
         }
 

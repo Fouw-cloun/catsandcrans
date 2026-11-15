@@ -137,11 +137,27 @@ namespace CatCooks.Food
         }
 
         private static Material _autoPowder, _autoButter, _autoSugar, _autoSpread;
+        private static Material[] _anime = new Material[5];
+        private static bool _animeWarned;
+
+        /// <summary>
+        /// v23.6: все кучки (порошок, масло, паста, сахар) рисуются аниме-шейдером CatCooks/Anime Heap.
+        /// Свой материал профиля берётся, если он уже на этом шейдере; иначе — общий аниме-материал вида.
+        /// false — как раньше (свой материал профиля / старые шейдеры).
+        /// </summary>
+        public static bool AnimeHeaps = true;
+        public const string AnimeShader = "CatCooks/Anime Heap";
         private static bool _warned;
 
         /// <summary>Материал вещества: свой или созданный по виду.</summary>
         public Material GetMaterial()
         {
+            if (AnimeHeaps && OwnLook)
+            {
+                if (Material != null && Material.shader != null && Material.shader.name == AnimeShader) return Material;
+                Material a = AnimeMaterial(Look);
+                if (a != null) return a;
+            }
             if (Material != null) return Material;
             return AutoMaterial(Look);
         }
@@ -155,7 +171,7 @@ namespace CatCooks.Food
             }
             if (look == SubstanceLook.Butter)
             {
-                if (_autoButter == null) _autoButter = Make("CatCooks/Toon Food", "CC Substance Butter (auto)");   // v19.1: тун с обводкой
+                if (_autoButter == null) { _autoButter = Make("CatCooks/Toon Food", "CC Substance Butter (auto)"); ToonPreset(_autoButter, SubstanceLook.Butter); }   // v19.2: Toon Food v3
                 return _autoButter;
             }
             if (look == SubstanceLook.Crystals)
@@ -175,6 +191,60 @@ namespace CatCooks.Food
             return null;
         }
 
+        /// <summary>v23.6: общий аниме-материал вида (создаётся один раз, настройки — <see cref="AnimePreset"/>).</summary>
+        public static Material AnimeMaterial(SubstanceLook look)
+        {
+            int i = (int)look;
+            if (i <= 0 || i >= _anime.Length) return null;
+            if (_anime[i] != null) return _anime[i];
+            Shader sh = Shader.Find(AnimeShader);
+            if (sh == null)
+            {
+                if (!_animeWarned) { _animeWarned = true; Debug.LogWarning("[Вещества] нет шейдера «" + AnimeShader + "» — кучки рисуются старыми шейдерами"); }
+                return null;
+            }
+            var m = new Material(sh) { name = "CC Anime Heap " + look + " (auto)", hideFlags = HideFlags.DontSave };
+            AnimePreset(m, look);
+            _anime[i] = m;
+            return m;
+        }
+
+        /// <summary>v23.6: настройки CatCooks/Anime Heap под вид вещества (подобраны по превью).</summary>
+        public static void AnimePreset(Material m, SubstanceLook look)
+        {
+            if (m == null) return;
+            if (look == SubstanceLook.Powder)
+            {
+                // v23.6: чисто — две краски + обводка (свет почти без третьей краски, глубокая — только у пола)
+                SetF(m, "_HKind", 0f); SetF(m, "_HSpec", 0f); SetF(m, "_HSparkle", 0f); SetF(m, "_HRim", 0.3f);
+                SetF(m, "_HLayers", 1f); SetF(m, "_HSpeck", 1f); SetF(m, "_HTermGlow", 0.2f); SetF(m, "_HBrush", 0.1f);
+                SetF(m, "_HInk", 0.35f); SetF(m, "_HT1", 0.16f); SetF(m, "_HT3", 0.9f); SetF(m, "_HShadeDepth", 0.74f);
+                SetF(m, "_HContact", 0.5f); SetF(m, "_HSmooth", 0.15f); SetF(m, "_HOutline", 3f);   // v23.9: обводка толще                       // v23.8: комья — в модели, свет по ним
+            }
+            else if (look == SubstanceLook.Butter)
+            {
+                SetF(m, "_HKind", 1f); SetF(m, "_HShadeDepth", 0.86f); SetF(m, "_HDeep", 0.64f); SetF(m, "_HTermGlow", 0.3f);
+                SetF(m, "_HInk", 0.3f); SetF(m, "_HSat", 1.15f); SetF(m, "_HSpec", 0.6f); SetF(m, "_HSpecSize", 0.965f);
+                SetF(m, "_HSparkle", 0.12f); SetF(m, "_HRim", 0.5f); SetF(m, "_HBounceAmt", 0.35f); SetF(m, "_HLayers", 0f);
+                SetF(m, "_HBrush", 0.1f);
+            }
+            else if (look == SubstanceLook.Spread)
+            {
+                // v23.11: глянцевая «нутелла»: сильный блеск длинными полосами, тёплая тень, карамельный отсвет на краях
+                SetF(m, "_HKind", 2f); SetF(m, "_HShadeDepth", 0.66f); SetF(m, "_HDeep", 0.4f); SetF(m, "_HSpec", 0.9f);
+                SetF(m, "_HSpecSize", 0.986f); SetF(m, "_HSpecBreak", 0.15f); SetF(m, "_HBounceAmt", 0.5f); SetF(m, "_HTermGlow", 0.55f);
+                SetF(m, "_HLayers", 0f); SetF(m, "_HSparkle", 0.05f); SetF(m, "_HBrush", 0.08f); SetF(m, "_HInk", 0.15f);
+                SetF(m, "_HSat", 1.3f); SetF(m, "_HRim", 0.55f); SetF(m, "_HSss", 0.5f); SetF(m, "_HOutline", 1.6f);
+            }
+            else if (look == SubstanceLook.Crystals)
+            {
+                SetF(m, "_HKind", 3f); SetF(m, "_HShadeDepth", 0.86f); SetF(m, "_HDeep", 0.6f); SetF(m, "_HInk", 0.2f);
+                SetF(m, "_HSpec", 0.9f); SetF(m, "_HSpecSize", 0.975f); SetF(m, "_HSparkle", 0.8f); SetF(m, "_HRim", 0.6f);
+                SetF(m, "_HLayers", 0.5f); SetF(m, "_HTermGlow", 0.15f); SetF(m, "_HOutline", 2.2f); SetF(m, "_HBrush", 0.05f);
+                if (m.HasProperty("_HShadeCool")) m.SetColor("_HShadeCool", new Color(0.78f, 0.84f, 1f, 1f));
+            }
+        }
+
         private static Material Make(string shader, string name)
         {
             Shader sh = Shader.Find(shader);
@@ -191,18 +261,42 @@ namespace CatCooks.Food
             return new Material(sh) { name = name, hideFlags = HideFlags.DontSave };
         }
 
-        /// <summary>Паста-нутелла: тот же шейдер масла, но сильный глянец, холодная тень.</summary>
-        public static void SpreadGloss(Material m)
+        /// <summary>v19.2: старое имя — теперь пресет тун-шейдера для пасты.</summary>
+        public static void SpreadGloss(Material m) { ToonPreset(m, SubstanceLook.Spread); }
+
+        /// <summary>
+        /// v19.2: настройки CatCooks/Toon Food v3 для вида вещества: цвет из вершин (sRGB), тун-свет,
+        /// силуэт цветом еды, чернильный контур склонов; масло — мягкий блеск и «подсветка изнутри»,
+        /// паста — сильный глянец, глазурь и разводы.
+        /// </summary>
+        public static void ToonPreset(Material m, SubstanceLook look)
         {
-            if (m.HasProperty("_Sheen")) m.SetFloat("_Sheen", 0.9f);
-            if (m.HasProperty("_SheenSize")) m.SetFloat("_SheenSize", 60f);
-            if (m.HasProperty("_Warm")) m.SetFloat("_Warm", 0.12f);
-            if (m.HasProperty("_Rim")) m.SetFloat("_Rim", 0.28f);
-            if (m.HasProperty("_ShadowTint")) m.SetColor("_ShadowTint", new Color(0.55f, 0.4f, 0.36f, 1f));
-            if (m.HasProperty("_Marble")) m.SetFloat("_Marble", 0.65f);          // v19.1: разводы смешивания
-            if (m.HasProperty("_MarbleScale")) m.SetFloat("_MarbleScale", 11f);
-            if (m.HasProperty("_MarbleLight")) m.SetFloat("_MarbleLight", 1.45f);
+            if (m == null) return;
+            SetF(m, "_VertexColorTint", 1f); SetF(m, "_VertexColorSRGB", 1f);
+            if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", UnityEngine.Color.white);
+            SetF(m, "_ShadowThreshold", 0.38f); SetF(m, "_ShadowSoftness", 0.08f); SetF(m, "_LightWrap", 0.3f);
+            SetF(m, "_ContourOn", 0f); SetF(m, "_ContourWidth", 0.3f);   // v19.3: на бугристом рельефе контур рисовал «топографические» волны — выключен, рельеф читается силуэтом SetF(m, "_ContourDark", 0.62f); SetF(m, "_ContourLightMask", 0.4f);
+            SetF(m, "_OutlineWidth", 1.4f); SetF(m, "_OutlineVertexColor", 1f); SetF(m, "_OutlineTextureBlend", 0f); SetF(m, "_OutlineMode", 0f);
+            SetF(m, "_RimOn", 0f); SetF(m, "_SpecularOn", 1f); SetF(m, "_SparkleOn", 0f);
+            if (look == SubstanceLook.Spread)
+            {
+                SetC(m, "_ShadowTint", new Color(0.62f, 0.44f, 0.4f));
+                SetF(m, "_SssOn", 0f);
+                SetF(m, "_SpecSize", 0.45f); SetF(m, "_SpecIntensity", 1.1f); SetF(m, "_SheenIntensity", 0.5f);
+                SetF(m, "_GlazeOn", 1f); SetF(m, "_GlazeIntensity", 0.4f);
+                SetF(m, "_MarbleAmount", 0.6f); SetF(m, "_MarbleScale", 11f); SetF(m, "_MarbleLight", 1.45f);
+            }
+            else
+            {
+                SetC(m, "_ShadowTint", new Color(0.9f, 0.68f, 0.45f));
+                SetF(m, "_SssOn", 1f); SetC(m, "_SSSColor", new Color(1f, 0.8f, 0.4f)); SetF(m, "_SSSStrength", 0.4f);
+                SetF(m, "_SpecSize", 0.3f); SetF(m, "_SpecIntensity", 0.5f); SetF(m, "_SheenIntensity", 0.25f);
+                SetF(m, "_GlazeOn", 0f); SetF(m, "_MarbleAmount", 0f);
+            }
         }
+
+        private static void SetF(Material m, string n, float v) { if (m.HasProperty(n)) m.SetFloat(n, v); }
+        private static void SetC(Material m, string n, Color c) { if (m.HasProperty(n)) m.SetColor(n, c); }
 
         /// <summary>Сыграть случайный звук из списка (только у себя, в точке).</summary>
         public void Play(AudioClip[] clips, Vector3 at)

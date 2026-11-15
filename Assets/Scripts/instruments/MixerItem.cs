@@ -129,6 +129,8 @@ public class MixerItem : InteractableItem, ISpinningTool
     public bool IsActive => _spinning.Value && !_stuck.Value;
     public float Power01 => 1f;
     public Transform WorkPoint => WhiskT;
+    /// <summary>v19.4: миксер приколот в мире (игрок крутится) — рабочая поза над тарой не трогает.</summary>
+    public bool PoseLocked => _spinLocked;
 
     private Transform WhiskT => _whisk != null ? _whisk : (_probePoint != null ? _probePoint : _attachment);
 

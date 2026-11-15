@@ -82,7 +82,12 @@ namespace CatCooks.Food
         [Header("Что собрать")]
         [SerializeField] private bool _makeColliders = true;
         [Tooltip("Толщина стенок-коллайдеров, м")]
-        [Min(0.005f)][SerializeField] private float _wall = 0.04f;
+        [Min(0.005f)][SerializeField] private float _wall = 0.12f;
+        [Tooltip("v19.2: при запуске игры стенки AutoColliders тоньше этого (м, в мире) — утолщаются НАРУЖУ. " +
+                 "Тонкие стенки (4 см) пропускали предметы: ковш крутится рывками, быстрые предметы проскакивают")]
+        [Min(0f)][SerializeField] private float _minWallRuntime = 0.18f;
+        [Tooltip("v19.3: утолщать только у тары без СВОЕГО динамического Rigidbody (ковш на технике — да, ведро — нет). Выключи — у всех")]
+        [SerializeField] private bool _thickenOnlyMoving = true;
         [Tooltip("Ярусов стенок по высоте (больше — точнее форма)")]
         [Range(2, 12)][SerializeField] private int _bands = 6;
         [Tooltip("Рюмка: сегментов в кольце")]
@@ -143,6 +148,41 @@ namespace CatCooks.Food
                 }
                 return v;
             }
+        }
+
+        // ───────────────────────── v19.2: ТОЛСТЫЕ СТЕНКИ В ИГРЕ ─────────────────────────
+
+        private void Awake()
+        {
+            if (!Application.isPlaying || _minWallRuntime <= 0f) return;
+            // v19.3: только тара, которую двигают НЕ физикой (ковш на машине, кинематическое тело).
+            // Обычное ведро стоит на полу динамикой: утолщённое вниз дно влезало в пол, ведро подпрыгивало
+            // и физика постоянно расталкивала его — дёрганье и лишняя нагрузка.
+            Rigidbody body = GetComponent<Rigidbody>();       // своё тело (ведро) — не ковш на машине
+            if (_thickenOnlyMoving && body != null && !body.isKinematic) return;
+            Transform cols = transform.Find(CollName);
+            if (cols == null) return;
+            Vector3 centre = BottomWorld + FrameWorld * Vector3.up * (_depth * 0.5f);
+            int n = 0;
+            foreach (BoxCollider b in cols.GetComponentsInChildren<BoxCollider>(true))
+            {
+                if (b.isTrigger) continue;
+                Vector3 ls = b.transform.lossyScale;
+                Vector3 world = new Vector3(Mathf.Abs(b.size.x * ls.x), Mathf.Abs(b.size.y * ls.y), Mathf.Abs(b.size.z * ls.z));
+                int ax = world.x <= world.y && world.x <= world.z ? 0 : (world.y <= world.z ? 1 : 2);
+                float have = world[ax];
+                if (have >= _minWallRuntime) continue;
+                float scaleAx = Mathf.Max(1e-6f, Mathf.Abs(ax == 0 ? ls.x : ax == 1 ? ls.y : ls.z));
+                Vector3 axisLocal = ax == 0 ? Vector3.right : ax == 1 ? Vector3.up : Vector3.forward;
+                Vector3 axisW = b.transform.TransformDirection(axisLocal);
+                Vector3 cW = b.transform.TransformPoint(b.center);
+                float side = Vector3.Dot(cW - centre, axisW) >= 0f ? 1f : -1f;    // наружу — от середины полости
+                float add = (_minWallRuntime - have) / scaleAx;                 // в единицах коллайдера
+                Vector3 sz = b.size; sz[ax] += add; b.size = sz;
+                b.center += axisLocal * (add * 0.5f * side);
+                n++;
+            }
+            if (n > 0) Debug.Log($"[Полость] «{name}»: {n} тонких стенок утолщены наружу до {_minWallRuntime:0.00} м — предметы не проскакивают", this);
         }
 
 #if UNITY_EDITOR

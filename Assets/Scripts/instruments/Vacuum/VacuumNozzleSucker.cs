@@ -118,7 +118,19 @@ public class VacuumNozzleSucker : NetworkBehaviour
     [Header("Отладка")]
     [SerializeField] private bool _debugHud = true;
 
+    [Header("v19.6: желтки (белок остаётся)")]
+    [Tooltip("Сколько желтков помещается в пылесос")]
+    [SerializeField] private int _yolkCapacity = 30;
+    [Tooltip("Один желток раз в столько секунд (сосать и плевать)")]
+    [SerializeField] private float _yolkInterval = 0.25f;
+
     // ───────── сеть ─────────
+    /// <summary>v19.6: сколько желтков в пылесосе.</summary>
+    private readonly SyncVar<byte> _yolks = new SyncVar<byte>(0);
+    private float _nextYolk;
+    private ushort _yolkId;
+    private bool _yolkResolved;
+
     /// <summary>Всасывать или выплёвывать. ВКЛЮЧЕНИЕ здесь ни при чём — им
     /// ведает кнопка компрессора на корпусе базы.</summary>
     private readonly SyncVar<byte> _mode = new SyncVar<byte>((byte)VacuumMode.Suck);
@@ -247,6 +259,9 @@ public class VacuumNozzleSucker : NetworkBehaviour
 
         // Дым над костром — в бак.
         SuckSmoke(origin);
+
+        // v19.6: желтки — с пола (разбитые яйца) и из тары. Белок остаётся.
+        SuckYolks(origin, dir);
 
         int n = Physics.OverlapSphereNonAlloc(origin, _range, _hits, _suckMask,
                                               QueryTriggerInteraction.Ignore);
@@ -428,6 +443,7 @@ public class VacuumNozzleSucker : NetworkBehaviour
     {
         // Сначала — дым (если есть), предметы потом.
         if (_smoke > 0.001f) { BlowSmoke(); return; }
+        if (_yolks.Value > 0) { if (Time.time >= _nextYolk) SpitYolk(); return; }   // v19.6: сначала желтки
         if (_belly.Count == 0) return;
         if (Time.time < _nextBlow) return;
         _nextBlow = Time.time + _blowInterval;
@@ -461,6 +477,100 @@ public class VacuumNozzleSucker : NetworkBehaviour
             rb.AddForce(dir.normalized * force, ForceMode.Impulse);
             rb.AddTorque(Random.insideUnitSphere * force * 0.4f, ForceMode.Impulse);
         }
+    }
+
+    // ───────────────────────── ЖЕЛТКИ (v19.6) ─────────────────────────
+
+    private ushort YolkId()
+    {
+        if (_yolkResolved) return _yolkId;
+        FoodDatabase db = FoodDatabase.Instance;
+        if (db == null) return 0;
+        _yolkResolved = true;
+        ProductDef p = MacaronTitles.Find(db, "Яичный желток");
+        _yolkId = p != null ? p.Id : (ushort)0;
+        if (p == null) Debug.LogWarning("[Пылесос] нет продукта «Яичный желток» — желтки из тары не сосёт (с пола — сосёт)", this);
+        return _yolkId;
+    }
+
+    /// <summary>Тара, куда смотрит дуло (или в которую оно опущено). needYolk — только с желтком; needRoom — с местом.</summary>
+    private Cookware AimedCookware(Vector3 origin, Vector3 dir, ushort yolk, bool needYolk, bool needRoom)
+    {
+        Cookware best = null;
+        float bd = float.MaxValue;
+        foreach (Cookware c in Cookware.All)
+        {
+            if (c == null || !c.IsServerInitialized) continue;
+            Vector3 to = c.MouthPoint - origin;
+            float d = to.magnitude;
+            bool inside = c.IsInside(origin);
+            if (!inside && (d > _range || Vector3.Angle(dir, to) > _coneAngle + 10f)) continue;
+            if (needYolk && (yolk == 0 || c.CountOf(yolk) <= 0)) continue;
+            if (needRoom && c.Capacity > 0 && c.TotalCount >= c.Capacity) continue;
+            if (inside) d = 0f;
+            if (d < bd) { bd = d; best = c; }
+        }
+        return best;
+    }
+
+    [Server]
+    private void SuckYolks(Vector3 origin, Vector3 dir)
+    {
+        if (_yolks.Value >= _yolkCapacity || Time.time < _nextYolk) return;
+        Vector3 at;
+        int sid = EggSplat.ServerTakeYolk(origin, dir, _range, _coneAngle, out at);
+        if (sid > 0)
+        {
+            _yolks.Value++;
+            _nextYolk = Time.time + _yolkInterval;
+            RpcYolkTaken(sid, origin, at, EggSplat.LastSize);
+            Debug.Log($"[Пылесос] желток с пола — в пылесосе {_yolks.Value}", this);
+            return;
+        }
+        ushort id = YolkId();
+        if (id == 0) return;
+        Cookware cw = AimedCookware(origin, dir, id, true, false);
+        if (cw == null) return;
+        if (cw.ServerTake(id, 1) <= 0) return;
+        _yolks.Value++;
+        _nextYolk = Time.time + _yolkInterval;
+        RpcYolkTaken(0, origin, cw.MouthPoint, EggSplat.LastSize);
+        Debug.Log($"[Пылесос] желток из «{cw.name}» — белок остался. В пылесосе {_yolks.Value}", this);
+    }
+
+    [Server]
+    private void SpitYolk()
+    {
+        _nextYolk = Time.time + _yolkInterval;
+        Transform m = Mouth;
+        Vector3 origin = m.position, dir = m.forward;
+        ushort id = YolkId();
+        Cookware cw = id != 0 ? AimedCookware(origin, dir, id, false, true) : null;
+        if (cw != null)
+        {
+            _yolks.Value--;
+            cw.ServerAddContent(id, CatCooks.Food.FoodState.Yolk, 1, 0);
+            RpcYolkSpit(origin, cw.MouthPoint, 0, EggSplat.LastSize);
+            Debug.Log($"[Пылесос] желток в «{cw.name}», осталось {_yolks.Value}", this);
+            return;
+        }
+        if (!Physics.Raycast(origin + dir * 0.05f, dir, out RaycastHit hit, _range * 2f, ~0, QueryTriggerInteraction.Ignore)) return;
+        _yolks.Value--;
+        int sid = EggSplat.ServerRegister(hit.point, EggSplat.LastSize, false);
+        RpcYolkSpit(origin, hit.point, sid, EggSplat.LastSize);
+    }
+
+    [ObserversRpc]
+    private void RpcYolkTaken(int splatId, Vector3 mouth, Vector3 from, float size)
+    {
+        if (splatId > 0) EggSplat.ClientYolkTaken(splatId, mouth);
+        else YolkFlyFx.Fly(from, mouth, size, 0, null);
+    }
+
+    [ObserversRpc]
+    private void RpcYolkSpit(Vector3 from, Vector3 to, int splatId, float size)
+    {
+        YolkFlyFx.Fly(from, to, size, splatId, null);
     }
 
     // ───────────────────────── ДЫМ ─────────────────────────
@@ -716,7 +826,7 @@ public class VacuumNozzleSucker : NetworkBehaviour
 
         GUI.Box(new Rect(12f, 282f, 660f, 62f),
                 $"Пылесос → {mode}{hint}\n" +
-                $"в мешке {Stored} / {_capacity}   держит: " +
+                $"в мешке {Stored} / {_capacity}   желтков {_yolks.Value} / {_yolkCapacity}   держит: " +
                 $"{(_stuck.Value != null ? _stuck.Value.name : "—")}   " +
                 $"«{_modeKey}» — сосать/плевать\n" +
                 $"дым в баке {Smoke01 * 100f:0}%  " + SmokeHudHint(), st);

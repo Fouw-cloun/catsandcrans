@@ -418,10 +418,12 @@ namespace CatCooks.Food
                 float bub = syrup ? 0f : Mathf.InverseLerp(_bubblesFromC, bc, t);   // карамель: до 160 °C не пузырится вовсе
                 bool boiling = t >= bc - 0.6f;
                 float rate = _bubblesPerSecond * (boiling ? (syrup ? 0.6f : 1f) : bub * bub * 0.45f);
+                if (_lv != null) _lv.SetBoil(boiling ? (syrup ? 0.6f : 1f) : bub * bub * 0.4f);   // v23: купола и волны кипения на самой поверхности
                 _bubbleAcc += dt * rate * Mathf.Clamp(_fxScale, 1f, 5f);     // большая кастрюля — больше пузырей
                 int n = Mathf.Min(30, (int)_bubbleAcc);
                 _bubbleAcc -= n;
-                for (int i = 0; i < n; i++) EmitBubble(boiling ? Random.Range(0.45f, 1f) : Random.Range(0.15f, 0.4f));
+                if (_lv == null)                                                   // v23.1: есть жидкость-визуал — пузыри рисует она (куполки цвета жидкости)
+                    for (int i = 0; i < n; i++) EmitBubble(boiling ? Random.Range(0.45f, 1f) : Random.Range(0.15f, 0.4f));
 
                 float st = syrup ? 0f : Mathf.InverseLerp(_steamFromC, bc, t);
                 float srate = _steamPerSecond * (boiling ? (syrup ? 0.35f : 1f) : st * 0.5f);
@@ -455,6 +457,7 @@ namespace CatCooks.Food
             Vector3 c = _cw.MouthPoint;
             float r = _lv != null ? _lv.RadiusAtRimWorld * 0.95f : 0.15f;
             if (_lv != null && _lv.TryGetSurfaceY(c, out float y)) c.y = y; else k = 0f;
+            if (_lv != null) k = 0f;                                               // v23.1: старый круглый диск-«бурление» поверх тары убран — кипит сама поверхность
             _fx.Surface(c, r, k, _lv != null ? _lv.LiquidColor : Color.white);
         }
 
@@ -492,7 +495,7 @@ namespace CatCooks.Food
             // Пар рождается НАД горловиной (не у воды внутри): крупные клубы иначе торчат сквозь стенки.
             at.y = Mathf.Max(at.y, _cw.MouthPoint.y) + _steamScale * _fxScale * _steamSizeK * 0.35f;
             Puff(at, new Vector3(Random.Range(-0.05f, 0.05f), Random.Range(0.25f, 0.5f), Random.Range(-0.05f, 0.05f)),
-                 _steamScale * Random.Range(0.7f, 1.2f) * (0.6f + 0.4f * k), 0.25f + 0.25f * k, _steamColor);
+                 _steamScale * Random.Range(0.7f, 1.2f) * (0.6f + 0.4f * k), (0.25f + 0.25f * k) * (_lv != null ? 0.55f : 1f), _steamColor);   // v23.1: пар легче — не застилает кастрюлю
         }
 
         private void EmitLidSteam(float k)

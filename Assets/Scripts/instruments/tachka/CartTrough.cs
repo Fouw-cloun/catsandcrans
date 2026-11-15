@@ -256,6 +256,9 @@ public class CartTrough : NetworkBehaviour
 
     /// <summary>Общий вес груза. Понадобится балансу: гружёная тачка должна
     /// быть тяжелее не только на словах.</summary>
+    /// <summary>v19.3: добавочный вес (жидкость/масса в тачке-таре). Ставит CartCookwareLink.</summary>
+    public static System.Func<CartTrough, float> ExtraMassKg;
+
     public float MassKg
     {
         get
@@ -267,6 +270,7 @@ public class CartTrough : NetworkBehaviour
                 Rigidbody rb = it.GetComponent<Rigidbody>();
                 if (rb != null) m += rb.mass;
             }
+            if (ExtraMassKg != null) m += ExtraMassKg(this);    // v19.3: жижа в тачке-таре (CartCookwareLink)
             return m;
         }
     }

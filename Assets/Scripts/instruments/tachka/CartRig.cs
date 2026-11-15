@@ -377,7 +377,9 @@ public class CartRig : MonoBehaviour
                 // Точка опоры должна встать на «земля плюс радиус».
                 // Отсюда высота корня: радиус минус то, насколько точка
                 // опоры ниже самого корня.
-                float need = w.radius - w.restLocal.y;
+                // v21.1: restLocal — в осях корня (с его масштабом), радиус — в метрах мира.
+                // У тачки масштаб 2 — без перевода корень вставал выше на restLocal.y и тачка «летала».
+                float need = w.radius - w.restLocal.y * transform.lossyScale.y;
 
                 // Берём наибольшую: по самому «глубокому» колесу. По любому
                 // другому оно бы утонуло.
@@ -637,8 +639,9 @@ public class CartRig : MonoBehaviour
     {
         float min = float.MaxValue;
 
+        // v19.6: без жидкости/горки тары и частиц — иначе «низ» уезжал и тачка взлетала
         foreach (Renderer r in GetComponentsInChildren<Renderer>(true))
-            if (r != null) min = Mathf.Min(min, r.bounds.min.y);
+            if (CartBottomFilter.Counts(r)) min = Mathf.Min(min, r.bounds.min.y);
 
         worldY = min;
         return min != float.MaxValue;

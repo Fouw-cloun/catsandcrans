@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Substance_CocoaPowder
-  m_Shader: {fileID: 4800000, guid: deccaadb296348559ec5979aa8dc2953, type: 3}
+  m_Shader: {fileID: 4800000, guid: d7a7e19804ff4316897b6c5a0403b3a8, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -25,14 +25,39 @@ Material:
     m_TexEnvs: []
     m_Ints: []
     m_Floats:
-    - _Ambient: 0.85
-    - _ClumpAmt: 0.7
-    - _ClumpScale: 26
-    - _Crevice: 0.55
-    - _GrainAmt: 0.12
-    - _GrainScale: 380
-    - _SmallScale: 75
+    - _HAmbient: 0.22
+    - _HBounceAmt: 0.3
+    - _HBrush: 0.1
+    - _HBrushScale: 5
+    - _HContact: 0.5
+    - _HDeep: 0.34
+    - _HDetail: 1
+    - _HGrain: 0
+    - _HInk: 0.35
+    - _HInkWidth: 0.26
+    - _HKind: 0
+    - _HLayerCount: 6
+    - _HLayers: 1
+    - _HLightLift: 0.35
+    - _HOutline: 3
+    - _HOutlineDark: 0.35
+    - _HRim: 0.3
+    - _HSat: 1.35
+    - _HShadeDepth: 0.74
+    - _HSmooth: 0.15
+    - _HSoft: 0.02
+    - _HSparkle: 0
+    - _HSpec: 0
+    - _HSpecBreak: 0.5
+    - _HSpecSize: 0.965
+    - _HSpeck: 1
+    - _HT1: 0.16
+    - _HT2: 0.5
+    - _HT3: 0.9
+    - _HTermGlow: 0.2
     m_Colors:
-    - _ShadowTint: {r: 0.7, g: 0.62, b: 0.62, a: 1}
+    - _HBounce: {r: 1, g: 0.62, b: 0.35, a: 1}
+    - _HShadeCool: {r: 0.62, g: 0.68, b: 1, a: 1}
+    - _HShadeWarm: {r: 0.92, g: 0.5, b: 0.52, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

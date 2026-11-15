@@ -70,9 +70,15 @@ namespace CatCooks.Food
             return false;
         }
 
+        private int _viewHash = int.MinValue;
+
         private void Refresh()
         {
             if (_cookware == null) return;
+            // v23.1 (FPS): пересобираем горку только если поменялся состав (а не таймер готовки)
+            int h = CookwareLiquidVisual.ViewHash(_cookware);
+            if (h == _viewHash) return;
+            _viewHash = h;
             FoodDatabase db = FoodDatabase.Instance;
 
             int total = 0, most = 0, liquid = 0;

@@ -589,6 +589,15 @@ namespace CatCooks.Food
         private void OnViewChanged(SyncListOperation op, int index, BagView oldItem, BagView newItem, bool asServer)
         {
             if (asServer && base.IsClientInitialized) return;
+            _contentsDirty = true;                    // v23.1 (FPS): одно событие на кадр, а не на каждую строку списка
+        }
+
+        private bool _contentsDirty;
+
+        private void LateUpdate()
+        {
+            if (!_contentsDirty) return;
+            _contentsDirty = false;
             ContentsChanged?.Invoke();
         }
 

@@ -22,6 +22,12 @@ MonoBehaviour:
   - Product: {fileID: 11400000, guid: 6627430016ec7d143aac4e53d8ab38fe, type: 2}
     State: 0
     Substance: {fileID: 11400000, guid: 0eee35917f58e69458b89a7b273fc8f4, type: 2}
+  - Product: {fileID: 11400000, guid: ea1f6e680885bd04bbf4753af8e292ec, type: 2}
+    State: 0
+    Substance: {fileID: 11400000, guid: 5f62951df001cd14b8b60660ec0163d9, type: 2}
+  - Product: {fileID: 11400000, guid: 31d85b30bd4eef1478b09b47183a64e1, type: 2}
+    State: 0
+    Substance: {fileID: 11400000, guid: 5f62951df001cd14b8b60660ec0163d9, type: 2}
   Names:
   - On: 1
     Words: "\u0442\u0451\u0440\u0442\u043E\u0435 \u043A\u0430\u043A\u0430\u043E,
@@ -56,6 +62,12 @@ MonoBehaviour:
     State: 0
     SkipLiquid: 1
     Substance: {fileID: 11400000, guid: ecb37280fe2324b48bdf9edbdbf68249, type: 2}
+  - On: 1
+    Words: "\u043C\u0443\u043A\u0430, \u043C\u0443\u043A"
+    Except: "\u0442\u0435\u0441\u0442\u043E, \u043C\u0430\u0441\u043B, \u043F\u0430\u0441\u0442"
+    State: 0
+    SkipLiquid: 1
+    Substance: {fileID: 11400000, guid: 5f62951df001cd14b8b60660ec0163d9, type: 2}
   States: []
   FloorHeapPrefab: {fileID: 2386447232289388406, guid: aaae33295fe80bf439486fd285cba16b, type: 3}
   AutoAttachToScoops: 0

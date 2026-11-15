@@ -168,7 +168,8 @@ public class JackhammerItem : InteractableItem
     {
         CatCooks.Food.Cookware cw = null;
         bool lmb = _holdToRun ? Input.GetMouseButton(0) : _runToggle;
-        if (_dockInCookware && lmb && _probePoint != null) cw = AimedCookware();
+        // v23.5: как миксер — навёлся на тару, отбойник сам встаёт в неё (без зажатой ЛКМ), а не уходит «в тело»
+        if (_dockInCookware && _probePoint != null) cw = AimedCookware();
         if (cw != _dockCw) { _dockCw = cw; _dockLv = cw != null ? cw.GetComponentInChildren<CatCooks.Food.CookwareLiquidVisual>(true) : null; }
         float dt = Mathf.Min(Time.deltaTime, 0.05f);
         if (cw != null)
@@ -481,7 +482,7 @@ public class JackhammerItem : InteractableItem
         Quaternion rot = handAnchor.rotation * Quaternion.Euler(_holdEulerOffset);
 
         // v17: в руке — не сквозь мир
-        if (_blockByWorld && _holderCam != null && _dockK < 0.99f)
+        if (_blockByWorld && _holderCam != null && _dockK < 0.99f && _dockCw == null)   // v23.5: идёт в тару — не отталкиваем от неё
         {
             if (_blocker == null) _blocker = new CatCooks.Food.HeldBlocker(transform);
             pos = _blocker.Solve(pos, rot, _holderCam.position);

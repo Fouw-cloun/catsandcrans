@@ -20,6 +20,9 @@ Shader "CatCooks/Sugar"
         _ShadowTint ("Цвет тени", Color) = (0.72, 0.78, 0.9, 1)
         _Ambient ("Окружение", Range(0, 2)) = 0.9
         _Sheen ("Общий лёгкий блеск", Range(0, 1)) = 0.25
+        [Header(Anime v23_5)]
+        _Anime ("Аниме (0 — как раньше)", Range(0, 1)) = 1
+        _AnimeGrain ("Аниме: зёрна крупнее (множитель размера)", Range(1, 4)) = 1.8
     }
 
     SubShader
@@ -37,15 +40,17 @@ Shader "CatCooks/Sugar"
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "CatCooksAnime.hlsl"
 
             CBUFFER_START(UnityPerMaterial)
                 float _GrainScale, _SparkleSharp;
                 half _Sparkle, _SparkleAmount, _Crevice, _Ambient, _Sheen;
                 half4 _ShadowTint;
+                half _Anime, _AnimeGrain;
             CBUFFER_END
 
             struct A { float4 positionOS : POSITION; float3 normalOS : NORMAL; half4 color : COLOR; };
-            struct V { float4 positionCS : SV_POSITION; float3 positionWS : TEXCOORD0; float3 normalWS : TEXCOORD1; half4 color : COLOR; };
+            struct V { float4 positionCS : SV_POSITION; float3 positionWS : TEXCOORD0; float3 normalWS : TEXCOORD1; half4 color : COLOR; float3 pat : TEXCOORD2; };
 
             float3 hash33(float3 p)
             {
@@ -61,6 +66,9 @@ Shader "CatCooks/Sugar"
                 o.positionCS = TransformWorldToHClip(o.positionWS);
                 o.normalWS = TransformObjectToWorldNormal(v.normalOS);
                 o.color = v.color;
+                // v23.5: зёрна привязаны к кучке (не «плывут» по мастерку в руке)
+                float3 osc = float3(length(UNITY_MATRIX_M._m00_m10_m20), length(UNITY_MATRIX_M._m01_m11_m21), length(UNITY_MATRIX_M._m02_m12_m22));
+                o.pat = v.positionOS.xyz * osc;
                 return o;
             }
 
@@ -71,7 +79,7 @@ Shader "CatCooks/Sugar"
                     alb = SRGBToLinear(alb);
                 #endif
                 float3 n = normalize(i.normalWS);
-                float3 p = i.positionWS * _GrainScale;
+                float3 p = i.pat * _GrainScale / lerp(1.0, _AnimeGrain, _Anime);
                 // ближайшее зерно (3D ячейки) и расстояние до границы — щели
                 float3 ip = floor(p), fp = frac(p);
                 float d1 = 8, d2 = 8; float3 id = 0;
@@ -106,6 +114,27 @@ Shader "CatCooks/Sugar"
                 // общий лёгкий блеск
                 half gl = pow(saturate(dot(n, h)), 24.0) * _Sheen * lit;
                 col += L.color * gl * 0.5;
+                if (_Anime > 0.001h)
+                {
+                    // v23.5: аниме-сахар — мозаика кристаллов: каждое зерно — плоская «краска» (свет / основа / голубая тень)
+                    // по своей грани, тонкая голубоватая щель, белые звёздочки-искры
+                    half3 albB = i.color.rgb;
+                    #if !defined(UNITY_COLORSPACE_GAMMA)
+                        albB = SRGBToLinear(albB);
+                    #endif
+                    half fl = dot(fn, L.direction) * 0.5h + 0.5h;
+                    half t3 = step(0.4h, fl) * 0.5h + step(0.72h, fl) * 0.5h;
+                    half3 shadowC = albB * half3(0.7h, 0.78h, 0.96h);
+                    half3 lightC = saturate(albB * 1.08h + 0.04h);
+                    half3 ac = lerp(shadowC, albB, saturate(t3 * 2.0h));
+                    ac = lerp(ac, lightC, saturate(t3 * 2.0h - 1.0h));
+                    ac *= lerp(half3(0.72h, 0.78h, 0.92h), half3(1, 1, 1), smoothstep(0.08h, 0.2h, edge));   // щели
+                    ac *= lerp(CCA_ShadowMul(albB, 0.0h), half3(1, 1, 1), smoothstep(0.35h, 0.65h, L.shadowAttenuation) * smoothstep(-0.1h, 0.1h, ndl));
+                    ac *= lerp(half3(1, 1, 1), min(L.color, 1.2h), 0.6h);
+                    half star = step(0.965h, saturate(dot(fn, h))) * on;
+                    ac = lerp(ac, half3(1, 1, 1), star);
+                    col = lerp(col, ac, _Anime);
+                }
                 return half4(col, 1);
             }
             ENDHLSL

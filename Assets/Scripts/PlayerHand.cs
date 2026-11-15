@@ -32,6 +32,13 @@ public class PlayerHand : NetworkBehaviour
              "брошенный предмет временно не сталкивался со своим же хозяином")]
     [SerializeField] private Collider _ownerCollider;
 
+    [Header("v19.4: предмет в руке")]
+    [Tooltip("v19.5: ВЫКЛЮЧЕНО по умолчанию. Предмет поверх мира отдельной камерой (как оружие в шутере) — " +
+             "давал полосу у горизонта (эффекты рендера срабатывали и для второй камеры). Не включай, пока не починим")]
+    [SerializeField] private bool _viewModelOverlay = false;
+    [Tooltip("Миксер/венчик сам встаёт в тару под прицелом (рабочая поза)")]
+    [SerializeField] private bool _workPose = true;
+
     // Текущий предмет в руке (синхронизируется всем).
     private readonly SyncVar<NetworkObject> _heldItem = new(null);
 
@@ -107,28 +114,87 @@ public class PlayerHand : NetworkBehaviour
         _controller.SpeedMultiplier = item != null ? item.CarrySpeedMultiplier : 1f;
     }
 
-    private void Update()
+    // v19.3: поза — в LateUpdate. Камера поворачивается в Update контроллера; рука в Update иногда
+    // успевала раньше и брала поворот прошлого кадра — предмет «скакал» относительно экрана.
+    private void LateUpdate()
     {
         // Предмет ведёт к руке только клиент-владелец (он же владелец предмета).
         if (!base.IsOwner) return;
 
         InteractableItem item = HeldItem;
-        if (item == null) { _blockFor = null; return; }
+        if (_blockCam == null) { Camera c = GetComponentInChildren<Camera>(true); if (c != null) { _blockCam = c.transform; _blockCamC = c; } }
+        if (_view == null && _blockCamC != null && _viewModelOverlay) _view = new CatCooks.Food.HeldViewModel(_blockCamC);
+        if (item == null) { _blockFor = null; if (_view != null) _view.Tick(null, false); return; }
 
         item.UpdateHeldPose(_handAnchor);
 
-        // v17.3: любой предмет в руке не проходит сквозь стены, стол и другие предметы —
-        // упирается и отъезжает к камере. Тару и продукты не считаем (черпать, мешать, долбить можно).
-        if (HeldBlocking && item.UseHeldBlocking)
+        // v19.4: РАБОЧАЯ ПОЗА — миксер/венчик сам встаёт в тару под прицелом (вертикально, внутри стенок),
+        // не бьётся о стенки и не тянется к камере. Поза привязана к таре.
+        bool work = false;
+        ISpinningTool spin = item as ISpinningTool;
+        MixerItem mixer = item as MixerItem;
+        if (_workPose && spin != null && item.UseHeldBlocking && spin.WorkPoint != null && _blockCam != null && (mixer == null || !mixer.PoseLocked))
         {
-            if (_blockFor != item) { _blockFor = item; _blocker = new CatCooks.Food.HeldBlocker(item.transform) { IgnoreWorkTargets = true }; }
-            if (_blockCam == null) { Camera c = GetComponentInChildren<Camera>(true); if (c != null) _blockCam = c.transform; }
-            if (_blockCam != null)
+            if (_work == null) _work = new CatCooks.Food.ToolWorkPose();
+            work = _work.Apply(_blockCam, item.transform, spin.WorkPoint, spin.IsActive);
+        }
+
+        // v23.5: черпалки (мастерок, лопата, черпак) — в руке, без «магнита»; зачерпнул — боковой черпок,
+        // высыпал — бросок, комок летит в тару (только анимация, логика прежняя)
+        if (!work && item.UseHeldBlocking && _blockCam != null)
+        {
+            if (_scoopFor != item)
             {
-                Transform t = item.transform;
-                t.position = _blocker.Solve(t.position, t.rotation, _blockCam.position);
+                _scoopFor = item;
+                _scoopPoint = CatCooks.Food.ScoopWorkPose.FindPoint(item);
+                if (_scoopAnim == null) _scoopAnim = new CatCooks.Food.ScoopAnimator();
+                _scoopAnim.Reset();
+            }
+            if (_scoopPoint != null)
+            {
+                int load = -1;
+                CatCooks.Food.Tools.ScoopItem si = item as CatCooks.Food.Tools.ScoopItem;
+                if (si != null) load = si.LoadCount;
+                else
+                {
+                    CatCooks.Food.Tools.LadleItem li = item as CatCooks.Food.Tools.LadleItem;
+                    if (li != null) load = li.Count;
+                }
+                if (CatCooks.Food.ScoopWorkPose.Enabled)
+                {
+                    if (_scoop == null) _scoop = new CatCooks.Food.ScoopWorkPose();
+                    work = _scoop.Apply(_blockCam, item.transform, _scoopPoint);
+                }
+                _scoopAnim.Apply(_blockCam, item.transform, _scoopPoint, load);
             }
         }
+
+        // v19.3: как оружие в шутере — рядом нет тары/продуктов → предмет рисуется поверх мира,
+        // стоит ровно в руке (не упирается и не отъезжает к лицу). Рядом рабочая цель → в мире, как раньше.
+        bool overlay = false;
+        if (_viewModelOverlay && !work && _view != null && item.UseHeldBlocking && _view.Available)
+            overlay = !_view.NearWork(item.transform);
+        if (_view != null) _view.Tick(item, overlay);
+
+        // v17.3: любой предмет в руке не проходит сквозь стены, стол и другие предметы —
+        // упирается и отъезжает к камере. Тару и продукты не считаем (черпать, мешать, долбить можно).
+        if (!overlay && !work && HeldBlocking && item.UseHeldBlocking)
+        {
+            if (_blockFor != item) { _blockFor = item; _blocker = new CatCooks.Food.HeldBlocker(item.transform) { IgnoreWorkTargets = true }; }
+            if (_blockCam != null)
+            {
+                // v23.4: упёрся — чуть отъезжает и опускается вниз из кадра кончиком вниз (как оружие у стены), а не летит в экран
+                Transform t = item.transform;
+                Quaternion r = t.rotation;
+                Vector3 p = _blocker.SolvePose(t.position, ref r, _blockCam.position, _blockCam.up, _blockCam.right, true);
+                t.SetPositionAndRotation(p, r);
+            }
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (_view != null) _view.Dispose();
     }
 
     /// <summary>v17.3: выключатель общей «несквозности» предметов в руке.</summary>
@@ -136,6 +202,13 @@ public class PlayerHand : NetworkBehaviour
     private InteractableItem _blockFor;
     private CatCooks.Food.HeldBlocker _blocker;
     private Transform _blockCam;
+    private Camera _blockCamC;
+    private CatCooks.Food.HeldViewModel _view;
+    private CatCooks.Food.ToolWorkPose _work;
+    private CatCooks.Food.ScoopWorkPose _scoop;
+    private CatCooks.Food.ScoopAnimator _scoopAnim;
+    private InteractableItem _scoopFor;
+    private Transform _scoopPoint;
 
     // ───────── СЕРВЕРНЫЕ МЕТОДЫ ─────────
 

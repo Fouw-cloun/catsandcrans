@@ -78,9 +78,29 @@ namespace CatCooks.Food
         }
 
         /// <summary>Перечитать содержимое тары и записать, что изменилось.</summary>
+        private int _syncHash = int.MinValue;
+
+        /// <summary>v23.3 (FPS): «отпечаток» порядка добавления — для памяти проверок рецептов.</summary>
+        public int OrderHash
+        {
+            get
+            {
+                unchecked
+                {
+                    int h = 7;
+                    foreach (ushort p in _order) h = h * 131 + p;
+                    return h;
+                }
+            }
+        }
+
         public void Sync()
         {
             if (_cw == null) return;
+            // v23.3 (FPS): состав не менялся с прошлого раза — перечитывать нечего (Sync зовут каждый кадр на каждой таре)
+            int vh = CookwareLiquidVisual.ViewHash(_cw);
+            if (vh == _syncHash) return;
+            _syncHash = vh;
             var now = new Dictionary<ushort, int>();
             for (int i = 0; i < _cw.ViewCount; i++)
             {
@@ -135,7 +155,7 @@ namespace CatCooks.Food
         public string Report()
         {
             var sb = new StringBuilder();
-            FoodDatabase db = Object.FindAnyObjectByType<FoodDatabase>();
+            FoodDatabase db = CookRecipeBook.Db();                 // v23.2 (FPS): из кэша
             int idx = 1;
             foreach (ushort p in _order)
             {

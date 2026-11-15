@@ -263,6 +263,15 @@ namespace CatCooks.Food
 
         public void Clear() { _count = 0; UpdateExtents(); }
 
+        /// <summary>v23.3 (FPS): уложить всё как есть и уснуть (горка «дрожит» и не засыпает сама — не жжём кадр).</summary>
+        public void ForceSleep()
+        {
+            for (int i = 0; i < _count; i++) { _prev[i] = _pos[i]; _frozen[i] = true; }
+            _asleep = true;
+            _calm = 0f;
+            UpdateExtents();
+        }
+
         // ───────────────────────── РАЗБУДИТЬ ─────────────────────────
 
         /// <summary>Разбудить всю кучу: все зёрна снова подвижны и заново ищут опору.</summary>

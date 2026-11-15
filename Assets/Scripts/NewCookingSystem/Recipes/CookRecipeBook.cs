@@ -25,6 +25,18 @@ namespace CatCooks.Food
     /// </summary>
     public static class CookRecipeBook
     {
+        // v23.2 (FPS): база продуктов — из кэша. Раньше FindAnyObjectByType звался в КАЖДОЙ проверке рецепта,
+        // а миксер проверяет все рецепты каждый кадр — десятки поисков по всей сцене за кадр.
+        private static readonly Dictionary<(Cookware, CookStepKind), KeyValuePair<int, float>> _noMatch = new Dictionary<(Cookware, CookStepKind), KeyValuePair<int, float>>();
+        private static readonly Dictionary<Cookware, KeyValuePair<int, float>> _pickAt = new Dictionary<Cookware, KeyValuePair<int, float>>();
+        private static readonly Dictionary<Cookware, CookStepKind> _pick = new Dictionary<Cookware, CookStepKind>();
+        private static FoodDatabase _dbCache;
+        internal static FoodDatabase Db()
+        {
+            if (_dbCache == null) _dbCache = Object.FindAnyObjectByType<FoodDatabase>();
+            return _dbCache;
+        }
+
         private static List<CookRecipeDef> _recipes;
         private static readonly Dictionary<(Cookware, CookStepKind), float> _last = new Dictionary<(Cookware, CookStepKind), float>();
         public static bool Log = true;
@@ -121,9 +133,22 @@ namespace CatCooks.Food
                 }
             }
 
+            // v19.5: висит рецепт, который ещё не начат и уже не собран (белки → «меренга», долили сливок) —
+            // отпускаем, чтобы эта обработка подобрала подходящий (мороженое).
+            if (j.Recipe != null && j.StepIndex == 0 && j.StepProgress <= 0.001f && j.Recipe.Steps.Count > 0 && j.Recipe.Steps[0].Kind != kind
+                && !CheckIngredients(cw, j, j.Recipe, out _, out _, out _))
+            {
+                if (Log) Debug.Log($"[Рецепты] «{cw.name}»: «{j.Recipe.Title}» не собран — пробую другой рецепт", cw);
+                j.ResetRecipe();
+            }
+
             // Не идёт — подобрать рецепт, у которого ПЕРВЫЙ шаг — эта обработка.
             if (j.Recipe == null)
             {
+                // v23.2 (FPS): состав тот же, что и при прошлой неудачной попытке (меньше 0.3 с назад) — не перебираем все рецепты заново
+                int hsh = CookwareLiquidVisual.ViewHash(cw);
+                KeyValuePair<int, float> nm;
+                if (_noMatch.TryGetValue((cw, kind), out nm) && nm.Key == hsh && Time.time < nm.Value) return false;
                 string bestWhy = null;
                 foreach (CookRecipeDef r in _recipes)
                 {
@@ -139,6 +164,7 @@ namespace CatCooks.Food
                 }
                 if (j.Recipe == null)
                 {
+                    _noMatch[(cw, kind)] = new KeyValuePair<int, float>(hsh, Time.time + 0.3f);
                     if (bestWhy != null && bestWhy != j.Hint)
                     {
                         j.Hint = bestWhy;
@@ -158,7 +184,7 @@ namespace CatCooks.Food
             int before = Pct(j.StepProgress, step.Seconds);
             j.StepProgress += dt;
             int after = Pct(j.StepProgress, step.Seconds);
-            if (Log && after > before && after < 100)
+            if (Log && after / 25 > before / 25 && after < 100)                 // v23.1 (FPS): в лог — по четвертям, а не каждый процент
                 Debug.Log($"[Рецепты] «{cw.name}»: {j.Recipe.Title} — {CookwareJournal.KindName(kind)} {after}%", cw);
             if (j.StepProgress >= step.Seconds) CompleteStep(cw, j);
             return true;
@@ -184,21 +210,35 @@ namespace CatCooks.Food
             if (j.Recipe != null && j.StepIndex < j.Recipe.Steps.Count)
             {
                 CookStepKind cur = j.Recipe.Steps[j.StepIndex].Kind;
-                if (System.Array.IndexOf(kinds, cur) >= 0) { pick = cur; found = true; }
+                // v19.5: журнал «прилип» к рецепту, которого в таре уже нет (белки → меренга, потом налили сливки
+                // для мороженого) — миксер вечно «взбивал» меренгу. Начатый шаг (не первый) держим, первый — только
+                // если состав этого рецепта действительно собран.
+                bool still = j.StepIndex > 0 || CheckIngredients(cw, j, j.Recipe, out _, out _, out _);
+                if (still && System.Array.IndexOf(kinds, cur) >= 0) { pick = cur; found = true; }
             }
             if (!found)
             {
-                int bestClose = 0;
-                foreach (CookStepKind k in kinds)
+                // v23.2 (FPS): выбор обработки по составу кэшируем на 0.3 с (миксер зовёт это каждый кадр)
+                int hsh = CookwareLiquidVisual.ViewHash(cw);
+                KeyValuePair<int, float> pc;
+                if (_pickAt.TryGetValue(cw, out pc) && pc.Key == hsh && Time.time < pc.Value && _pick.ContainsKey(cw))
+                    pick = _pick[cw];
+                else
                 {
-                    foreach (CookRecipeDef r in _recipes)
+                    int bestClose = 0;
+                    foreach (CookStepKind k in kinds)
                     {
-                        if (r == null || r.Driver != CookDriver.Book || r.Steps.Count == 0 || r.Result == null || r.Steps[0].Kind != k) continue;
-                        if (CheckIngredients(cw, j, r, out _, out _, out _)) { pick = k; found = true; break; }
-                        int close = Closeness(j, r);
-                        if (close > bestClose) { bestClose = close; pick = k; }
+                        foreach (CookRecipeDef r in _recipes)
+                        {
+                            if (r == null || r.Driver != CookDriver.Book || r.Steps.Count == 0 || r.Result == null || r.Steps[0].Kind != k) continue;
+                            if (CheckIngredients(cw, j, r, out _, out _, out _)) { pick = k; found = true; break; }
+                            int close = Closeness(j, r);
+                            if (close > bestClose) { bestClose = close; pick = k; }
+                        }
+                        if (found) break;
                     }
-                    if (found) break;
+                    _pickAt[cw] = new KeyValuePair<int, float>(hsh, Time.time + 0.3f);
+                    _pick[cw] = pick;
                 }
             }
             return ServerProcess(cw, pick, seconds);
@@ -309,7 +349,7 @@ namespace CatCooks.Food
         private static void Lumpify(Cookware cw, CookwareJournal j)
         {
             CookRecipeDef r = j.Recipe;
-            FoodDatabase db = Object.FindAnyObjectByType<FoodDatabase>();
+            FoodDatabase db = Db();
             ProductDef bad = db != null && r.Result != null ? FindExact(db, r.Result.Title.Trim().ToLowerInvariant() + " с комками") : null;
             if (bad == null)
             {
@@ -400,11 +440,38 @@ namespace CatCooks.Food
         // ───────────────────────── проверка состава ─────────────────────────
 
         /// <summary>В таре ровно то, что нужно рецепту (с допуском)? why — что не так.</summary>
+        private struct CheckMemo { public int Hash; public float Until; public bool Ok; public int Batches; public float Score; public string Why; }
+        private static readonly Dictionary<(Cookware, CookRecipeDef), CheckMemo> _checkMemo = new Dictionary<(Cookware, CookRecipeDef), CheckMemo>();
+
+        /// <summary>
+        /// v23.3 (FPS): проверка состава — ТОЛЬКО когда в таре что-то поменялось (продукт, состояние, количество, порядок).
+        /// Её зовут каждый кадр (нагрев «настаивать», миксер, отбойник, подсказки) — результат берём из памяти.
+        /// Запас на всякий случай — пересчёт не реже раза в секунду (куски, плавающие в супе).
+        /// </summary>
         public static bool CheckIngredients(Cookware cw, CookwareJournal j, CookRecipeDef r, out int batches, out float score, out string why)
+        {
+            int h;
+            unchecked { h = CookwareLiquidVisual.ViewHash(cw) * 31 + (j != null ? j.OrderHash : 0); }
+            CheckMemo m;
+            if (cw != null && r != null && _checkMemo.TryGetValue((cw, r), out m) && m.Hash == h && Time.time < m.Until)
+            {
+                batches = m.Batches; score = m.Score; why = m.Why;
+                return m.Ok;
+            }
+            bool ok = CheckIngredientsNow(cw, j, r, out batches, out score, out why);
+            if (cw != null && r != null)
+            {
+                if (_checkMemo.Count > 4000) _checkMemo.Clear();
+                _checkMemo[(cw, r)] = new CheckMemo { Hash = h, Until = Time.time + 1f, Ok = ok, Batches = batches, Score = score, Why = why };
+            }
+            return ok;
+        }
+
+        private static bool CheckIngredientsNow(Cookware cw, CookwareJournal j, CookRecipeDef r, out int batches, out float score, out string why)
         {
             batches = 1; score = 100f; why = null;
             var sb = new StringBuilder();
-            FoodDatabase db = Object.FindAnyObjectByType<FoodDatabase>();
+            FoodDatabase db = Db();
             int kinds = 0;
             float devSum = 0f; int devN = 0;
 
@@ -550,7 +617,7 @@ namespace CatCooks.Food
         private static List<CookRecipeDef> BuildDefaults()
         {
             var list = new List<CookRecipeDef>();
-            FoodDatabase db = Object.FindAnyObjectByType<FoodDatabase>();
+            FoodDatabase db = Db();
             if (db == null || db.Table == null) return list;
             ProductDef milk = Find(db, "молок"), cream = Find(db, "сливки"), butter = Find(db, "сливочное масло");
             ProductDef sour = Find(db, "сметан"), starter = Find(db, "закваск");
@@ -794,7 +861,7 @@ namespace CatCooks.Food
 
         private static CookRecipeDef BuildHotSauceDefault()
         {
-            FoodDatabase db = Object.FindAnyObjectByType<FoodDatabase>();
+            FoodDatabase db = Db();
             if (db == null || db.Table == null) return null;
             ProductDef water = FindExact(db, "вода"), chili = Find(db, "перец чили"), vinegar = Find(db, "уксус");
             ProductDef salt = FindExact(db, "соль"), clove = Find(db, "зубчик"), mix = Find(db, "острая смесь");
@@ -837,7 +904,7 @@ namespace CatCooks.Food
 
         private static void BuildChocolateDefaults(List<CookRecipeDef> list)
         {
-            FoodDatabase db = Object.FindAnyObjectByType<FoodDatabase>();
+            FoodDatabase db = Db();
             if (db == null || db.Table == null) return;
             ProductDef roasted = FindExact(db, "обжаренные какао-зёрна") ?? FindExact(db, "обжаренные какао-зерна");
             ProductDef ground = FindExact(db, "тёртое какао") ?? FindExact(db, "тертое какао");
@@ -900,7 +967,7 @@ namespace CatCooks.Food
         private static void BuildBreadDefaults(List<CookRecipeDef> list)
         {
             if (HasTitle(list, "Тесто дрожжевое")) return;
-            FoodDatabase db = Object.FindAnyObjectByType<FoodDatabase>();
+            FoodDatabase db = Db();
             if (db == null || db.Table == null) return;
             ProductDef water = FindExact(db, "вода"), flour = FindExact(db, "мука пшеничная") ?? Find(db, "мука");
             ProductDef yeast = FindExact(db, "дрожжи"), salt = FindExact(db, "соль"), dough = FindExact(db, "тесто дрожжевое");
@@ -945,7 +1012,7 @@ namespace CatCooks.Food
 
         private static void BuildDessertDefaults(List<CookRecipeDef> list)
         {
-            FoodDatabase db = Object.FindAnyObjectByType<FoodDatabase>();
+            FoodDatabase db = Db();
             if (db == null || db.Table == null) return;
             ProductDef egg = FindExact(db, "яйцо"), white = FindExact(db, "яичный белок"), sugar = FindExact(db, "сахар");
             ProductDef flour = FindExact(db, "мука пшеничная"), choc = FindExact(db, "шоколад"), chocPaste = FindExact(db, "шоколадная паста");
@@ -957,6 +1024,71 @@ namespace CatCooks.Food
             if (foam != null && (mass != null || chocPaste != null) && flour != null && batter != null) AddAuto(list, "Бисквитное тесто", r => SpongeBatter(r, foam, mass, flour, batter, chocPaste));
             if (white != null && sugar != null && mer != null) AddAuto(list, "Меренга", r => Meringue(r, white, sugar, mer));
             if (mer != null && merOver != null) AddAuto(list, "Меренга перебитая", r => MeringueOverwhipped(r, mer, merOver));
+            // v19.4: яйца разбиваются на белок и желток — масса из них, бисквит без шоколада, мороженое на желтках
+            ProductDef yolk = FindExact(db, "яичный желток");
+            if (yolk != null && white != null && sugar != null && foam != null)
+                AddAuto(list, "Яичная масса из белков и желтков", r => EggFoamSplit(r, yolk, white, sugar, foam));
+            if (foam != null && flour != null && batter != null)
+                AddAuto(list, "Бисквитное тесто (классика)", r => SpongeBatterPlain(r, foam, flour, batter));
+            ProductDef cream = FindExact(db, "сливки"), ice = FindExact(db, "мороженое"), iceMix = FindExact(db, "смесь для мороженого");
+            if (cream != null && sugar != null && (yolk != null || egg != null) && ice != null)
+                AddAuto(list, "Мороженое", r => IceCream(r, cream, sugar, yolk, egg, ice, iceMix));
+            // v23.5: мороженое и на МОЛОКЕ (сливок нет под рукой) — молоко от четверти до полного ведра
+            ProductDef milkP = FindExact(db, "молоко");
+            if (milkP != null && sugar != null && (yolk != null || egg != null) && ice != null)
+                AddAuto(list, "Мороженое на молоке", r =>
+                {
+                    IceCream(r, milkP, sugar, yolk, egg, ice, iceMix);
+                    r.Title = "Мороженое на молоке";
+                    r.Tolerance = 1f;                       // молока сколько есть: 0.25…1 ведра
+                    r.BaseMinFill = 0f;
+                    return r;
+                });
+        }
+
+        /// <summary>
+        /// v19.4: ЯИЧНАЯ МАССА из раздельных яиц: желток 6 + белок 6 (= 6 разбитых яиц) + сахар 2 мастерка —
+        /// взбить миксером 8 с → пышная масса ×1.5. Нужна для бисквита.
+        /// </summary>
+        public static CookRecipeDef EggFoamSplit(CookRecipeDef r, ProductDef yolk, ProductDef white, ProductDef sugar, ProductDef foam)
+        {
+            Plain(r, "Яичная масса из белков и желтков", yolk, 6f, CookUnit.Piece, 0.25f);
+            r.Ingredients.Add(new CookRecipeDef.Ingredient { Product = white, Amount = 6f, Unit = CookUnit.Piece });
+            r.Ingredients.Add(new CookRecipeDef.Ingredient { Product = sugar, Amount = 2f, Unit = CookUnit.Trowel });
+            r.Steps.Add(new CookRecipeDef.Step { Kind = CookStepKind.Whip, Seconds = 8f, VolumeK = 1.5f });
+            r.Result = foam;
+            return r;
+        }
+
+        /// <summary>
+        /// v19.4: БИСКВИТНОЕ ТЕСТО без шоколада (пока без запекания — просто масса): яичная масса полведра +
+        /// мука 2 мастерка — перемешать 5 с → жидкое тесто (гуще молока), пена чуть оседает ×0.85.
+        /// </summary>
+        public static CookRecipeDef SpongeBatterPlain(CookRecipeDef r, ProductDef foam, ProductDef flour, ProductDef batter)
+        {
+            Plain(r, "Бисквитное тесто (классика)", foam, 0.5f, CookUnit.Bucket, 0.3f);
+            r.Ingredients.Add(new CookRecipeDef.Ingredient { Product = flour, Amount = 2f, Unit = CookUnit.Trowel });
+            r.Steps.Add(new CookRecipeDef.Step { Kind = CookStepKind.Mix, Seconds = 5f, VolumeK = 0.85f });
+            r.Result = batter;
+            return r;
+        }
+
+        /// <summary>
+        /// v19.4: МОРОЖЕНОЕ (пломбир на желтках): сливки полведра + сахар 1 мастерок + желток 2 (или яйцо) —
+        /// перемешать 6 с → «Смесь для мороженого» → полить азотом 2.5 с → мороженое. Молоко и ваниль можно добавить.
+        /// Замёрзшее держится (черпать лопатой/мастерком), без холода тает и льётся (IceCreamMelt).
+        /// </summary>
+        public static CookRecipeDef IceCream(CookRecipeDef r, ProductDef cream, ProductDef sugar, ProductDef yolk, ProductDef egg,
+                                             ProductDef ice, ProductDef mix)
+        {
+            Plain(r, "Мороженое", cream, 0.5f, CookUnit.Bucket, 0.3f);
+            r.OnlyThese = false;                                     // молоко, ваниль — можно
+            r.Ingredients.Add(new CookRecipeDef.Ingredient { Product = sugar, Amount = 1f, Unit = CookUnit.Trowel });
+            r.Ingredients.Add(new CookRecipeDef.Ingredient { Product = yolk != null ? yolk : egg, Alt = yolk != null ? egg : null, Amount = 1f, Unit = CookUnit.Piece });   // v23.5: хватит одного желтка
+            r.Steps.Add(new CookRecipeDef.Step { Kind = CookStepKind.Mix, Seconds = 6f, Intermediate = mix });
+            r.Steps.Add(new CookRecipeDef.Step { Kind = CookStepKind.Freeze, Seconds = 2.5f });
+            r.Result = ice;
+            return r;
         }
 
         private static void AddAuto(List<CookRecipeDef> list, string title, System.Func<CookRecipeDef, CookRecipeDef> fill)
@@ -1059,7 +1191,7 @@ namespace CatCooks.Food
 
         private static void BuildMacaronDefaults(List<CookRecipeDef> list)
         {
-            FoodDatabase db = Object.FindAnyObjectByType<FoodDatabase>();
+            FoodDatabase db = Db();
             if (db == null || db.Table == null) return;
             ProductDef mer = FindExact(db, "меренга"), mix = FindExact(db, "миндальная смесь"), cocoa = FindExact(db, "тёртое какао") ?? FindExact(db, "тертое какао");
             ProductDef batter = FindExact(db, "тесто для макарон"), over = FindExact(db, "тесто для макарон перемешанное");
@@ -1165,7 +1297,7 @@ namespace CatCooks.Food
 
         private static void BuildGnocchiDefaults(List<CookRecipeDef> list)
         {
-            FoodDatabase db = Object.FindAnyObjectByType<FoodDatabase>();
+            FoodDatabase db = Db();
             if (db == null || db.Table == null) return;
             ProductDef butter = FindExact(db, "сливочное масло"), sage = FindExact(db, "шалфей");
             ProductDef sauce = FindExact(db, "масло с шалфеем"), burnt = FindExact(db, "масло горелое");
@@ -1235,7 +1367,7 @@ namespace CatCooks.Food
 
         private static void BuildBorschDefaults(List<CookRecipeDef> list)
         {
-            FoodDatabase db = Object.FindAnyObjectByType<FoodDatabase>();
+            FoodDatabase db = Db();
             if (db == null || db.Table == null) return;
             BuildBorschStep4(list, db);
             BuildBorschStep5(list, db);
@@ -1270,7 +1402,7 @@ namespace CatCooks.Food
 
         private static void BuildCutletDefaults(List<CookRecipeDef> list)
         {
-            FoodDatabase db = Object.FindAnyObjectByType<FoodDatabase>();
+            FoodDatabase db = Db();
             if (db == null || db.Table == null) return;
             ProductDef mince = FindExact(db, "фарш для котлет");
             if (mince == null) return;                                       // меню Котлеты → 1 ещё не нажимали
@@ -1338,7 +1470,7 @@ namespace CatCooks.Food
 
         private static void BuildStroganoffDefaults(List<CookRecipeDef> list)
         {
-            FoodDatabase db = Object.FindAnyObjectByType<FoodDatabase>();
+            FoodDatabase db = Db();
             if (db == null || db.Table == null) return;
             ProductDef dish = FindExact(db, "бефстроганов");
             if (dish == null) return;                                       // меню Бефстроганов → 1 ещё не нажимали
@@ -1433,7 +1565,7 @@ namespace CatCooks.Food
 
         private static void BuildOrloffDefaults(List<CookRecipeDef> list)
         {
-            FoodDatabase db = Object.FindAnyObjectByType<FoodDatabase>();
+            FoodDatabase db = Db();
             if (db == null || db.Table == null) return;
             ProductDef dux = FindExact(db, "дюксель");
             if (dux == null) return;                                       // меню Орлов → 1 ещё не нажимали
@@ -1793,7 +1925,7 @@ namespace CatCooks.Food
 
         private static void BuildPelmeniDefaults(List<CookRecipeDef> list)
         {
-            FoodDatabase db = Object.FindAnyObjectByType<FoodDatabase>();
+            FoodDatabase db = Db();
             if (db == null || db.Table == null) return;
             ProductDef water = FindExact(db, "вода"), flour = FindExact(db, "мука пшеничная");
             ProductDef egg = FindExact(db, "яйцо"), salt = FindExact(db, "соль"), dough = FindExact(db, "тесто для пельменей");
@@ -1886,7 +2018,7 @@ namespace CatCooks.Food
 
         private static void BuildBBQDefaults(List<CookRecipeDef> list)
         {
-            FoodDatabase db = Object.FindAnyObjectByType<FoodDatabase>();
+            FoodDatabase db = Db();
             if (db == null || db.Table == null) return;
             ProductDef salt = FindExact(db, "соль"), paprika = FindExact(db, "паприка"), pepper = FindExact(db, "перец чёрный") ?? FindExact(db, "перец черный");
             ProductDef garlic = FindExact(db, "чеснок сушёный") ?? FindExact(db, "чеснок сушеный"), rub = FindExact(db, "сухой руб");

@@ -28,9 +28,12 @@ namespace CatCooks.Food
         /// настоящая база игровой сцены уничтожала себя как дубликат. Менеджеры живут
         /// между сценами, поэтому им — только поиск.
         /// </summary>
+        private static FoodDatabase _sceneDb;
         private static FoodDatabase SceneDb()
         {
-            FoodDatabase db = FindAnyObjectByType<FoodDatabase>();
+            // v23.2 (FPS): ищем по сцене один раз, дальше — из кэша (поиск звался на каждый тик тары)
+            if (_sceneDb == null) _sceneDb = FindAnyObjectByType<FoodDatabase>();
+            FoodDatabase db = _sceneDb;
             return db != null && db.Table != null ? db : null;
         }
 
@@ -104,10 +107,14 @@ namespace CatCooks.Food
         /// <summary>Холод 0..1 для тары (только сервер) — для подсказок.</summary>
         public float Chill01(Cookware cw) => _chill.TryGetValue(cw, out float c) ? Mathf.Clamp01(c / FreezeSeconds) : 0f;
 
+        /// <summary>v19.4: тару поливают азотом (сервер): (тара, секунды за кадр).</summary>
+        public static event System.Action<Cookware, float> Chilled;
+
         /// <summary>Поливают азотом. Сервер, каждый кадр, пока тара в струе.</summary>
         public void ServerChill(Cookware cw, float seconds)
         {
             if (cw == null || !cw.IsServerInitialized) return;
+            if (Chilled != null) Chilled(cw, seconds);           // v19.4: таяние мороженого сбрасывается, растаявшее замерзает
             // Шаг рецепта «Заморозить» (смесь → мороженое) — ведёт книга рецептов.
             if (CookRecipeBook.ServerProcess(cw, CookStepKind.Freeze, seconds)) return;
             Resolve();

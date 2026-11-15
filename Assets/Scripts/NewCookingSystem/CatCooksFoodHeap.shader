@@ -64,6 +64,10 @@ Shader "CatCooks/Food Heap"
         _OutlineDarken ("Контур = цвет продукта ×", Range(0, 1)) = 0.45
         _OutlineColor ("Подмешать к контуру", Color) = (0.35, 0.2, 0.08, 1)
         _OutlineTint ("Сколько подмешать", Range(0, 1)) = 0.35
+        [Header(Anime v23_4)]
+        _Anime ("Аниме (0 — как раньше)", Range(0, 1)) = 1
+        _AnimePosterize ("Аниме: узор ступенями тона (как маркером)", Range(0, 1)) = 0.75
+        _AnimePaint ("Аниме: живописные пятна", Range(0, 1)) = 0.5
     }
 
     SubShader
@@ -105,6 +109,7 @@ Shader "CatCooks/Food Heap"
             half  _OutlineDarken;
             half4 _OutlineColor;
             half  _OutlineTint;
+            half  _Anime, _AnimePosterize, _AnimePaint;
         CBUFFER_END
 
         TEXTURE2D(_BaseMap); SAMPLER(sampler_BaseMap);
@@ -134,6 +139,7 @@ Shader "CatCooks/Food Heap"
             #pragma multi_compile_fog
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "CatCooksAnime.hlsl"
 
             struct Attributes
             {
@@ -221,8 +227,12 @@ Shader "CatCooks/Food Heap"
 
                 // ── цвет ──
                 half lum = dot(tex, half3(0.299h, 0.587h, 0.114h));
+                // v23.4: узор текстуры — ступенями тона (2–3 «краски», как в аниме-рисовке), а не фото-шумом
+                half lumP = (smoothstep(0.38h, 0.42h, lum) + smoothstep(0.62h, 0.66h, lum)) * 0.25h + 0.55h;
+                lum = lerp(lum, lumP, _AnimePosterize * _Anime);
                 half3 albedo = i.color.rgb * _BaseColor.rgb;
                 albedo *= lerp(1.0h, lum * _DetailBoost, detail);
+                albedo *= 1.0h + CCA_Paint(i.positionOS.xz * 6.0 + i.positionOS.y * 2.0) * 0.12h * _AnimePaint * _Anime;
                 albedo = Saturate3(albedo, _Saturation);
 
                 // ── мультяшный свет ──
@@ -237,11 +247,11 @@ Shader "CatCooks/Food Heap"
                 lit *= shadow;
 
                 half3 lightCol = light.color * _LitColor.rgb;
-                half3 shadowCol = _ShadowColor.rgb;                     // тёплая тень, не серая
+                half3 shadowCol = lerp(_ShadowColor.rgb, CCA_ShadowMul(albedo, 0.0h), _Anime);   // v23.4: тень по цвету продукта (светлое — сиреневая, тёплое — насыщенная)
                 half3 ambient = max(SampleSH(nWS) * _Ambient, _AmbientFloor.rgb);
                 half3 diffuse = lerp(shadowCol * ambient, lightCol, lit);
                 // Плоский свет: ровно освещено, как ландшафт, без впадин и теней.
-                diffuse = lerp(diffuse, _FlatColor.rgb, _Flat);
+                diffuse = lerp(diffuse, _FlatColor.rgb, _Flat * (1.0h - 0.55h * _Anime));   // v23.4: меньше «плоского» света — ступени читаются
                 // Небесный свет: верх светлее (небо), бока и низ теплее и темнее (земля).
                 // Объём без настоящих теней — горка не плоская даже при плоском свете.
                 half sky = saturate(nWS.y * 0.5h + 0.5h);
@@ -254,6 +264,7 @@ Shader "CatCooks/Food Heap"
 
                 // ── подсветка края ──
                 half rim = pow(1.0h - saturate(dot(nWS, V)), _RimPower) * _Rim * (0.4h + 0.6h * lit);
+                rim = lerp(rim, CCA_Rim(nWS, V, 0.28h) * _Rim * 1.3h * (0.3h + 0.7h * lit), _Anime);   // v23.4: контур — ступенькой
 
                 half3 col = albedo * diffuse * _Brightness
                           + _GlintColor.rgb * glint * _GlintStrength * light.color

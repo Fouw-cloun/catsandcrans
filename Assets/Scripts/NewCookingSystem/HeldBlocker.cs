@@ -14,10 +14,14 @@ namespace CatCooks.Food
     public sealed class HeldBlocker
     {
         public LayerMask Mask = ~0;
-        /// <summary>Насколько отъезжает к камере (0 — до самой камеры).</summary>
-        public float RetractTo = 0.3f;
-        /// <summary>Скорость догона руки, доля хода в секунду.</summary>
-        public float FreeSpeed = 14f;
+        /// <summary>v23.4: насколько МАКСИМУМ отъезжает к камере (0.75 — всего на четверть пути; раньше 0.3 — почти в лицо).</summary>
+        public float RetractTo = 0.75f;
+        /// <summary>v23.4: дальше не отъезжает, а «опускается» вниз из кадра (доля расстояния до камеры) — как оружие у стены в шутерах.</summary>
+        public float LowerBy = 0.6f;
+        /// <summary>v23.4: и наклоняется кончиком вниз, градусы (только SolvePose).</summary>
+        public float TiltDeg = 40f;
+        /// <summary>Скорость возврата в руку, доля в секунду (упирается — сразу, отпускает — плавно).</summary>
+        public float FreeSpeed = 4f;
         /// <summary>Габарит чуть меньше модели — не цепляться краешком.</summary>
         public float Shrink = 0.88f;
         /// <summary>v17.3: не упираться в тару и продукты (чтобы черпать, мешать, долбить).</summary>
@@ -26,7 +30,7 @@ namespace CatCooks.Food
         private readonly Transform _root;
         private bool _ready;
         private Vector3 _c, _h;
-        private float _push = 1f;
+        private float _p;                      // 0 — в руке, 1 — максимально «спрятан»
         private readonly Collider[] _ov = new Collider[24];
 
         public HeldBlocker(Transform root) { _root = root; }
@@ -34,30 +38,65 @@ namespace CatCooks.Food
         /// <summary>Упёрся ли сейчас (для подсказок/звука).</summary>
         public bool Blocked { get; private set; }
 
+        /// <summary>
+        /// Только позиция (старые вызовы: отбойник, горелки). v23.4: больше НЕ летит в экран —
+        /// чуть отъезжает и опускается вниз из кадра.
+        /// </summary>
         public Vector3 Solve(Vector3 want, Quaternion rot, Vector3 cam)
+        {
+            Camera mc = Camera.main;
+            Vector3 up = mc != null ? mc.transform.up : Vector3.up;
+            Vector3 right = mc != null ? mc.transform.right : Vector3.right;
+            Quaternion r = rot;
+            return SolvePose(want, ref r, cam, up, right, false);
+        }
+
+        /// <summary>
+        /// v23.4: поза без проходов сквозь мир. Ход p 0..1: до 0.35 — немного к камере (не дальше Retract To),
+        /// дальше — вниз из кадра и (tilt) кончиком вниз. Ищем наименьший p, при котором предмет ни во что не влез.
+        /// Упёрся — сразу, отпустило — плавно назад в руку.
+        /// </summary>
+        public Vector3 SolvePose(Vector3 want, ref Quaternion rot, Vector3 cam, Vector3 camUp, Vector3 camRight, bool tilt)
         {
             if (_root == null) return want;
             if (!_ready) Build();
-            Vector3 back = cam + (want - cam) * RetractTo;
-            float max = MaxFree(back, want, rot);
+            Quaternion baseRot = rot;
+            float need;
+            Vector3 pos; Quaternion r;
+            Pose(want, baseRot, cam, camUp, camRight, tilt, 0f, out pos, out r);
+            if (!Hit(pos, r)) need = 0f;
+            else
+            {
+                Pose(want, baseRot, cam, camUp, camRight, tilt, 1f, out pos, out r);
+                if (Hit(pos, r)) need = 1f;
+                else
+                {
+                    float lo = 0f, hi = 1f;
+                    for (int i = 0; i < 7; i++)
+                    {
+                        float mid = (lo + hi) * 0.5f;
+                        Pose(want, baseRot, cam, camUp, camRight, tilt, mid, out pos, out r);
+                        if (Hit(pos, r)) lo = mid; else hi = mid;
+                    }
+                    need = hi;
+                }
+            }
             float dt = Mathf.Min(Time.deltaTime, 0.05f);
-            if (_push > max) _push = max;
-            else _push = Mathf.MoveTowards(_push, max, FreeSpeed * dt);
-            Blocked = max < 0.999f;
-            return Vector3.Lerp(back, want, _push);
+            _p = need >= _p ? need : Mathf.MoveTowards(_p, need, FreeSpeed * dt);
+            Blocked = need > 0.001f;
+            Pose(want, baseRot, cam, camUp, camRight, tilt, _p, out pos, out r);
+            rot = r;
+            return pos;
         }
 
-        private float MaxFree(Vector3 back, Vector3 want, Quaternion rot)
+        private void Pose(Vector3 want, Quaternion rot, Vector3 cam, Vector3 camUp, Vector3 camRight, bool tilt, float p, out Vector3 pos, out Quaternion r)
         {
-            if (!Hit(want, rot)) return 1f;
-            if (Hit(back, rot)) return 0f;
-            float lo = 0f, hi = 1f;
-            for (int i = 0; i < 7; i++)
-            {
-                float mid = (lo + hi) * 0.5f;
-                if (Hit(Vector3.Lerp(back, want, mid), rot)) hi = mid; else lo = mid;
-            }
-            return lo;
+            float a = Mathf.Clamp01(p / 0.35f);
+            float b = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.35f, 1f, p));
+            Vector3 back = cam + (want - cam) * RetractTo;
+            float dist = (want - cam).magnitude;
+            pos = Vector3.Lerp(want, back, a) - camUp * (dist * LowerBy * b);
+            r = tilt && b > 0f ? Quaternion.AngleAxis(TiltDeg * b, camRight) * rot : rot;
         }
 
         private bool Hit(Vector3 pos, Quaternion rot)

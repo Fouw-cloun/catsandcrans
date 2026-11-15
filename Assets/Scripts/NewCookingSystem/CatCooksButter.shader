@@ -19,6 +19,9 @@ Shader "CatCooks/Butter"
         _RippleScale ("Рябь: на метр", Float) = 60
         _Ambient ("Окружение", Range(0, 2)) = 0.9
         _Rim ("Светлый край", Range(0, 1)) = 0.2
+        [Header(Anime v23_4)]
+        _Anime ("Аниме (0 — как раньше)", Range(0, 1)) = 1
+        _AnimeSoft ("Аниме: мягкость ступени", Range(0.005, 0.15)) = 0.04
     }
 
     SubShader
@@ -36,11 +39,13 @@ Shader "CatCooks/Butter"
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "CatCooksAnime.hlsl"
 
             CBUFFER_START(UnityPerMaterial)
                 half _Sheen, _SheenSize, _Warm, _Ripple, _Ambient, _Rim;
                 float _RippleScale;
                 half4 _ShadowTint;
+                half _Anime, _AnimeSoft;
             CBUFFER_END
 
             struct A { float4 positionOS : POSITION; float3 normalOS : NORMAL; half4 color : COLOR; };
@@ -88,6 +93,14 @@ Shader "CatCooks/Butter"
                 // светлый край (масло на свету читается объёмом)
                 half fr = pow(1.0 - saturate(dot(n, vdir)), 3.0);
                 col += alb * fr * _Rim;
+                if (_Anime > 0.001h)
+                {
+                    // v23.4: масло — три ступени (золотистая тень → основной → бледно-сливочный свет), блик-«боб» ступенькой
+                    half3 ac = alb * (CCA_Cel(alb, n, L, _AnimeSoft, 3.0h, 0.0h) + SampleSH(n) * _Ambient * 0.15h);
+                    ac += L.color * CCA_Spec(n, vdir, L.direction, 0.93h) * _Sheen * 0.9h * L.shadowAttenuation;
+                    ac = lerp(ac, lerp(half3(1, 1, 1), alb, 0.4h), CCA_Rim(n, vdir, 0.28h) * _Rim * 1.2h);
+                    col = lerp(col, ac, _Anime);
+                }
                 return half4(col, 1);
             }
             ENDHLSL

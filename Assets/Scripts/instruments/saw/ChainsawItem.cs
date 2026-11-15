@@ -345,9 +345,25 @@ public class ChainsawItem : InteractableItem, ISawTool
 
         Vector3 pos = handAnchor.position + handAnchor.rotation * _holdPositionOffset;
         Quaternion rot = handAnchor.rotation * Quaternion.Euler(_holdEulerOffset);
-        if (_blockByWorld) pos = BlockedPose(pos, rot);
+        if (_blockByWorld)
+        {
+            // v23.5: не пилит — упёрлась → чуть назад и вниз из кадра, полотном вниз (как оружие у стены),
+            // а не в лицо/голову. Пилит — прежняя логика (медленно входит в то, что режет).
+            if (!IsSawing && _holderCam != null)
+            {
+                if (_hb == null) _hb = new CatCooks.Food.HeldBlocker(transform) { Mask = _blockMask };
+                Quaternion r = rot;
+                pos = _hb.SolvePose(pos, ref r, _holderCam.position, _holderCam.up, _holderCam.right, true);
+                rot = r;
+                _push = 1f;
+                _inCut = false;
+            }
+            else pos = BlockedPose(pos, rot);
+        }
         transform.SetPositionAndRotation(pos, rot);
     }
+
+    private CatCooks.Food.HeldBlocker _hb;
 
     // ───────── v14: НЕ СКВОЗЬ ПРЕДМЕТЫ ─────────
     //

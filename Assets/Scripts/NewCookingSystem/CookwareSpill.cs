@@ -215,6 +215,10 @@ namespace CatCooks.Food
                 ProductDef d = db != null ? db.Get(v.Product) : null;
                 FoodSubstance sub = d != null ? FoodSubstance.Of(d, v.State) : null;
                 if (sub != null && sub.StickToCookware) continue;
+                // v19.4: замёрзшее и твёрдое мороженое не высыпается — только лопатой/мастерком; растаявшее льётся
+                if (v.State == FoodState.Frozen) continue;
+                CookwareLiquidVisual.Role role;
+                if (_liquid != null && _liquid.TryGetRole(v.Product, out role) && role == CookwareLiquidVisual.Role.IceCream && v.State != FoodState.Melted) continue;
                 product = v.Product; state = v.State; cook = v.Cook;
                 return true;
             }

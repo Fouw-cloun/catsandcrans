@@ -34,7 +34,41 @@ namespace CatCooks.Food.Tools
         [Tooltip("Пар из-под колеса, пока вентиль открыт")]
         [SerializeField] private bool _hissFx = true;
 
+        [Header("v19.5: редуктор (как у баллона кровельной горелки)")]
+        [Tooltip("Давление 1…5 при старте. Колесо мыши с пистолетом в руке — меняет: струя длиннее и холоднее")]
+        [Range(1, 5)][SerializeField] private int _startPressure = 3;
+        [Tooltip("Стрелка манометра (крутится по давлению). Пусто — нет")]
+        [SerializeField] private Transform _needle;
+        [Tooltip("Ось стрелки (в её осях)")]
+        [SerializeField] private Vector3 _needleAxis = Vector3.forward;
+        [Tooltip("Ход стрелки от 1 до 5, градусы")]
+        [SerializeField] private float _needleSweep = 220f;
+
         private readonly SyncVar<byte> _open = new SyncVar<byte>(0);
+        private readonly SyncVar<byte> _pressure = new SyncVar<byte>(3);
+        private Quaternion _needleBase;
+        private bool _hasNeedle;
+        private float _needleShown = -1f;
+
+        /// <summary>Давление 1…5.</summary>
+        public int Pressure => Mathf.Clamp(_pressure.Value, 1, 5);
+        /// <summary>Множитель струи: 1 → 0.6, 3 → 1, 5 → 1.45.</summary>
+        public float PressureK => Pressure <= 3 ? Mathf.Lerp(0.6f, 1f, (Pressure - 1) / 2f) : Mathf.Lerp(1f, 1.45f, (Pressure - 3) / 2f);
+
+        public override void OnStartServer()
+        {
+            base.OnStartServer();
+            _pressure.Value = (byte)Mathf.Clamp(_startPressure, 1, 5);
+        }
+
+        [Server]
+        public void ServerAddPressure(int delta)
+        {
+            int p = Mathf.Clamp(Pressure + delta, 1, 5);
+            if (p == Pressure) return;
+            _pressure.Value = (byte)p;
+            Debug.Log($"[Азот] давление {p}/5", this);
+        }
         private float _open01, _target, _hissT;
         private Quaternion _wheelBase;
         private bool _hasWheel;
@@ -48,6 +82,7 @@ namespace CatCooks.Food.Tools
             base.Awake();
             _canPickup = true;
             if (_valveWheel != null) { _wheelBase = _valveWheel.localRotation; _hasWheel = true; }
+            if (_needle != null) { _needleBase = _needle.localRotation; _hasNeedle = true; }
         }
 
         [Server]
@@ -69,6 +104,13 @@ namespace CatCooks.Food.Tools
             {
                 Vector3 ax = _wheelAxis.sqrMagnitude > 1e-6f ? _wheelAxis.normalized : Vector3.forward;
                 _valveWheel.localRotation = _wheelBase * Quaternion.AngleAxis(Open01 * _valveTurn, ax);
+            }
+            if (_hasNeedle)
+            {
+                float want = (Pressure - 1) / 4f * (0.35f + 0.65f * Open01);
+                _needleShown = _needleShown < 0f ? want : Mathf.Lerp(_needleShown, want, 1f - Mathf.Exp(-Time.deltaTime * 6f));
+                Vector3 nax = _needleAxis.sqrMagnitude > 1e-6f ? _needleAxis.normalized : Vector3.forward;
+                _needle.localRotation = _needleBase * Quaternion.AngleAxis(_needleShown * _needleSweep, nax);
             }
             if (_hissFx && Open01 > 0.05f)
             {

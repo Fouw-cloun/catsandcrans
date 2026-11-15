@@ -88,9 +88,9 @@ namespace CatCooks.Food.EditorTools
                     {
                         Undo.RecordObject(mm, "Тун-шейдер еды");
                         mm.shader = toon;
-                        if (mm == pasteMat) FoodSubstance.SpreadGloss(mm);
+                        FoodSubstance.ToonPreset(mm, mm == pasteMat ? SubstanceLook.Spread : SubstanceLook.Butter);   // v19.2: Toon Food v3
                         EditorUtility.SetDirty(mm);
-                        log.AppendLine($"  ✔ материал «{mm.name}» → CatCooks/Toon Food (обводки, тун-свет)");
+                        log.AppendLine($"  ✔ материал «{mm.name}» → CatCooks/Toon Food v3 (обводки, тун-свет, состояния)");
                     }
             FoodSubstance sugar = EnsureSugar(sugarMat, log);
             FoodSubstance paste = EnsurePaste(pasteMat, log);

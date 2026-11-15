@@ -57,9 +57,31 @@ namespace CatCooks.Food.Tools
         [Range(0.2f, 3f)][SerializeField] private float _vaporScale = 1f;
 
         [Header("Отладка")]
+        [Header("v19.5: шланг и баллон как у кровельной горелки")]
+        [Tooltip("Баллон стоит, где поставили, — шланг его не тащит. Отошёл дальше длины шланга ×1.25 — струи нет (подойди к баллону)")]
+        [SerializeField] private bool _tankStays = true;
         [SerializeField] private bool _log = true;
 
         private readonly SyncVar<bool> _spraying = new SyncVar<bool>(false);
+        // v23.3: куда бьёт струя — туда, куда смотрит держащий (прицел). Шлёт владелец; у остальных и на сервере — из сети.
+        private readonly SyncVar<Vector3> _aim = new SyncVar<Vector3>(Vector3.zero);
+        private Vector3 _aimSent;
+        private float _aimSentT;
+
+        /// <summary>Направление струи: у держащего — взгляд камеры (прицел), у остальных — присланное им; иначе ось Nozzle.</summary>
+        private Vector3 JetDir
+        {
+            get
+            {
+                if (base.IsOwner && CCHands.HeldByLocal(this))
+                {
+                    Camera cam = Camera.main;
+                    if (cam != null) return cam.transform.forward;
+                }
+                Vector3 a = _aim.Value;
+                return a.sqrMagnitude > 0.5f ? a.normalized : Nozzle.forward;
+            }
+        }
         private float _noTargetLogT;
         private bool _lmbWas;
         private float _vaporAcc, _groundT;
@@ -80,7 +102,9 @@ namespace CatCooks.Food.Tools
 
         /// <summary>Насколько шланг перетянут (1 — ровно длина).</summary>
         private float Stretch => _tank == null ? 99f : Vector3.Distance(_tank.Outlet.position, SocketPos) / Mathf.Max(0.5f, _hoseLength);
-        private bool Flowing => _spraying.Value && _tank != null && _tank.IsOpen && Stretch < 1.33f;
+        private bool Flowing => _spraying.Value && _tank != null && _tank.IsOpen && Stretch < (_tankStays ? 1.25f : 1.33f);
+        /// <summary>v19.5: дальность и холод струи — от давления на редукторе баллона.</summary>
+        private float JetRange => _range * (_tank != null ? _tank.PressureK : 1f);
 
         private void Update()
         {
@@ -93,6 +117,18 @@ namespace CatCooks.Food.Tools
         {
             bool lmb = Input.GetMouseButton(0);
             if (lmb != _lmbWas) { _lmbWas = lmb; CmdSpray(lmb); }
+            if (lmb && Time.time >= _aimSentT)
+            {
+                Vector3 d = JetDir;
+                if (Vector3.Angle(d, _aimSent) > 2f) { _aimSent = d; _aimSentT = Time.time + 0.08f; CmdAim(d); }
+            }
+            float wheel = Input.mouseScrollDelta.y;                  // v19.5: давление на редукторе 1…5
+            if (Mathf.Abs(wheel) > 0.01f && _tank != null) CmdPressure(wheel > 0f ? 1 : -1);
+            if (lmb && _tank != null && _tank.IsOpen && Stretch >= 1.25f && _tankStays && Time.time > _farHintT)
+            {
+                _farHintT = Time.time + 2f;
+                Debug.Log("[Азот] шланг натянут — подойди к баллону (или возьми баллон F и переставь G)", this);
+            }
 
             if (Input.GetKeyDown(_valveKey))
             {
@@ -105,6 +141,20 @@ namespace CatCooks.Food.Tools
                     target = _tank;
                 if (target != null) CmdToggleValve(target.NetworkObject);
             }
+        }
+
+        private float _farHintT;
+
+        [ServerRpc(RequireOwnership = true)]
+        private void CmdPressure(int d)
+        {
+            if (_tank != null) _tank.ServerAddPressure(d);
+        }
+
+        [ServerRpc(RequireOwnership = true)]
+        private void CmdAim(Vector3 dir)
+        {
+            if (dir.sqrMagnitude > 0.5f) _aim.Value = dir.normalized;
         }
 
         [ServerRpc(RequireOwnership = true)]
@@ -142,12 +192,13 @@ namespace CatCooks.Food.Tools
                 if (cw == null) continue;
                 // Тара в струе: горловина близко к оси струи (с запасом на ширину тары), не дальше Range.
                 Vector3 to = cw.MouthPoint - n.position;
-                float along = Vector3.Dot(to, n.forward);
-                if (along < -0.1f || along > _range + 0.4f) continue;
-                float off = (to - n.forward * along).magnitude;
+                Vector3 jd = JetDir;
+                float along = Vector3.Dot(to, jd);
+                if (along < -0.1f || along > JetRange + 0.4f) continue;
+                float off = (to - jd * along).magnitude;
                 float allow = Mathf.Max(0.12f, along * tan) + 0.3f;          // радиус струи + полтары
                 if (off > allow) continue;
-                ff.ServerChill(cw, dt * _chillPerSecond);
+                ff.ServerChill(cw, dt * _chillPerSecond * (_tank != null ? _tank.PressureK : 1f));
                 hit++;
             }
             if (hit == 0 && _log && Time.time > _noTargetLogT)
@@ -160,8 +211,8 @@ namespace CatCooks.Food.Tools
 
         private void FixedUpdate()
         {
-            // Шланг короче — баллон едет за пистолетом (если его не держат).
-            if (!base.IsServerInitialized || _tank == null || _tankRb == null || _tankRb.isKinematic) return;
+            // Шланг короче — баллон едет за пистолетом (если его не держат). v19.5: по умолчанию баллон стоит.
+            if (_tankStays || !base.IsServerInitialized || _tank == null || _tankRb == null || _tankRb.isKinematic) return;
             Vector3 to = SocketPos - _tank.Outlet.position;
             float excess = to.magnitude - _hoseLength;
             if (excess <= 0.05f) return;
@@ -176,13 +227,18 @@ namespace CatCooks.Food.Tools
         {
             if (_tank != null)
             {
-                if (_hose == null) _hose = HoseTube.Create(transform, _hoseRadius, _hoseColor);
-                _hose.Tick(_tank.Outlet.position, SocketPos, _hoseLength);
+                // v19.5: шланг как у кровельной горелки — провисает и ложится на пол, натянулся — прямой и краснеет
+                if (_gasHose == null) _gasHose = GasHose.Create(transform);
+                _gasHose.Length = _hoseLength;
+                _gasHose.Radius = _hoseRadius;
+                _gasHose.Color = _hoseColor;
+                Vector3 sockDir = _hoseSocket != null ? -_hoseSocket.forward : -Nozzle.forward;
+                _gasHose.Tick(SocketPos, sockDir, _tank.Outlet.position, _tank.Outlet.up, transform, _tank.transform);
             }
 
             bool on = Flowing;
             Transform n = Nozzle;
-            if (on && _crystals == null)
+            if (false && on && _crystals == null)                      // v19.5: «кубики» заменены снежинками (CCFrostFx)
             {
                 var look = new CCRuntimeParticles.Look
                 {
@@ -194,27 +250,19 @@ namespace CatCooks.Food.Tools
             }
             if (_crystals != null)
                 CCRuntimeParticles.SetStream(_crystals, on, n.position, n.forward, Color.white, new Color(0.75f, 0.9f, 1f), 140f);
-            if (!on) { _vaporAcc = 0f; return; }
+            if (!on) { _vaporAcc = 0f; _flakeAcc = 0f; return; }
 
-            // Клубы морозного пара вдоль струи: у дула плотные и мелкие, дальше пышнее и медленнее.
-            _vaporAcc += dt * _vaporPerSecond;
-            while (_vaporAcc >= 1f)
-            {
-                _vaporAcc -= 1f;
-                float k = Random.value;
-                Vector3 spread = Random.insideUnitSphere * Mathf.Tan(_coneAngle * Mathf.Deg2Rad) * _range * k * 0.6f;
-                Vector3 p = n.position + n.forward * (_range * k) + spread;
-                Vector3 v = n.forward * Mathf.Lerp(2.2f, 0.4f, k) + Vector3.down * 0.15f;
-                NitroFx.Vapor(p, v, Mathf.Lerp(0.35f, 1f, k) * _vaporScale);
-            }
+            // v23.2: луч заморозки «как у Мэй»: ледяной пар вылетает и тормозит, яркое ядро, разные снежинки потоком, искры
+            float pk = _tank != null ? Mathf.InverseLerp(0.4f, 2.2f, _tank.PressureK) : 0.6f;
+            CCFreezeFx.Beam(n.position, JetDir, JetRange * _vaporScale, _coneAngle, pk, dt, ref _beamAcc);
 
             // Где струя упирается — пар стелется и растекается (азот тяжелее воздуха).
             _groundT -= dt;
             if (_groundT <= 0f)
             {
                 _groundT = 0.08f;
-                int hits = Physics.RaycastNonAlloc(n.position, n.forward, _hits, _range, ~0, QueryTriggerInteraction.Ignore);
-                float best = float.MaxValue; RaycastHit bh = default; bool found = false;
+                int hits = Physics.RaycastNonAlloc(n.position, JetDir, _hits, JetRange, ~0, QueryTriggerInteraction.Ignore);
+                float best = float.MaxValue; RaycastHit bh = default(RaycastHit); bool found = false;
                 for (int i = 0; i < hits; i++)
                 {
                     if (_hits[i].transform.IsChildOf(transform)) continue;
@@ -222,8 +270,7 @@ namespace CatCooks.Food.Tools
                 }
                 if (found)
                 {
-                    Vector3 side = Vector3.ProjectOnPlane(Random.insideUnitSphere, bh.normal).normalized;
-                    NitroFx.Vapor(bh.point + bh.normal * 0.02f, side * 0.7f + Vector3.down * 0.1f, 1.1f * _vaporScale);
+                    CCFreezeFx.Impact(bh.point + bh.normal * 0.02f, bh.normal, JetRange * 0.06f * _vaporScale);   // v23.2: пар кольцом по поверхности, снежинки, иней
                     // круги и «дрожь» на жидкости, если бьёт в тару
                     Cookware hitCw = bh.collider.GetComponentInParent<Cookware>();
                     CookwareLiquidVisual lv = hitCw != null ? hitCw.GetComponentInChildren<CookwareLiquidVisual>() : null;
@@ -233,10 +280,15 @@ namespace CatCooks.Food.Tools
             }
         }
 
+        private float _flakeAcc;
+        private Vector4 _beamAcc;
+        private GasHose _gasHose;
+
         private void OnDestroy()
         {
             if (_crystals != null) Destroy(_crystals.gameObject);
             if (_hose != null) Destroy(_hose.gameObject);
+            if (_gasHose != null) Destroy(_gasHose.gameObject);
         }
     }
 
@@ -247,17 +299,9 @@ namespace CatCooks.Food.Tools
 
         public static void Vapor(Vector3 at, Vector3 velocity, float scale)
         {
-            CatCooksDustSystem ds = CatCooksDustSystem.Active;
-            if (ds != null)
-            {
-                ds.Emit(CatCooksDustSystem.Effect.Smoke, at, Vector3.up, velocity, 0.6f, null, 0.35f * scale, 0.45f, Cold);
-                return;
-            }
-            var look = CCRuntimeParticles.Look.Dust;
-            look.Size = new Vector2(0.03f, 0.07f) * scale;
-            look.Lifetime = new Vector2(0.5f, 1.1f);
-            look.Gravity = 0.05f;
-            CCRuntimeParticles.Burst(at, velocity.sqrMagnitude > 1e-4f ? velocity : Vector3.up, Cold, Color.white, 3, look);
+            // v23.2: свой мягкий ледяной пар (без кубиков и без нового объекта на каждый клуб)
+            Color c = Color.Lerp(CCFreezeFx.IceBlue, CCFreezeFx.IceWhite, Random.Range(0.4f, 1f)); c.a = 0.6f;
+            CCFreezeFx.Mist(at, velocity, 0.12f * scale, Random.Range(0.6f, 1.1f), c);
         }
     }
 

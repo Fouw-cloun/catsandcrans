@@ -228,6 +228,9 @@ namespace CatCooks.Food
 
         // ───────────────────────── ФОРМА ─────────────────────────
 
+        private float _handleAng = float.NaN;                                  // v23.25: сторона ручки в осях кучки
+        private bool _handleTried;
+
         private void Build(int portions)
         {
             if (_view == null)
@@ -251,7 +254,26 @@ namespace CatCooks.Food
             FoodSubstanceMesh.SpoilK = FoodStateInfo.IsSpoiled((FoodState)_state) ? 1f : 0f;   // v19: испорченное — видно
             if (_sub.Look == SubstanceLook.Powder) FoodSubstanceMesh.Powder(_mesh, _dims, _sub.Wonky, _col, seed);
             else if (_sub.Look == SubstanceLook.Crystals) FoodSubstanceMesh.Crystals(_mesh, _dims, _sub.CrystalSize, _sub.CrystalDensity, _col, seed);
-            else if (_sub.Look == SubstanceLook.Spread) FoodSubstanceMesh.Spread(_mesh, _dims, _sub.Curl * 0.8f, _col, seed);
+            else if (_sub.Look == SubstanceLook.Spread)
+            {
+                // v23.6: густые капли свисают с края полотна (чем больше пасты — тем их больше)
+                float grow = Mathf.Clamp01((_dims.RectN - 2.6f) / 1.4f);
+                float cover = Mathf.Lerp(_sub.BladeCover, 1f, grow);
+                FoodSubstanceMesh.DripEdge = 1f / (0.94f * Mathf.Max(0.2f, cover)) + 0.03f;
+                FoodSubstanceMesh.SpreadDrips = portions <= 0 ? 0 : 1 + Mathf.RoundToInt(grow * 2f);
+                if (!_axisSet) PickAxis();
+                if (float.IsNaN(_handleAng) && !_handleTried)
+                {
+                    _handleTried = true;
+                    FishNet.Object.NetworkObject no = _scoop.GetComponentInParent<FishNet.Object.NetworkObject>();
+                    Transform root = no != null ? no.transform : _scoop.transform;
+                    _handleAng = FoodSubstanceMesh.HandleAngle(root, _blade.rotation * Quaternion.FromToRotation(Vector3.up, _axis), _blade.position, _mr);
+                }
+                FoodSubstanceMesh.SpreadTailAng = _handleAng;                     // v23.25: плоской частью к ручке
+                FoodSubstanceMesh.Spread(_mesh, _dims, _sub.Curl * 0.8f, _col, seed);
+                FoodSubstanceMesh.SpreadTailAng = float.NaN;
+                FoodSubstanceMesh.SpreadDrips = 0;
+            }
             else FoodSubstanceMesh.ButterSmear(_mesh, _dims, _sub.Curl, _col, seed);     // v18.7: мазок ножом, а не «кубик»
             FoodSubstanceMesh.SpoilK = 0f;
             Material m = _sub.GetMaterial();

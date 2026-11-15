@@ -23,6 +23,11 @@ Shader "CatCooks/Powder Heap"
         _GrainAmt ("Зерно: сила", Range(0, 0.5)) = 0.12
         _ShadowTint ("Цвет тени", Color) = (0.7, 0.62, 0.62, 1)
         _Ambient ("Окружение", Range(0, 2)) = 0.85
+        [Header(Anime v23_4)]
+        _Anime ("Аниме-свет (0 — как раньше)", Range(0, 1)) = 1
+        _AnimeSoft ("Аниме: мягкость ступени", Range(0.005, 0.15)) = 0.05
+        _AnimeTones ("Аниме: комки ступенями тона (0 — плавно)", Range(0, 1)) = 0.8
+        _AnimeRim ("Аниме: светлый контур по краю горки", Range(0, 1)) = 0.45
     }
 
     SubShader
@@ -40,15 +45,19 @@ Shader "CatCooks/Powder Heap"
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "CatCooksAnime.hlsl"
 
             CBUFFER_START(UnityPerMaterial)
                 float _ClumpScale, _SmallScale, _GrainScale;
                 half _ClumpAmt, _Crevice, _GrainAmt, _Ambient;
                 half4 _ShadowTint;
+                half _Anime, _AnimeSoft, _AnimeTones, _AnimeRim;
             CBUFFER_END
 
             struct A { float4 positionOS : POSITION; float3 normalOS : NORMAL; half4 color : COLOR; };
-            struct V { float4 positionCS : SV_POSITION; float3 positionWS : TEXCOORD0; half4 color : COLOR; float3 upWS : TEXCOORD1; float3 nWS : TEXCOORD2; };
+            // v23.3: рисунок привязан к САМОЙ кучке (координаты объекта × его масштаб), а не к миру —
+            // кучка на мастерке в руке больше не «прокручивает» узор, когда ходишь и крутишь камеру
+            struct V { float4 positionCS : SV_POSITION; float3 positionWS : TEXCOORD0; half4 color : COLOR; float3 upWS : TEXCOORD1; float3 nWS : TEXCOORD2; float3 pat : TEXCOORD3; float3 nOS : TEXCOORD4; };
 
             float2 hash22(float2 p)
             {
@@ -103,6 +112,9 @@ Shader "CatCooks/Powder Heap"
                 o.positionCS = TransformWorldToHClip(o.positionWS);
                 o.upWS = normalize(TransformObjectToWorldDir(float3(0, 1, 0)));
                 o.nWS = TransformObjectToWorldDir(v.normalOS, false);         // не нормализуем: без нормалей длина 0
+                float3 osc = float3(length(UNITY_MATRIX_M._m00_m10_m20), length(UNITY_MATRIX_M._m01_m11_m21), length(UNITY_MATRIX_M._m02_m12_m22));
+                o.pat = v.positionOS.xyz * osc;                               // метры, но в осях кучки
+                o.nOS = v.normalOS;
                 o.color = v.color;
                 return o;
             }
@@ -115,9 +127,10 @@ Shader "CatCooks/Powder Heap"
                 #endif
                 // v18.1: проекция по склону — на крутых боках горки комки не вытягиваются в полосы
                 float3 up = dot(i.nWS, i.nWS) > 0.25 ? normalize(i.nWS) : i.upWS;
-                float3 an = abs(up);
+                float3 upO = dot(i.nOS, i.nOS) > 0.25 ? normalize(i.nOS) : float3(0, 1, 0);
+                float3 an = abs(upO);
                 int ax = an.y > 0.6 ? 1 : (an.x > an.z ? 0 : 2);
-                float2 xz = ax == 1 ? i.positionWS.xz : (ax == 0 ? i.positionWS.zy : i.positionWS.xy);
+                float2 xz = ax == 1 ? i.pat.xz : (ax == 0 ? i.pat.zy : i.pat.xy);
                 float h1, h2, id1, id2; float2 g1, g2;
                 Cells(xz * _ClumpScale, h1, g1, id1);
                 Cells(xz * _SmallScale + 17.3, h2, g2, id2);
@@ -126,9 +139,13 @@ Shader "CatCooks/Powder Heap"
 
                 // нормаль: склон горки + наклоны комков в плоскости проекции (не зависит от сетки меша)
                 float3 tg = ax == 1 ? float3(g.x, 0, g.y) : (ax == 0 ? float3(0, g.y, g.x) : float3(g.x, g.y, 0));
+                tg = TransformObjectToWorldDir(tg, false);                    // наклоны комков — из осей кучки в мир
                 float3 n = normalize(up + tg * 0.45);
                 // цвет: верх комков чуть светлее, щели темнее, у каждого комка свой оттенок
-                alb *= lerp(1.0 - _Crevice * 0.75, 1.12, h);      // низины тёмные, верхушки светлые
+                half3 albBase = alb;
+                // v23.4: аниме — тон комков ступенями (2–3 «краски»), а не плавным шумом
+                half hT = lerp(h, (step(0.28, h) * 0.5 + step(0.62, h) * 0.5), _AnimeTones * _Anime);
+                alb *= lerp(1.0 - _Crevice * 0.75, 1.12, hT);     // низины тёмные, верхушки светлые
                 alb *= 0.92 + id1 * 0.16;
                 float gr = hash21(floor(xz * _GrainScale));
                 alb *= 1.0 + (gr - 0.5) * 2.0 * _GrainAmt;
@@ -138,6 +155,16 @@ Shader "CatCooks/Powder Heap"
                 half lit = smoothstep(0.2, 0.6, ndl) * L.shadowAttenuation;
                 half3 shade = lerp(_ShadowTint.rgb * 0.55, 1.0, lit);
                 half3 col = alb * (L.color * shade + SampleSH(n) * _Ambient * 0.5);
+                if (_Anime > 0.001h)
+                {
+                    // v23.4: ступенчатый свет с цветной тенью (мука — голубоватая, какао — тёплая), мягкое окружение, светлый контур
+                    half3 cel = CCA_Cel(albBase, n, L, _AnimeSoft, 3.0h, 0.0h);
+                    half3 ac = alb * (cel + SampleSH(n) * _Ambient * 0.18h);
+                    float3 Vd = normalize(GetWorldSpaceViewDir(i.positionWS));
+                    half rimA = CCA_Rim(up, Vd, 0.32h) * _AnimeRim;
+                    ac = lerp(ac, lerp(half3(1, 1, 1), albBase, 0.5h) * min(L.color, 1.2h), rimA * 0.3h);
+                    col = lerp(col, ac, _Anime);
+                }
                 return half4(col, 1);
             }
             ENDHLSL

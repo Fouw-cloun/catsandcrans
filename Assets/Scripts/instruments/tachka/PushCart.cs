@@ -638,8 +638,9 @@ public class PushCart : InteractableItem
             foreach (Collider c in _solid)
                 if (c != null) min = Mathf.Min(min, c.bounds.min.y);
 
+        // v19.6: без жидкости/горки тары и частиц — иначе «низ» уезжал и тачка взлетала
         foreach (Renderer r in GetComponentsInChildren<Renderer>(true))
-            if (r != null) min = Mathf.Min(min, r.bounds.min.y);
+            if (CartBottomFilter.Counts(r)) min = Mathf.Min(min, r.bounds.min.y);
 
         if (min == float.MaxValue)
         {
@@ -660,17 +661,36 @@ public class PushCart : InteractableItem
 
     private float GroundOffsetY() => transform.position.y - _pivotToBottom;
 
+    private readonly RaycastHit[] _groundHits = new RaycastHit[16];
+
+    /// <summary>
+    /// v21.1: ЗЕМЛЯ ПОД ТОЧКОЙ. Раньше брался только ПЕРВЫЙ луч: он попадал в саму тачку (корыто над колесом),
+    /// земля «не находилась», и высота оставалась на уровне игрока — тачка висела в воздухе.
+    /// Теперь все попадания: свою тачку, игрока и подвижные предметы пропускаем, берём ближайший пол.
+    /// По маске не нашли — ищем по всем слоям.
+    /// </summary>
     private bool FindGround(Vector3 from, out float y)
     {
+        if (GroundBy(from, _groundMask, out y)) return true;
+        return GroundBy(from, ~0, out y);
+    }
+
+    private bool GroundBy(Vector3 from, int mask, out float y)
+    {
         y = 0f;
-        if (!Physics.Raycast(from, Vector3.down, out RaycastHit hit, 4f,
-                             _groundMask, QueryTriggerInteraction.Ignore))
-            return false;
-
-        if (hit.collider.transform.IsChildOf(transform)) return false;
-
-        y = hit.point.y;
-        return true;
+        int n = Physics.RaycastNonAlloc(from, Vector3.down, _groundHits, 6f, mask, QueryTriggerInteraction.Ignore);
+        float best = float.MaxValue;
+        for (int i = 0; i < n; i++)
+        {
+            Collider c = _groundHits[i].collider;
+            if (c == null || c.transform.IsChildOf(transform)) continue;
+            if (c.GetComponentInParent<FirstPersonController>() != null) continue;
+            Rigidbody rb = c.attachedRigidbody;
+            if (rb != null && !rb.isKinematic) continue;                 // продукты, вёдра, инструменты — не пол
+            if (_groundHits[i].normal.y < 0.5f) continue;                // стенка
+            if (_groundHits[i].distance < best) { best = _groundHits[i].distance; y = _groundHits[i].point.y; }
+        }
+        return best < float.MaxValue;
     }
 
     // ───────────────────────── ПКМ: ОПРОКИНУТЬ ─────────────────────────

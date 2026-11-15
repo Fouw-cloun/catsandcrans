@@ -126,6 +126,57 @@ namespace CatCooks.Food
             }
 
             _shownGlow = -1f;       // заставить Update перекрасить
+            ApplyToonState(s);
+        }
+
+        // ── v19.2: состояния для шейдера CatCooks/Toon Food v3 (готовность, подгорело, испорчено, заморожено) ──
+        private static readonly int DonenessId = Shader.PropertyToID("_Doneness");
+        private static readonly int BurntId = Shader.PropertyToID("_Burnt");
+        private static readonly int SpoilId = Shader.PropertyToID("_Spoil");
+        private static readonly int FrozenId = Shader.PropertyToID("_Frozen");
+
+        /// <summary>Состояние → ползунки тун-шейдера еды (через PropertyBlock, материал не копируется).</summary>
+        public static void ToonStateOf(FoodState s, out float done, out float burnt, out float spoil, out float frozen)
+        {
+            done = 0f; burnt = 0f; spoil = 0f; frozen = 0f;
+            switch (s)
+            {
+                case FoodState.Boiled: done = 0.35f; break;
+                case FoodState.Stewed: done = 0.55f; break;
+                case FoodState.Fried: case FoodState.Spitted: done = 0.85f; break;
+                case FoodState.Baked: done = 1f; break;          // v19.3: «Готовый продукт» (покупной) — без румянца
+                case FoodState.Smoked: done = 0.8f; burnt = 0.15f; break;
+                case FoodState.Undercooked: done = 0.25f; break;
+                case FoodState.Overcooked: done = 1f; burnt = 0.4f; break;
+                case FoodState.Torched: done = 0.9f; burnt = 0.25f; break;
+                case FoodState.Burnt: done = 1f; burnt = 1f; break;
+                case FoodState.Dried: done = 0.15f; break;
+                case FoodState.Chilled: frozen = 0.3f; break;
+                case FoodState.Frozen: frozen = 1f; break;
+                case FoodState.Spoiled: spoil = 1f; break;
+            }
+        }
+
+        private bool _toonSet;
+
+        private void ApplyToonState(FoodState s)
+        {
+            float done, burnt, spoil, frozen;
+            ToonStateOf(s, out done, out burnt, out spoil, out frozen);
+            // v19.3: сырое и без эффектов — ничего не пишем (лишний PropertyBlock у каждого продукта не нужен)
+            bool any = done > 0f || burnt > 0f || spoil > 0f || frozen > 0f;
+            if (!any && !_toonSet) return;
+            _toonSet = any;
+            foreach (Renderer r in _renderers)
+            {
+                if (r == null || r.sharedMaterial == null || !r.sharedMaterial.HasProperty(BurntId)) continue;
+                r.GetPropertyBlock(_mpb);
+                _mpb.SetFloat(DonenessId, done);
+                _mpb.SetFloat(BurntId, burnt);
+                _mpb.SetFloat(SpoilId, spoil);
+                _mpb.SetFloat(FrozenId, frozen);
+                r.SetPropertyBlock(_mpb);
+            }
         }
 
         /// <summary>Нагрев: какой цвет, если своего материала у состояния нет.</summary>
@@ -172,7 +223,7 @@ namespace CatCooks.Food
             if (_localLooks != null)
                 for (int i = 0; i < _localLooks.Count; i++)
                     if (_localLooks[i].State == s) { look = _localLooks[i]; return true; }
-            look = default;
+            look = default(StateLook);
             return false;
         }
 

@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Substance_ChocoPaste
-  m_Shader: {fileID: 4800000, guid: e76e19913e6245159c88c2beb58e83c1, type: 3}
+  m_Shader: {fileID: 4800000, guid: d7a7e19804ff4316897b6c5a0403b3a8, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -25,23 +25,41 @@ Material:
     m_TexEnvs: []
     m_Ints: []
     m_Floats:
-    - _Ambient: 0.9
-    - _LineDark: 0.62
-    - _LineWidth: 0.32
-    - _Marble: 0.65
-    - _MarbleLight: 1.45
-    - _MarbleScale: 11
-    - _OutlineDark: 0.5
-    - _OutlineWidth: 1.6
-    - _Rim: 0.28
-    - _Ripple: 0.25
-    - _RippleScale: 60
-    - _Sheen: 0.9
-    - _SheenSize: 60
-    - _Step: 0.05
-    - _StepSoft: 0.05
-    - _Warm: 0.12
+    - _HAmbient: 0.22
+    - _HBounceAmt: 0.5
+    - _HBrush: 0.08
+    - _HBrushScale: 5
+    - _HContact: 0.7
+    - _HDeep: 0.4
+    - _HDetail: 1
+    - _HGrain: 0
+    - _HInk: 0.15
+    - _HInkWidth: 0.26
+    - _HKind: 2
+    - _HLayerCount: 6
+    - _HLayers: 0
+    - _HLightLift: 0.35
+    - _HOutline: 1.6
+    - _HOutlineDark: 0.35
+    - _HRim: 0.55
+    - _HSat: 1.3
+    - _HSss: 0.5
+    - _HShadeDepth: 0.66
+    - _HSmooth: 0.6
+    - _HSoft: 0.02
+    - _HSparkle: 0.05
+    - _HSpec: 0.9
+    - _HSpecBreak: 0.15
+    - _HSpecSize: 0.986
+    - _HSpeck: 0.8
+    - _HT1: 0.24
+    - _HT2: 0.5
+    - _HT3: 0.8
+    - _HTermGlow: 0.55
     m_Colors:
-    - _ShadowTint: {r: 0.55, g: 0.4, b: 0.36, a: 1}
+    - _HSssColor: {r: 1, g: 0.55, b: 0.25, a: 1}
+    - _HBounce: {r: 1, g: 0.62, b: 0.35, a: 1}
+    - _HShadeCool: {r: 0.62, g: 0.68, b: 1, a: 1}
+    - _HShadeWarm: {r: 0.92, g: 0.5, b: 0.52, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

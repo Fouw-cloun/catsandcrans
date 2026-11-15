@@ -111,7 +111,7 @@ namespace CatCooks.Food
             if (!cw.IsServerInitialized) { Flash("J (налить воды) работает у хоста"); return; }
             if (_water == null)
             {
-                FoodDatabase db = FindAnyObjectByType<FoodDatabase>();
+                FoodDatabase db = CookRecipeBook.Db();                 // v23.2 (FPS): из кэша
                 if (db != null && db.Table != null)
                     for (int id = 1; id < 2048 && _water == null; id++)
                     {
@@ -290,7 +290,7 @@ namespace CatCooks.Food
                 return sb.ToString();
             }
             // клиент без журнала — просто содержимое
-            FoodDatabase db = FindAnyObjectByType<FoodDatabase>();
+            FoodDatabase db = CookRecipeBook.Db();                 // v23.2 (FPS): из кэша
             if (cw.ViewCount == 0) { sb.AppendLine("пусто"); if (j != null && !string.IsNullOrEmpty(j.LastResult)) sb.AppendLine("✔ " + j.LastResult); return sb.ToString(); }
             for (int i = 0; i < cw.ViewCount; i++)
             {

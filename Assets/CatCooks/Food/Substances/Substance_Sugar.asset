@@ -35,11 +35,11 @@ MonoBehaviour:
   DustAmount: 1
   EdgeDrips: 1
   DripShake: 20
-  DripSize: 0.05
+  DripSize: 0.09
   Steam: 0
   Flow: 1
   StickToCookware: 0
-  CrystalSize: 0.05
+  CrystalSize: 0.075
   CrystalDensity: 1
   Blend: 0
   BlendMaxExcess: 0.6

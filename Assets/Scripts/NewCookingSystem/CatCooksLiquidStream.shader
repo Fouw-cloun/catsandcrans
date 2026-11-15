@@ -38,6 +38,7 @@ Shader "CatCooks/Liquid Stream"
         _ShadeStrength ("Тень от солнца", Range(0, 1)) = 0.35
         _Bands ("v10: полосы пены бегут вниз (как у водопада)", Range(0, 1)) = 0
         _BandFreq ("v10: полос на метр", Float) = 3.5
+        _Anime ("v23.4: аниме-тень по цвету (0 — серая, как раньше)", Range(0, 1)) = 1
     }
 
     SubShader
@@ -53,6 +54,7 @@ Shader "CatCooks/Liquid Stream"
                 float4 _StreakScale;
                 half  _StreakAmount, _EdgeDark, _CoreLight, _LipFoam, _BottomFoam, _BreakUp, _Wobble, _Gloss, _ShadeStrength;
                 half  _Bands; float _BandFreq;
+                half  _Anime;
             CBUFFER_END
         ENDHLSL
 
@@ -70,6 +72,7 @@ Shader "CatCooks/Liquid Stream"
             #pragma multi_compile_fog
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+            #include "CatCooksAnime.hlsl"
 
             struct A
             {
@@ -168,7 +171,8 @@ Shader "CatCooks/Liquid Stream"
                 Light L = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
                 half ndl = dot(N, L.direction);
                 half lit = step(0, ndl) * lerp(1, L.shadowAttenuation, 0.6);
-                col *= lerp(1 - _ShadeStrength, 1, lit);
+                half3 shadeMul = lerp(half3(1, 1, 1) * (1 - _ShadeStrength), lerp(half3(1, 1, 1), CCA_ShadowMul(col, 0.0h), saturate(_ShadeStrength * 2.2h)), _Anime);
+                col *= lerp(shadeMul, half3(1, 1, 1), lit);                 // v23.4: тень струи — цветная, не серая
                 col *= lerp(half3(1, 1, 1), L.color, 0.6);
                 half3 Hh = normalize(L.direction + Vd);
                 half spec = step(0.93, pow(saturate(dot(N, Hh)), 6) + (streak - 0.5) * 0.15) * _Gloss;
