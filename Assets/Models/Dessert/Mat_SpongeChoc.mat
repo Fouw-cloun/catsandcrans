@@ -40,13 +40,13 @@ Material:
     - _Brightness: 1.15
     - _BumpScale: 1
     - _DetailBoost: 1.08
-    - _Flat: 0.55
+    - _Flat: 0.4
     - _GlintSize: 0.97
     - _GlintStrength: 0.06
     - _MidBand: 0.35
     - _OutlineDarken: 0.45
     - _OutlineTint: 0.35
-    - _OutlineWidth: 0.008
+    - _OutlineWidth: 0.003
     - _Rim: 0.12
     - _RimPower: 3.5
     - _Saturation: 1.15

@@ -466,6 +466,81 @@ namespace CatCooks.Food
             if (taken > 0) Publish(true);
             return taken;
         }
+
+        // ───────────────────────── v23.27: сыпучее, растворённое в жидкости ─────────────────────────
+
+        /// <summary>v23.27: сыпучее (сахар, мука, соль, какао, специи) в жидкости растворяется: мастерком не достать, кучкой не высыпается.</summary>
+        public static bool DissolvesIn(ProductDef d, FoodState s)
+            => d != null && s != FoodState.Frozen && FoodHeapLook.IsPowderName(d) && !FoodHeapLook.IsLiquid(d, s);
+
+        /// <summary>v23.27: льётся (растворитель для сыпучего): молоко, вода, сливки, белок, жидкое тесто…</summary>
+        public static bool IsSolvent(ProductDef d, FoodState s)
+            => d != null && s != FoodState.Frozen && FoodHeapLook.IsLiquid(d, s);
+
+        private float _dissolveAcc;
+
+        /// <summary>v23.27: в таре есть жидкость, в которой растворяется сыпучее. Сервер (по содержимому).</summary>
+        [Server]
+        public bool ServerHasSolvent()
+        {
+            FoodDatabase db = FoodDatabase.Instance;
+            if (db == null) return false;
+            foreach (BagEntry e in _bag.Entries)
+                if (e.Count > 0 && IsSolvent(db.Get(e.Product), e.State)) return true;
+            return false;
+        }
+
+        /// <summary>v23.27: этот продукт сейчас растворён в жидкости этой тары (мастерком не взять, кучкой не высыпать). Сервер.</summary>
+        [Server]
+        public bool ServerIsDissolved(ushort product, FoodState state)
+        {
+            FoodDatabase db = FoodDatabase.Instance;
+            return db != null && DissolvesIn(db.Get(product), state) && ServerHasSolvent();
+        }
+
+        /// <summary>
+        /// v23.27: вылить/зачерпнуть count порций ЖИДКОСТИ product — растворённое сыпучее уходит вместе с ней
+        /// (поровну с долей жидкости; последняя порция жидкости уносит всё). Унесённое — в carried (можно null). Сервер.
+        /// </summary>
+        [Server]
+        public int ServerTakeLiquid(ushort product, int count, List<BagEntry> carried)
+        {
+            FoodDatabase db = FoodDatabase.Instance;
+            if (db == null) return ServerTake(product, count);
+            int solvBefore = 0, dis = 0;
+            foreach (BagEntry e in _bag.Entries)
+            {
+                if (e.Count <= 0) continue;
+                ProductDef d = db.Get(e.Product);
+                if (IsSolvent(d, e.State)) solvBefore += e.Count;
+                else if (DissolvesIn(d, e.State)) dis += e.Count;
+            }
+            int took = ServerTake(product, count);
+            if (took <= 0 || dis <= 0 || solvBefore <= 0) return took;
+            int share;
+            if (solvBefore - took <= 0) { share = dis; _dissolveAcc = 0f; }
+            else
+            {
+                _dissolveAcc += dis * (took / (float)solvBefore);
+                share = Mathf.Min(dis, Mathf.FloorToInt(_dissolveAcc));
+                _dissolveAcc -= share;
+            }
+            if (share <= 0) return took;
+            int left = share;
+            for (int i = _bag.Entries.Count - 1; i >= 0 && left > 0; i--)
+            {
+                BagEntry e = _bag.Entries[i];
+                if (e.Count <= 0 || !DissolvesIn(db.Get(e.Product), e.State)) continue;
+                int t = Mathf.Min(left, e.Count);
+                e.Count -= t;
+                left -= t;
+                if (carried != null) carried.Add(new BagEntry { Product = e.Product, State = e.State, Count = t, Cook = e.Cook });
+                if (e.Count <= 0) _bag.Entries.RemoveAt(i); else _bag.Entries[i] = e;
+            }
+            if (left < share) Publish(true);
+            return took;
+        }
+
         /// <summary>Какой рецепт идёт: индекс в FoodDatabase.Recipes, −1 — никакой.</summary>
         private readonly SyncVar<short> _recipeNet = new SyncVar<short>(-1);
         /// <summary>Прогресс рецепта 0..255.</summary>
@@ -934,6 +1009,14 @@ namespace CatCooks.Food
             if (max <= 0 || _bag.IsEmpty) return 0;
 
             int i = _bag.Entries.Count - 1;
+            // v23.27: сахар/мука, растворённые в жидкости, «сверху» не лежат — сверху жидкость (мастерком сахар из молока не достать)
+            FoodDatabase tdb = FoodDatabase.Instance;
+            if (tdb != null && ServerHasSolvent())
+            {
+                int k = i;
+                while (k >= 0 && DissolvesIn(tdb.Get(_bag.Entries[k].Product), _bag.Entries[k].State)) k--;
+                if (k >= 0) i = k;
+            }
             BagEntry e = _bag.Entries[i];
             int take = Mathf.Min(max, e.Count);
             product = e.Product;

@@ -16,38 +16,60 @@ MonoBehaviour:
   Driver: 0
   Base: {fileID: 11400000, guid: 87f8b892b2c188b4191c8617b50be2f7, type: 2}
   BaseState: 0
-  BaseAmount: 1
+  BaseAmount: 0.25
   BaseUnit: 1
-  BaseFillsContainer: 1
+  BaseFillsContainer: 0
   BaseMinFill: 0.9
-  PerContainer: 0
+  PerContainer: 1
   OnlyBaseBecomesResult: 0
   Ingredients:
   - Product: {fileID: 11400000, guid: b128facffd950224980d7a2a3036c3ad, type: 2}
     Alt: {fileID: 0}
-    Amount: 1
+    Amount: 1.5
     Unit: 2
     PortionsPerPiece: 0
     CleanOnly: 0
     State: 0
     Reduces: 0
-    Strictness: 1
+    Strictness: 0
     Need: 0
     Pain: 0
-  - Product: {fileID: 11400000, guid: ad22c2d6dc3da9141b1fa16ae893bbb4, type: 2}
-    Alt: {fileID: 11400000, guid: 0e99bea9728e78b4286a926c2c5b054f, type: 2}
+  - Product: {fileID: 11400000, guid: 0e99bea9728e78b4286a926c2c5b054f, type: 2}
+    Alt: {fileID: 11400000, guid: ad22c2d6dc3da9141b1fa16ae893bbb4, type: 2}
+    Amount: 2
+    Unit: 4
+    PortionsPerPiece: 0
+    CleanOnly: 0
+    State: 0
+    Reduces: 0
+    Strictness: 0
+    Need: 0
+    Pain: 0
+  - Product: {fileID: 11400000, guid: aeffc91678f57f6469a78aec38225ff3, type: 2}
+    Alt: {fileID: 0}
     Amount: 1
     Unit: 4
     PortionsPerPiece: 0
     CleanOnly: 0
     State: 0
     Reduces: 0
-    Strictness: 2
+    Strictness: 0
+    Need: 0
+    Pain: 0
+  - Product: {fileID: 11400000, guid: b455449fcae564c45a0553b63157c710, type: 2}
+    Alt: {fileID: 11400000, guid: bd5ec5da35656fd41970e7d50fbf456b, type: 2}
+    Amount: 0
+    Unit: 4
+    PortionsPerPiece: 0
+    CleanOnly: 0
+    State: 0
+    Reduces: 1
+    Strictness: 0
     Need: 0
     Pain: 0
   OrderMatters: 0
-  OnlyThese: 1
-  Tolerance: 0
+  OnlyThese: 0
+  Tolerance: 0.5
   Steps:
   - Kind: 1
     Seconds: 6

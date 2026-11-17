@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using FishNet.Object;
 using FishNet.Object.Synchronizing;
 using UnityEngine;
@@ -204,10 +205,13 @@ namespace CatCooks.Food
         }
 
         /// <summary>v19: верхнее НЕ липкое содержимое (то, что может высыпаться). false — всё липнет.</summary>
+        private readonly List<BagEntry> _carried = new List<BagEntry>();
+
         private bool PickLoose(out ushort product, out FoodState state, out byte cook)
         {
             product = 0; state = FoodState.None; cook = 0;
             FoodDatabase db = FoodDatabase.Instance;
+            bool wet = _cw.ServerHasSolvent();                                  // v23.27: растворённое сыпучее кучкой не высыпается
             for (int i = _cw.ViewCount - 1; i >= 0; i--)
             {
                 BagView v = _cw.GetView(i);
@@ -215,6 +219,7 @@ namespace CatCooks.Food
                 ProductDef d = db != null ? db.Get(v.Product) : null;
                 FoodSubstance sub = d != null ? FoodSubstance.Of(d, v.State) : null;
                 if (sub != null && sub.StickToCookware) continue;
+                if (wet && Cookware.DissolvesIn(d, v.State)) continue;
                 // v19.4: замёрзшее и твёрдое мороженое не высыпается — только лопатой/мастерком; растаявшее льётся
                 if (v.State == FoodState.Frozen) continue;
                 CookwareLiquidVisual.Role role;
@@ -345,7 +350,8 @@ namespace CatCooks.Food
             // Сперва верхний слой (сливки), потом основную — та же жидкость, что видна в струе.
             ushort product = PourProduct(out FoodState state);
             if (product == 0) return false;
-            if (_cw.ServerTake(product, 1) <= 0) return false;
+            _carried.Clear();
+            if (_cw.ServerTakeLiquid(product, 1, _carried) <= 0) return false;   // v23.27: растворённый сахар уходит вместе с жидкостью
 
             // Как у струи-меша: вязкость замедляет вылет, скорость ведра наследуется.
             Vector3 vel = LipVelocity(outward, over) * CurrentProfile.SpeedScale + _liquid.ContainerVelocity * 0.85f;
@@ -354,9 +360,11 @@ namespace CatCooks.Food
             if (target != null)
             {
                 target.ServerAddContent(product, state, 1, 0);
+                foreach (BagEntry c in _carried) target.ServerAddContent(c.Product, c.State, c.Count, c.Cook);   // сладкое молоко в другой таре — тоже сладкое
                 Tally(target);
                 return true;
             }
+            // на пол — растворённое уходит с лужей (кучкой не падает)
             if (PuddlePrefab != null) LiquidPuddle.ServerAddAt(PuddlePrefab, product, land, 1);
             Tally(null);
             return true;

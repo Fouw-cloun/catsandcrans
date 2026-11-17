@@ -19,12 +19,13 @@ namespace CatCooks.Food
     public static class SpongeMesh
     {
         // ── цвета шоколадного бисквита ──
-        public static readonly Color TopCrust = new Color(0.24f, 0.14f, 0.09f, 0.5f);
-        public static readonly Color SideCrust = new Color(0.22f, 0.13f, 0.08f, 0.55f);
-        public static readonly Color SideCrumb = new Color(0.33f, 0.20f, 0.13f, 1f);
-        public static readonly Color CutCrumb = new Color(0.39f, 0.25f, 0.17f, 1f);
-        public static readonly Color CutCrust = new Color(0.25f, 0.15f, 0.10f, 0.6f);
-        public static readonly Color Bottom = new Color(0.27f, 0.16f, 0.10f, 0.8f);
+        // v23.41: тёмный шоколадный бисквит (как на фото): гладкая тёмная корочка, мякиш темнее и пористее (альфа = поры)
+        public static readonly Color TopCrust = new Color(0.20f, 0.11f, 0.07f, 0.35f);
+        public static readonly Color SideCrust = new Color(0.18f, 0.10f, 0.06f, 0.45f);
+        public static readonly Color SideCrumb = new Color(0.27f, 0.15f, 0.10f, 1f);
+        public static readonly Color CutCrumb = new Color(0.31f, 0.18f, 0.12f, 1f);
+        public static readonly Color CutCrust = new Color(0.19f, 0.10f, 0.07f, 0.6f);
+        public static readonly Color Bottom = new Color(0.22f, 0.12f, 0.08f, 0.8f);
 
         /// <summary>Маска сторон куска: какая сторона — корочка (край пласта), остальные — срез.</summary>
         public const byte XNeg = 1, XPos = 2, ZNeg = 4, ZPos = 8, AllCrust = 15;
@@ -32,6 +33,10 @@ namespace CatCooks.Food
         private static readonly List<Vector3> V = new List<Vector3>();
         private static readonly List<Color> C = new List<Color>();
         private static readonly List<int> T = new List<int>();
+        private static readonly List<Vector2> U = new List<Vector2>();   // v23.43: uv0 = (сколько пор, 7 — метка бисквита для шейдера)
+
+        // v23.43: сколько пор (шейдер «CatCooks/Food Heap» рисует их сам, в любом масштабе)
+        private const float PoreTop = 0.12f, PoreSideCrust = 0.15f, PoreCrumb = 1f, PoreBottom = 0.15f;   // v23.44: поры — в мякише; корочки почти гладкие
 
         private struct Grid
         {
@@ -42,6 +47,8 @@ namespace CatCooks.Food
             public float Bulge;             // подушка верха, доля высоты
             public float Wobble;            // неровность верха, доля высоты
             public float Seed;
+            public bool Pillow;             // v23.41: две «подушки» с пережимом посередине, скруглённые плечи, бока чуть надуты
+            public float Round;             // v23.43: радиус скругления верхних краёв корочки (м): верх плавно переходит в бока, одним куском
             public float Lx => Nx * Cell.x;
             public float Lz => Nz * Cell.z;
             public bool Has(int ix, int iz) => ix >= 0 && iz >= 0 && ix < Nx && iz < Nz && (Present == null || Present[ix + iz * Nx]);
@@ -55,7 +62,58 @@ namespace CatCooks.Food
             float b = Mathf.Clamp01(1f - 4f * u * u) * Mathf.Clamp01(1f - 4f * w * w);
             float k = 3.1f / Mathf.Max(0.01f, Mathf.Min(g.Cell.x, g.Cell.z));
             float n = Mathf.PerlinNoise(x * k + g.Seed, z * k + g.Seed * 0.7f) - 0.5f;
-            return g.Cell.y * (0.5f + g.Bulge * b + g.Wobble * n * 2f);
+            // v23.37: трещинки корочки — неглубокие бороздки по куполу (как у настоящего бисквита)
+            float cr = CrackK(ref g, x, z);
+            if (g.Pillow)
+            {
+                // v23.41: ДВЕ ПОДУШКИ с пережимом посередине (как на фото: верх продавлен поперёк), скруглённые плечи
+                bool alongX = g.Lx >= g.Lz;
+                float a = alongX ? u : w, bb = alongX ? w : u;
+                float hump = Mathf.Clamp01(1f - Sq((Mathf.Abs(a) - 0.25f) / 0.3f));
+                float across = Mathf.Sqrt(Mathf.Clamp01(1f - 4f * bb * bb));
+                float groove = Mathf.Exp(-Sq(a / 0.04f));
+                float shoulder = 1f - S01((0.5f - Mathf.Abs(a)) / 0.08f) * S01((0.5f - Mathf.Abs(bb)) / 0.08f);
+                // v23.43: «пузырчатый» рельеф корочки — мягкие бугорки разного размера
+                float n2 = Mathf.PerlinNoise(x * k * 2.6f + 31.7f, z * k * 2.6f + g.Seed * 1.3f) - 0.5f;
+                float n3 = Mathf.PerlinNoise(x * k * 6.1f + 7.9f, z * k * 6.1f + 13.1f) - 0.5f;
+                float bub = (n2 * 0.6f + n3 * 0.4f) * across;
+                return g.Cell.y * (0.5f + g.Bulge * (0.55f + 0.45f * hump) * across - 0.09f * groove * across
+                                   - 0.06f * shoulder + g.Wobble * n * 2f + 0.022f * bub - 0.012f * cr * Mathf.Sqrt(b));
+            }
+            return g.Cell.y * (0.5f + g.Bulge * b + g.Wobble * n * 2f - 0.03f * cr * Mathf.Sqrt(b));
+        }
+
+        private static float Sq(float x) => x * x;
+        private static float S01(float x) { x = Mathf.Clamp01(x); return x * x * (3f - 2f * x); }
+
+        /// <summary>v23.41: «живая» форма — бока чуть надуты, посередине (где пережат верх) бисквит чуть уже.</summary>
+        private static void PillowDeform(ref Grid g, float half)
+        {
+            bool alongX = g.Lx >= g.Lz;
+            float L = Mathf.Max(1e-4f, alongX ? g.Lx : g.Lz);
+            float H = Mathf.Max(1e-4f, g.Cell.y);
+            for (int i = 0; i < V.Count; i++)
+            {
+                Vector3 p = V[i];
+                float f = Mathf.Clamp01((p.y + half) / H);
+                float a = (alongX ? p.x : p.z) / L;
+                float puff = 0.035f * Mathf.Sin(Mathf.PI * f);
+                float pinch = 0.06f * Mathf.Exp(-Sq(a / 0.1f)) * (0.3f + 0.7f * f);
+                float kShort = 1f + puff - pinch, kLong = 1f + puff * 0.5f;
+                if (alongX) { p.x *= kLong; p.z *= kShort; } else { p.z *= kLong; p.x *= kShort; }
+                V[i] = p;
+            }
+        }
+
+        /// <summary>v23.37: трещина корочки 0..1 (узкие ломаные линии по куполу).</summary>
+        private static float CrackK(ref Grid g, float x, float z)
+        {
+            float kc = 1.3f / Mathf.Max(0.01f, Mathf.Min(g.Cell.x, g.Cell.z));
+            float a = Mathf.PerlinNoise(x * kc + g.Seed * 1.7f + 11.3f, z * kc + 4.1f);
+            float b = Mathf.PerlinNoise(x * kc * 1.9f + 3.3f, z * kc * 1.9f + g.Seed + 17.7f);
+            float r1 = Mathf.Pow(1f - Mathf.Abs(a * 2f - 1f), 14f);
+            float r2 = Mathf.Pow(1f - Mathf.Abs(b * 2f - 1f), 18f) * 0.7f;
+            return Mathf.Clamp01(Mathf.Max(r1, r2));
         }
 
         /// <summary>Центр клетки (локально).</summary>
@@ -65,15 +123,83 @@ namespace CatCooks.Food
         /// <summary>Пласт из оставшихся клеток. present[ix + iz*nx]; null — целый.</summary>
         public static Mesh BuildSlab(Mesh m, int nx, int nz, Vector3 cell, bool[] present, float bulge = 0.05f, int sub = 2, float seed = 3.7f)
         {
-            var g = new Grid { Nx = nx, Nz = nz, Sub = Mathf.Clamp(sub, 1, 6), Cell = cell, Present = present, OuterCrust = AllCrust, Bulge = bulge, Wobble = 0.012f, Seed = seed };
+            var g = new Grid { Nx = nx, Nz = nz, Sub = Mathf.Clamp(sub, 1, 6), Cell = cell, Present = present, OuterCrust = AllCrust, Bulge = bulge, Wobble = 0.012f, Seed = seed, Pillow = false,   // v23.45: один сегмент, как кусок (без подушек и пережима)
+                               Round = RoundFor(cell, 1f) };
             return Build(m, ref g, "SpongeSlab (auto)");
+        }
+
+        /// <summary>
+        /// v23.37: бисквит В ОПАЛУБКЕ (вместо коробки Fill): размер size (низ на y = 0, центр по x/z), купол dome (доля высоты),
+        /// трещинки корочки. bake01: 0 — сырое тесто (ровное, цвета batter), 1 — корочка.
+        /// </summary>
+        public static Mesh BuildCake(Mesh m, Vector3 size, float dome, float bake01, Color batter, float seed = 5.1f)
+            => BuildCake(m, size, dome, bake01, batter, 0, 0, null, seed);
+
+        /// <summary>v23.51: бисквит в опалубке, сетка gx × gz и какие кубики ещё на месте (режут пилой прямо в опалубке).</summary>
+        public static Mesh BuildCake(Mesh m, Vector3 size, float dome, float bake01, Color batter, int gx, int gz, bool[] present, float seed = 5.1f)
+        {
+            int nx, nz;
+            if (gx > 0 && gz > 0) { nx = Mathf.Clamp(gx, 1, 30); nz = Mathf.Clamp(gz, 1, 30); }
+            else
+            {
+                float cellXZ = Mathf.Max(0.02f, Mathf.Min(size.x, size.z) / 3f);
+                nx = Mathf.Clamp(Mathf.RoundToInt(size.x / cellXZ), 1, 12); nz = Mathf.Clamp(Mathf.RoundToInt(size.z / cellXZ), 1, 12);
+            }
+            if (present != null && present.Length != nx * nz) present = null;
+            var cell = new Vector3(size.x / nx, size.y, size.z / nz);
+            float k = Mathf.Clamp01(bake01);
+            var g = new Grid { Nx = nx, Nz = nz, Sub = 3, Cell = cell, Present = present, OuterCrust = AllCrust,
+                               Bulge = dome * k, Wobble = 0.012f * k, Seed = seed, Pillow = false, Round = RoundFor(cell, 0.35f + 0.65f * k) };
+            m = Build(m, ref g, "SpongeCake (auto)");
+            // низ — на y = 0
+            Vector3[] v = m.vertices;
+            for (int i = 0; i < v.Length; i++) v[i].y += cell.y * 0.5f;
+            m.vertices = v;
+            // сырое тесто → корочка (и поры проступают, пока печётся)
+            if (k < 0.999f)
+            {
+                Color[] c = m.colors;
+                Color raw = new Color(batter.r, batter.g, batter.b, 0.15f);
+                float kk = k * k * (3f - 2f * k);
+                for (int i = 0; i < c.Length; i++) c[i] = Color.Lerp(raw, c[i], kk);
+                m.colors = c;
+                Vector2[] uv = m.uv;
+                for (int i = 0; i < uv.Length; i++) uv[i].x *= 0.15f + 0.85f * kk;
+                m.uv = uv;
+            }
+            m.RecalculateNormals();
+            SmoothNormals(m);
+            m.RecalculateBounds();
+            return m;
         }
 
         /// <summary>Один кусок размером size (локально, по центру). crust — какие стороны корочка (XNeg|XPos|ZNeg|ZPos).</summary>
         public static Mesh BuildPiece(Mesh m, Vector3 size, byte crust, float seed = 1.3f)
         {
-            var g = new Grid { Nx = 1, Nz = 1, Sub = 4, Cell = size, Present = null, OuterCrust = crust, Bulge = 0.025f, Wobble = 0.012f, Seed = seed };
+            var g = new Grid { Nx = 1, Nz = 1, Sub = 4, Cell = size, Present = null, OuterCrust = crust, Bulge = 0.06f, Wobble = 0.012f, Seed = seed,
+                               Round = RoundFor(size, 1f) };   // v23.40: купол как у пласта; v23.43: скруглённые края корочки
             return Build(m, ref g, "SpongePiece (auto)");
+        }
+
+        private static Material _fallbackMat;
+
+        /// <summary>
+        /// v23.46: материал бисквита. Свой — если он на «CatCooks/Food Heap» (цвет в вершинах + поры).
+        /// Иначе (не задан, другой шейдер) — общий авто-материал на «CatCooks/Food Heap» с тонкой обводкой и без бликов.
+        /// </summary>
+        public static Material PickMaterial(Material preferred)
+        {
+            if (preferred != null && preferred.shader != null && preferred.shader.name == "CatCooks/Food Heap") return preferred;
+            if (_fallbackMat != null) return _fallbackMat;
+            Shader sh = Shader.Find("CatCooks/Food Heap");
+            if (sh == null) return preferred;
+            _fallbackMat = new Material(sh) { name = "Sponge (auto)", hideFlags = HideFlags.DontSave };
+            if (_fallbackMat.HasProperty("_BaseColor")) _fallbackMat.SetColor("_BaseColor", Color.white);
+            if (_fallbackMat.HasProperty("_OutlineWidth")) _fallbackMat.SetFloat("_OutlineWidth", 0.003f);
+            if (_fallbackMat.HasProperty("_Flat")) _fallbackMat.SetFloat("_Flat", 0.4f);
+            if (_fallbackMat.HasProperty("_GlintStrength")) _fallbackMat.SetFloat("_GlintStrength", 0.06f);
+            if (_fallbackMat.HasProperty("_TexDetail")) _fallbackMat.SetFloat("_TexDetail", 0.3f);
+            return _fallbackMat;
         }
 
         private static readonly Dictionary<long, Mesh> _pieceCache = new Dictionary<long, Mesh>();
@@ -91,7 +217,14 @@ namespace CatCooks.Food
 
         private static Mesh Build(Mesh m, ref Grid g, string name)
         {
-            V.Clear(); C.Clear(); T.Clear();
+            V.Clear(); C.Clear(); T.Clear(); U.Clear();
+            // v23.43: верх мельче, чтобы скругление края корочки было плавным (2–3 ряда на радиус), но не больше ~6000 вершин
+            if (g.Round > 1e-4f)
+            {
+                int want = Mathf.CeilToInt(Mathf.Min(g.Cell.x, g.Cell.z) / (g.Round * 0.55f));
+                int cap = Mathf.Max(1, Mathf.FloorToInt(Mathf.Sqrt(6000f / Mathf.Max(1, g.Nx * g.Nz))));
+                g.Sub = Mathf.Clamp(Mathf.Max(g.Sub, Mathf.Min(want, 10)), 1, Mathf.Max(g.Sub, cap));
+            }
             int S = g.Sub;
             int vx = g.Nx * S + 1, vz = g.Nz * S + 1;
             float x0 = -g.Lx * 0.5f, z0 = -g.Lz * 0.5f;
@@ -105,10 +238,8 @@ namespace CatCooks.Food
                 {
                     float x = x0 + i * sx, z = z0 + j * sz;
                     V.Add(new Vector3(x, TopY(ref g, x, z), z));
-                    Color c = TopCrust;
-                    float n = Mathf.PerlinNoise(x * 7.3f + g.Seed, z * 7.3f) - 0.5f;
-                    c.r *= 1f + n * 0.12f; c.g *= 1f + n * 0.12f; c.b *= 1f + n * 0.12f;
-                    C.Add(c);
+                    C.Add(TopColor(ref g, x, z));
+                    U.Add(new Vector2(PoreTop, 7f));
                 }
             for (int iz = 0; iz < g.Nz; iz++)
                 for (int ix = 0; ix < g.Nx; ix++)
@@ -139,19 +270,24 @@ namespace CatCooks.Food
                     Side(ref g, ix, iz, 0, 1, x0, z0, sx, sz, half);
                 }
 
+            if (g.Round > 1e-4f) RoundEdges(ref g);
+            if (g.Pillow) PillowDeform(ref g, half);
             if (m == null) m = new Mesh();
             m.Clear();
             m.name = name;
-            if (V.Count > 65000) m.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            m.indexFormat = V.Count > 65000 ? UnityEngine.Rendering.IndexFormat.UInt32 : UnityEngine.Rendering.IndexFormat.UInt16;
             m.SetVertices(V);
             m.SetColors(C);
+            m.SetUVs(0, U);
             m.SetTriangles(T, 0);
             m.RecalculateNormals();
+            SmoothNormals(m);
             m.RecalculateBounds();
             return m;
         }
 
-        private static readonly float[] RowF = { 0f, 0.55f, 0.8f, 0.93f, 1f };
+        // v23.43: больше рядов у верха — там скругление корочки
+        private static readonly float[] RowF = { 0f, 0.07f, 0.13f, 0.3f, 0.55f, 0.72f, 0.83f, 0.89f, 0.94f, 0.975f, 1f };   // v23.44: ряды по границам корочек
 
         /// <summary>Бортик клетки в сторону (dx,dz): полоса из Sub отрезков вдоль края × 4 ряда по высоте.</summary>
         private static void Side(ref Grid g, int ix, int iz, int dx, int dz, float x0, float z0, float sx, float sz, float half)
@@ -185,7 +321,8 @@ namespace CatCooks.Food
                 {
                     float f = RowF[r];
                     V.Add(new Vector3(p.x, Mathf.Lerp(-half, top, f), p.z));
-                    C.Add(RowColor(crust, f, p));
+                    C.Add(RowColor(ref g, crust, f, p));
+                    U.Add(new Vector2(SandwichCrumb(f) > 0.5f ? PoreCrumb : PoreSideCrust, 7f));
                 }
             }
             for (int k = 0; k < S; k++)
@@ -208,23 +345,131 @@ namespace CatCooks.Food
                 }
         }
 
-        private static Color RowColor(bool crust, float f, Vector3 p)
+        /// <summary>v23.43: цвет корочки сверху в точке. Один для верха и верхнего ряда боков — переход без шва.</summary>
+        private static Color TopColor(ref Grid g, float x, float z)
         {
+            Color c = TopCrust;
+            float n = Mathf.PerlinNoise(x * 7.3f + g.Seed, z * 7.3f) - 0.5f;
+            c.r *= 1f + n * 0.12f; c.g *= 1f + n * 0.12f; c.b *= 1f + n * 0.12f;
+            // v23.37: макушка купола чуть светлее, к краю темнее (поджаристее), в трещинках светлый мякиш
+            float uu = x / Mathf.Max(1e-4f, g.Lx), ww = z / Mathf.Max(1e-4f, g.Lz);
+            float dome = Mathf.Clamp01(1f - 4f * uu * uu) * Mathf.Clamp01(1f - 4f * ww * ww);
+            float tone = Mathf.Lerp(0.86f, 1.1f, dome);
+            c.r *= tone; c.g *= tone; c.b *= tone;
+            float cr = CrackK(ref g, x, z) * Mathf.Sqrt(dome);
+            c = Color.Lerp(c, new Color(CutCrumb.r * 1.08f, CutCrumb.g * 1.08f, CutCrumb.b * 1.08f, 1f), cr * 0.3f);   // v23.45: трещинки еле заметные
+            return c;
+        }
+
+        /// <summary>v23.44: «бутерброд» по высоте бока: 0 — корочка (низ/верх), 1 — мякиш посередине.</summary>
+        private static float SandwichCrumb(float f)
+        {
+            if (f <= 0.07f || f >= 0.89f) return 0f;
+            if (f >= 0.13f && f <= 0.83f) return 1f;
+            return f < 0.5f ? (f - 0.07f) / 0.06f : (0.89f - f) / 0.06f;
+        }
+
+        /// <summary>
+        /// v23.44: цвет бока — КАК БУТЕРБРОД: снизу тонкая тёмная корочка, посередине пористый мякиш, сверху корочка,
+        /// которая через скруглённый край переходит в верх. Одинаково у края пласта и у свежего среза
+        /// (у края мякиш чуть темнее — запёкся о форму).
+        /// </summary>
+        private static Color RowColor(ref Grid g, bool crust, float f, Vector3 p)
+        {
+            Color crumb = crust ? Color.Lerp(CutCrumb, SideCrumb, 0.35f) : CutCrumb;
+            Color crustLow = new Color(Bottom.r * 0.95f, Bottom.g * 0.95f, Bottom.b * 0.95f, 0.5f);
+            Color crustTop = SideCrust;
             Color c;
-            if (crust)
-            {
-                if (f <= 0.55f) c = SideCrumb;
-                else if (f <= 0.8f) c = Color.Lerp(SideCrumb, SideCrust, 0.25f);
-                else c = Color.Lerp(SideCrust, SideCrumb, 0.15f * (1f - f));
-                if (f >= 0.99f) c = SideCrust;
-            }
-            else
-            {
-                c = f >= 0.99f ? CutCrust : f >= 0.93f ? Color.Lerp(CutCrumb, CutCrust, 0.6f) : CutCrumb;
-            }
+            if (f < 0.5f) c = Color.Lerp(crustLow, crumb, SandwichCrumb(f));
+            else c = Color.Lerp(crustTop, crumb, SandwichCrumb(f));
+            if (f > 0.89f) c = Color.Lerp(crustTop, TopColor(ref g, p.x, p.z), S01((f - 0.89f) / 0.11f));
             float n = Mathf.PerlinNoise(p.x * 9.1f + 2.3f, p.z * 9.1f + p.y * 5f) - 0.5f;
             c.r *= 1f + n * 0.1f; c.g *= 1f + n * 0.1f; c.b *= 1f + n * 0.1f;
             return c;
+        }
+
+        /// <summary>v23.43: радиус скругления края корочки: ~20% высоты, не больше трети клетки.</summary>
+        private static float RoundFor(Vector3 cell, float k)
+            => Mathf.Max(0f, k) * Mathf.Min(cell.y * 0.2f, Mathf.Min(cell.x, cell.z) * 0.3f);
+
+        /// <summary>
+        /// v23.43: СКРУГЛЕНИЕ верхних краёв корочки. Двигает вершины по их положению (а не по граням),
+        /// поэтому верх, бока и срезы у края сдвигаются одинаково — щелей нет. Профиль — четверть круга радиуса g.Round;
+        /// вертикальные углы пласта тоже скруглены. Только края-корочки (маска OuterCrust); свежий срез остаётся острым.
+        /// </summary>
+        private static void RoundEdges(ref Grid g)
+        {
+            float R = g.Round;
+            float x0 = -g.Lx * 0.5f, x1 = g.Lx * 0.5f, z0 = -g.Lz * 0.5f, z1 = g.Lz * 0.5f;
+            bool xn = (g.OuterCrust & XNeg) != 0, xp = (g.OuterCrust & XPos) != 0, zn = (g.OuterCrust & ZNeg) != 0, zp = (g.OuterCrust & ZPos) != 0;
+            for (int i = 0; i < V.Count; i++)
+            {
+                Vector3 p = V[i];
+                // насколько вершина в полосе скругления у края по x и по z (0 — дальше R от края), и куда «внутрь»
+                float ax = 0f, sxn = 0f, az = 0f, szn = 0f;
+                if (xn && p.x - x0 < R) { ax = R - (p.x - x0); sxn = 1f; }
+                if (xp && x1 - p.x < R && R - (x1 - p.x) > ax) { ax = R - (x1 - p.x); sxn = -1f; }
+                if (zn && p.z - z0 < R) { az = R - (p.z - z0); szn = 1f; }
+                if (zp && z1 - p.z < R && R - (z1 - p.z) > az) { az = R - (z1 - p.z); szn = -1f; }
+                if (ax <= 0f && az <= 0f) continue;
+                float a = Mathf.Sqrt(ax * ax + az * az);
+                // вертикальный угол пласта — тоже скруглён (по кругу в плане)
+                float kc = a > R ? R / a : 1f;
+                float axc = ax * kc, azc = az * kc, ac = a * kc;
+                float top = TopY(ref g, p.x, p.z);
+                float b = Mathf.Min(R, p.y - (top - R));
+                float kv = 1f;
+                if (b > 0f && ac > 1e-6f)
+                {
+                    // квадрат R×R у ребра → четверть круга: верх и бок плавно сходятся
+                    float mx = Mathf.Max(ac, b), len = Mathf.Sqrt(ac * ac + b * b);
+                    float s = mx / Mathf.Max(1e-6f, len);
+                    kv = s;
+                    p.y = top - R + b * s;
+                }
+                p.x += (ax - axc * kv) * sxn;
+                p.z += (az - azc * kv) * szn;
+                V[i] = p;
+            }
+        }
+
+        /// <summary>
+        /// v23.43: гладкие нормали по шву «верх ↔ бок»: вершины в одной точке с близкими нормалями (угол меньше ~60°)
+        /// получают общую нормаль. Свет и обводка идут по бисквиту целиком, корочка больше не «отходит» стенкой.
+        /// Острые рёбра (срез, низ) остаются острыми.
+        /// </summary>
+        private static void SmoothNormals(Mesh m)
+        {
+            Vector3[] v = m.vertices;
+            Vector3[] n = m.normals;
+            if (n == null || n.Length != v.Length) return;
+            var groups = new Dictionary<long, List<int>>();
+            for (int i = 0; i < v.Length; i++)
+            {
+                long key = ((long)Mathf.RoundToInt(v[i].x * 5000f) & 0x1FFFFF)
+                         | (((long)Mathf.RoundToInt(v[i].y * 5000f) & 0x1FFFFF) << 21)
+                         | (((long)Mathf.RoundToInt(v[i].z * 5000f) & 0x1FFFFF) << 42);
+                List<int> l;
+                if (!groups.TryGetValue(key, out l)) { l = new List<int>(2); groups[key] = l; }
+                l.Add(i);
+            }
+            Vector3[] o = new Vector3[n.Length];
+            foreach (List<int> l in groups.Values)
+            {
+                for (int a = 0; a < l.Count; a++)
+                {
+                    Vector3 na = n[l[a]];
+                    if (l.Count == 1) { o[l[a]] = na; continue; }
+                    Vector3 sum = Vector3.zero;
+                    for (int b = 0; b < l.Count; b++)
+                    {
+                        Vector3 nb = n[l[b]];
+                        if (Vector3.Dot(na, nb) > 0.5f) sum += nb;
+                    }
+                    o[l[a]] = sum.sqrMagnitude > 1e-12f ? sum.normalized : na;
+                }
+            }
+            m.normals = o;
         }
 
         /// <summary>Плитка: p00→p10 — ось U, p00→p01 — ось V, Cross(U,V) = наружу.</summary>
@@ -233,6 +478,8 @@ namespace CatCooks.Food
             int b = V.Count;
             V.Add(p00); V.Add(p10); V.Add(p11); V.Add(p01);
             C.Add(c0); C.Add(c0); C.Add(c1); C.Add(c1);
+            Vector2 uv = new Vector2(PoreBottom, 7f);
+            U.Add(uv); U.Add(uv); U.Add(uv); U.Add(uv);
             T.Add(b); T.Add(b + 1); T.Add(b + 3);
             T.Add(b + 1); T.Add(b + 2); T.Add(b + 3);
         }

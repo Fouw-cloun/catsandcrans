@@ -11,6 +11,8 @@ namespace CatCooks.Food
     ///   ЛКМ (держать) по кольцу противня — ДАВИТЬ тесто в кольцо: над кольцом % — попади в 85–112%.
     ///   ЛКМ (держать) по скорлупке — ДАВИТЬ начинку: скорлупка переворачивается, растёт шапочка ганаша.
     ///   ПКМ по таре — выдавить всё обратно.
+    ///   v23.48: ЛКМ (держать) по гладкому куполу меренги на тарелке Аляски — ХВОСТИКИ: водишь прицелом,
+    ///   где целишься — вырастает стоячий хвостик (в шприце должна быть «Меренга»).
     /// Носик сам смотрит туда, куда давишь; струйка видна всем.
     ///
     /// ═══ НА КОРНЕ ═══ NetworkObject · NetworkTransform · Rigidbody · Box Collider · этот компонент.
@@ -28,6 +30,8 @@ namespace CatCooks.Food
         [SerializeField] private float _pipeRate = 0.8f;
         [Tooltip("Дальность от камеры, м")]
         [SerializeField] private float _reach = 3f;
+        [Tooltip("v23.48: Аляска — сколько хвостиков меренги из одной порции")]
+        [Range(1, 80)][SerializeField] private int _tailsPerPortion = 24;
 
         [Header("Вид")]
         [SerializeField] private Transform _body;
@@ -91,7 +95,7 @@ namespace CatCooks.Food
 
         // ───────────────────────── ВЛАДЕЛЕЦ ─────────────────────────
 
-        private enum Aim { None, Fill, Ring, Shell }
+        private enum Aim { None, Fill, Ring, Shell, Dessert }
 
         private void Update()
         {
@@ -123,6 +127,7 @@ namespace CatCooks.Food
                     if (kind == Aim.Fill) CmdFill(target, dt);
                     else if (kind == Aim.Ring) CmdPipeRing(target, ring, dt, point);
                     else if (kind == Aim.Shell) CmdPipeShell(target, dt, point);
+                    else if (kind == Aim.Dessert) CmdPipeDessert(target, point);
                 }
                 else if (kind == Aim.None && Time.time >= _sendAt) { _sendAt = Time.time + 0.5f; _sendDt = 0f; if (_lmbWas) CmdStop(); }
             }
@@ -136,14 +141,22 @@ namespace CatCooks.Food
         private Aim Target(Ray ray, out NetworkObject target, out int ring, out Vector3 point)
         {
             target = null; ring = -1; point = ray.origin + ray.direction * _reach;
-            int n = Physics.RaycastNonAlloc(ray, _hits, _reach, ~0, QueryTriggerInteraction.Collide);
             float best = float.MaxValue;
             Aim kind = Aim.None;
+            // v23.48: купол меренги на тарелке Аляски (у купола нет коллайдера — ищем по лучу среди тарелок рядом)
+            DessertPlate plate = AimPlate(ray, out Vector3 tail);
+            if (plate != null)
+            {
+                best = Vector3.Dot(tail - ray.origin, ray.direction);
+                point = tail; kind = Aim.Dessert; target = plate.NetworkObject;
+            }
+            int n = Physics.RaycastNonAlloc(ray, _hits, _reach, ~0, QueryTriggerInteraction.Collide);
             for (int i = 0; i < n; i++)
             {
                 RaycastHit h = _hits[i];
                 if (h.collider == null || h.collider.transform.IsChildOf(transform) || h.distance >= best) continue;
                 if (h.collider.GetComponentInParent<PlayerInteractor>() != null) continue;
+                if (h.collider.GetComponentInParent<DessertPlate>() != null) continue;   // v23.48: из тарелки Аляски не набираем
                 MacaronTray tray = h.collider.GetComponentInParent<MacaronTray>();
                 if (tray != null && !h.collider.isTrigger)
                 {
@@ -167,6 +180,31 @@ namespace CatCooks.Food
                 if (!h.collider.isTrigger) { best = h.distance; point = h.point; kind = Aim.None; target = null; }
             }
             return kind;
+        }
+
+        private static DessertPlate[] _plates;
+        private static float _platesAt = -10f;
+
+        /// <summary>v23.48: тарелка Аляски, по куполу которой сейчас можно отсаживать хвостики, и точка на куполе.</summary>
+        private DessertPlate AimPlate(Ray ray, out Vector3 at)
+        {
+            at = Vector3.zero;
+            if (_plates == null || Time.time - _platesAt > 2f)
+            {
+                _plates = Object.FindObjectsByType<DessertPlate>(FindObjectsSortMode.None);
+                _platesAt = Time.time;
+            }
+            DessertPlate found = null;
+            float best = float.MaxValue;
+            foreach (DessertPlate p in _plates)
+            {
+                if (p == null || !p.CanPipe) continue;
+                if ((p.transform.position - ray.origin).magnitude > _reach + 2f) continue;
+                if (!p.PickPipePoint(ray, out Vector3 w)) continue;
+                float d = Vector3.Dot(w - ray.origin, ray.direction);
+                if (d > 0f && d < best) { best = d; found = p; at = w; }
+            }
+            return found;
         }
 
         private void LateUpdate()
@@ -250,6 +288,21 @@ namespace CatCooks.Food
             Spend(used, sh.transform.position + Vector3.up * sh.Radius * 0.6f);
         }
 
+        private float _dessertNext;
+
+        /// <summary>v23.48: хвостик меренги на куполе Аляски. Тратит 1/Tails Per Portion порции за хвостик.</summary>
+        [ServerRpc(RequireOwnership = true)]
+        private void CmdPipeDessert(NetworkObject target, Vector3 at)
+        {
+            if (!Near(target) || IsEmpty) { if (IsEmpty) Hint("шприц пустой — набери меренгу (ЛКМ по ведру)"); StopVisual(); return; }
+            if (Time.time < _dessertNext) return;
+            _dessertNext = Time.time + 0.08f;
+            if (Title(_product.Value) != CookRecipeBook.Dessert.Meringue) { Hint($"в шприце «{Title(_product.Value)}» — для хвостиков нужна меренга (ПКМ по таре — выдавить)"); StopVisual(); return; }
+            DessertPlate plate = target.GetComponent<DessertPlate>();
+            if (plate == null || !plate.ServerPipe(at)) { StopVisual(); return; }
+            Spend(Mathf.Min(Amount, 1f / Mathf.Max(1, _tailsPerPortion)), at);
+        }
+
         private void Spend(float used, Vector3 at)
         {
             if (used <= 0f) { StopVisual(); return; }
@@ -329,7 +382,9 @@ namespace CatCooks.Food
                 FoodDatabase db = FoodDatabase.Instance;
                 ProductDef pd = db != null ? db.Get(_product.Value) : null;
                 _streamR.GetPropertyBlock(_mpb);
-                Color c = pd != null ? pd.BaseColor : new Color(0.8f, 0.6f, 0.45f); c.a = 1f;
+                Color c = pd != null ? pd.BaseColor : new Color(0.8f, 0.6f, 0.45f);
+                if (pd != null && (pd.Title == CookRecipeBook.Macaron.Batter || pd.Title == CookRecipeBook.Macaron.BatterOver)) c = MacaronTray.RawChoc;   // v23.61: как капли в кольцах
+                c.a = 1f;
                 _mpb.SetColor("_BaseColor", c);
                 _streamR.SetPropertyBlock(_mpb);
             }
@@ -338,7 +393,7 @@ namespace CatCooks.Food
         private void OnGUI()
         {
             if (!base.IsOwner || !_look.Held) return;
-            string s = IsEmpty ? "шприц пустой — ЛКМ по ведру: набрать" : $"шприц: {Title(_product.Value)} {Amount:0.#}/{_capacity:0} · ЛКМ — давить · ПКМ по таре — выдавить";
+            string s = IsEmpty ? "шприц пустой — ЛКМ по ведру: набрать" : $"шприц: {Title(_product.Value)} {Amount:0.#}/{_capacity:0} · ЛКМ — давить (по куполу Аляски — хвостики) · ПКМ по таре — выдавить";
             GUI.Label(new Rect(Screen.width * 0.5f - 220f, Screen.height * 0.66f, 440f, 24f), s);
         }
 

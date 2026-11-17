@@ -1950,7 +1950,7 @@ namespace CatCooks.Food
             bool tool = OnTool;
             FoodSubstanceMesh.SpoilK = _spoiled ? 1f : 0f;                     // v19: испорчено — видно на любом веществе
             if (_sub.Look == SubstanceLook.Powder)
-                FoodSubstanceMesh.Powder(_mesh, d, _sub.Wonky, col, seed);
+                FoodSubstanceMesh.Powder(_mesh, d, _sub.Wonky, col, seed, _sub.Sugar);   // v23.62: смесь — с крупинками сахара
             else if (_sub.Look == SubstanceLook.Crystals)
                 FoodSubstanceMesh.Crystals(_mesh, d, _sub.CrystalSize, _sub.CrystalDensity, col, seed);
             else if (_sub.Look == SubstanceLook.Spread)
@@ -1969,6 +1969,10 @@ namespace CatCooks.Food
                 FoodSubstanceMesh.Spread(_mesh, d, _shape == Shape.Fill && !tool ? _sub.Curl * 0.5f : _sub.Curl, col, seed);
                 FoodSubstanceMesh.SpreadTailAng = float.NaN;
             }
+            else if (_sub.Look == SubstanceLook.IceCream)
+                FoodSubstanceMesh.IceCream(_mesh, d, col, seed);                  // v23.35: шарики мороженого
+            else if (_sub.Look == SubstanceLook.Meringue)
+                FoodSubstanceMesh.MeringueKiss(_mesh, d, col, seed);              // v23.51: безе-розочка
             else
             {
                 float curl = _shape == Shape.Fill && !tool ? _sub.Curl * 0.5f : _sub.Curl;

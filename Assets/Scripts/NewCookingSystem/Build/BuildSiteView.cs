@@ -7,11 +7,16 @@ namespace CatCooks.Food.Tools
     ///   • призрачный шаблон формы (полупрозрачный, светлый край, бегущие полосы «чертежа»);
     ///   • доски каркаса: новая доска прилетает сверху, кружась, и встаёт на своё место с лёгким «пружинящим» стуком;
     ///   • светящиеся точки для гвоздей (пульсируют), гвозди торчат и уходят в доску с каждым ударом молотка.
+    ///   • v23.52 (противень для макарон): гнёзда колец светятся, кольцо из трубы влетает и встаёт на место.
     /// </summary>
     public sealed class BuildSiteView : MonoBehaviour
     {
         private BuildManager _m;
+        private int _r;                          // v23.52: какая постройка
         private bool _preview;
+        private Transform[] _rings, _ringPoints;
+        private float[] _ringT;
+        private int _shownRings;
         private Transform _ghostRoot;
         private Material _ghostMat, _pointMat;
         private Transform[] _boards;
@@ -23,17 +28,17 @@ namespace CatCooks.Food.Tools
         private BuildSiteState _s;
         private static Mesh _nailMesh, _cube, _sphere;
 
-        public static BuildSiteView Create(BuildManager m, bool preview)
+        public static BuildSiteView Create(BuildManager m, int recipe, bool preview)
         {
             var go = new GameObject(preview ? "BuildPreview (fx)" : "BuildSite (fx)");
             var v = go.AddComponent<BuildSiteView>();
-            v.Init(m, preview);
+            v.Init(m, recipe, preview);
             return v;
         }
 
-        private void Init(BuildManager m, bool preview)
+        private void Init(BuildManager m, int recipe, bool preview)
         {
-            _m = m; _preview = preview;
+            _m = m; _r = recipe; _preview = preview;
             Shader gs = Shader.Find("CatCooks/Build Ghost");
             if (gs == null) gs = Shader.Find("Universal Render Pipeline/Unlit");
             _ghostMat = new Material(gs) { hideFlags = HideFlags.DontSave };
@@ -44,15 +49,15 @@ namespace CatCooks.Food.Tools
 
             _ghostRoot = new GameObject("Ghost").transform;
             _ghostRoot.SetParent(transform, false);
-            int n = m.LookCount;
+            int n = m.LookCount(_r);
             if (n == 0)
             {
                 // нет вида опалубки — призрак-коробка по габариту
-                Bounds b = m.LocalBounds;
+                Bounds b = m.LocalBounds(_r);
                 AddMesh(_ghostRoot, "GhostBox", Cube, Matrix4x4.TRS(b.center, Quaternion.identity, b.size), _ghostMat);
             }
             for (int i = 0; i < n; i++)
-                AddMesh(_ghostRoot, "Ghost" + i, m.LookMesh(i), m.LookMatrix(i), _ghostMat, true);
+                AddMesh(_ghostRoot, "Ghost" + i, m.LookMesh(_r, i), m.LookMatrix(_r, i), _ghostMat, true);
             if (preview) return;
 
             int nb = m.BoardsNeeded;
@@ -61,24 +66,44 @@ namespace CatCooks.Food.Tools
             for (int i = 0; i < nb; i++)
             {
                 Vector3 c, sz;
-                m.BoardSlot(i, out c, out sz);
-                _boards[i] = AddMesh(transform, "Board" + i, Cube, Matrix4x4.TRS(c, Quaternion.identity, sz), m.WoodMat);
+                m.BoardSlot(_r, i, out c, out sz);
+                _boards[i] = AddMesh(transform, "Board" + i, Cube, Matrix4x4.TRS(c, Quaternion.identity, sz), m.WoodMat(_r));
                 _boards[i].gameObject.SetActive(false);
             }
             _nails = new Transform[BuildManager.NailCount];
             _points = new Transform[BuildManager.NailCount];
             _shownHits = new int[BuildManager.NailCount];
             _nailPunch = new float[BuildManager.NailCount];
-            float len = m.NailLength;
+            float len = m.NailLength(_r);
             for (int i = 0; i < BuildManager.NailCount; i++)
             {
                 Vector3 p, d;
-                m.NailSlot(i, out p, out d);
+                m.NailSlot(_r, i, out p, out d);
                 _points[i] = AddMesh(transform, "NailPoint" + i, Sphere, Matrix4x4.TRS(p, Quaternion.identity, Vector3.one * len * 0.5f), _pointMat);
                 _points[i].gameObject.SetActive(false);
-                _nails[i] = AddMesh(transform, "Nail" + i, NailMesh, Matrix4x4.TRS(p, Quaternion.LookRotation(d), Vector3.one * len), m.NailMat);
+                _nails[i] = AddMesh(transform, "Nail" + i, NailMesh, Matrix4x4.TRS(p, Quaternion.LookRotation(d), Vector3.one * len), m.NailMat(_r));
                 _nails[i].gameObject.SetActive(false);
                 _shownHits[i] = -1;
+            }
+            // v23.52: кольца противня — гнёзда (светящиеся диски) и сами кольца
+            int nr = m.RingsNeeded(_r);
+            _rings = new Transform[nr];
+            _ringPoints = new Transform[nr];
+            _ringT = new float[nr];
+            Mesh rm = m.RingMesh(_r);
+            for (int i = 0; i < nr; i++)
+            {
+                Vector3 c = m.RingSlot(_r, i);
+                float rh = m.RingHeight(_r);
+                Bounds rb = rm != null ? rm.bounds : new Bounds(Vector3.zero, Vector3.one * 0.1f);
+                _ringPoints[i] = AddMesh(transform, "RingPoint" + i, Sphere,
+                                         Matrix4x4.TRS(c + Vector3.up * rh * 0.15f, Quaternion.identity, new Vector3(rb.size.x * 0.9f, rh * 0.25f, rb.size.z * 0.9f)), _pointMat);
+                _ringPoints[i].gameObject.SetActive(false);
+                if (rm != null)
+                {
+                    _rings[i] = AddMesh(transform, "Ring" + i, rm, Matrix4x4.TRS(c, Quaternion.identity, Vector3.one), m.RingMat(_r));
+                    _rings[i].gameObject.SetActive(false);
+                }
             }
         }
 
@@ -102,7 +127,7 @@ namespace CatCooks.Food.Tools
 
         public void ApplyPreview(Vector3 pos, float yaw)
         {
-            Matrix4x4 m = _m.SiteMatrix(pos, yaw);
+            Matrix4x4 m = _m.SiteMatrix(_r, pos, yaw);
             transform.SetPositionAndRotation(m.GetColumn(3), Quaternion.Euler(0f, yaw, 0f));
         }
 
@@ -120,6 +145,20 @@ namespace CatCooks.Food.Tools
             }
             if (want < _shownBoards) for (int i = want; i < _shownBoards; i++) _boards[i].gameObject.SetActive(false);
             _shownBoards = want;
+
+            // v23.52: кольца — новые влетают по одной, гнёзда светятся, пока ждём кольца
+            if (_rings != null)
+            {
+                int wr = Mathf.Min(s.Rings, _rings.Length);
+                for (int i = _shownRings; i < wr; i++)
+                {
+                    if (_rings[i] != null) _rings[i].gameObject.SetActive(true);
+                    _ringT[i] = -0.12f * (i - _shownRings);
+                }
+                if (wr < _shownRings) for (int i = wr; i < _shownRings; i++) if (_rings[i] != null) _rings[i].gameObject.SetActive(false);
+                _shownRings = wr;
+                for (int i = 0; i < _ringPoints.Length; i++) _ringPoints[i].gameObject.SetActive(s.Stage == BuildManager.StageRings && i >= wr);
+            }
 
             for (int i = 0; i < BuildManager.NailCount; i++)
             {
@@ -147,8 +186,8 @@ namespace CatCooks.Food.Tools
                 _boardT[i] = Mathf.Min(1f, _boardT[i] + dt / 0.45f);
                 float t = Mathf.Clamp01(_boardT[i]);
                 Vector3 c, sz;
-                _m.BoardSlot(i, out c, out sz);
-                Bounds b = _m.LocalBounds;
+                _m.BoardSlot(_r, i, out c, out sz);
+                Bounds b = _m.LocalBounds(_r);
                 float drop = (1f - EaseOutBack(t)) * (b.size.y * 4f + 0.25f);
                 _boards[i].localPosition = c + Vector3.up * drop;
                 _boards[i].localRotation = Quaternion.Euler(0f, (1f - t) * 70f * (i % 2 == 0 ? 1f : -1f), (1f - t) * 25f);
@@ -156,8 +195,33 @@ namespace CatCooks.Food.Tools
                 _boards[i].localScale = sz * sq;
                 _boards[i].gameObject.SetActive(_boardT[i] > 0f);
             }
+            // v23.52: кольца — падают сверху, крутясь, и садятся в гнездо
+            if (_rings != null)
+            {
+                Bounds rbx = _m.LocalBounds(_r);
+                for (int i = 0; i < _shownRings; i++)
+                {
+                    if (_rings[i] == null || _ringT[i] >= 1f) continue;
+                    _ringT[i] = Mathf.Min(1f, _ringT[i] + dt / 0.4f);
+                    float t = Mathf.Clamp01(_ringT[i]);
+                    Vector3 c = _m.RingSlot(_r, i);
+                    float drop = (1f - EaseOutBack(t)) * (rbx.size.y * 4f + 0.3f);
+                    _rings[i].localPosition = c + Vector3.up * drop;
+                    _rings[i].localRotation = Quaternion.Euler((1f - t) * 50f, (1f - t) * 140f * (i % 2 == 0 ? 1f : -1f), 0f);
+                    _rings[i].gameObject.SetActive(_ringT[i] > 0f);
+                }
+                for (int i = 0; i < _ringPoints.Length; i++)
+                {
+                    if (!_ringPoints[i].gameObject.activeSelf) continue;
+                    float k = 0.85f + 0.15f * Mathf.Sin(Time.time * 5f + i * 0.7f);
+                    Vector3 sc = _ringPoints[i].localScale;
+                    Mesh rm = _m.RingMesh(_r);
+                    float d = rm != null ? rm.bounds.size.x * 0.9f : 0.1f;
+                    _ringPoints[i].localScale = new Vector3(d * k, sc.y, d * k);
+                }
+            }
             // гвозди
-            float len = _m.NailLength;
+            float len = _m.NailLength(_r);
             int hitsMax = Mathf.Max(1, _m.HitsPerNail);
             for (int i = 0; i < BuildManager.NailCount; i++)
             {
@@ -168,7 +232,7 @@ namespace CatCooks.Food.Tools
                 }
                 if (!_nails[i].gameObject.activeSelf) continue;
                 Vector3 p, d;
-                _m.NailSlot(i, out p, out d);
+                _m.NailSlot(_r, i, out p, out d);
                 int h = Mathf.Max(0, _shownHits[i]);
                 float stick = Mathf.Lerp(0.85f, 0.04f, h / (float)hitsMax);       // торчит → утоплен
                 _nailPunch[i] = Mathf.Max(0f, _nailPunch[i] - dt * 6f);
@@ -176,7 +240,7 @@ namespace CatCooks.Food.Tools
                 _nails[i].localPosition = p - d * (len * stick) + Random.insideUnitSphere * shake * len;
                 _nails[i].localScale = Vector3.one * len;
             }
-            Pulse(_ghostMat, _m.GhostColor, _s.Stage == 0 ? 1f : 0.55f);
+            Pulse(_ghostMat, _m.GhostColor, (_s.Stage == BuildManager.StageBoards || _s.Stage == BuildManager.StageRings) ? 1f : 0.55f);
         }
 
         private static void Pulse(Material m, Color c, float k)

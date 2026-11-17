@@ -33,6 +33,22 @@ namespace CatCooks.Food
     [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
     public sealed class MeringueCap : MonoBehaviour
     {
+        /// <summary>v23.47: вид шапки — «улей» со спиральным жгутом или «ёжики» (много отсаженных острых пиков-завитков).</summary>
+        public enum CapStyle { Hive = 0, Spiky = 1, Piped = 2 }   // v23.48: Piped — гладкий купол, хвостики отсаживают рукавом (SetGrow)
+
+        [Header("v23.47: вид шапки")]
+        [Tooltip("Улей — спиральный жгут. Ёжики — купол из отсаженных острых пиков с завитком, кончики румянятся первыми. " +
+                 "Рукав (Piped) — гладкий купол, хвостики появляются там, где их отсадили кондитерским рукавом")]
+        public CapStyle Style = CapStyle.Hive;
+        [Tooltip("Ёжики: рядов пиков снизу доверху")]
+        [Range(3, 12)] public int PeakRows = 5;
+        [Tooltip("Ёжики: высота пика (доля радиуса)")]
+        [Range(0.05f, 0.6f)] public float PeakHeight = 0.36f;
+        [Tooltip("Ёжики: насколько кончики загибаются вверх (доля радиуса)")]
+        [Range(0f, 0.4f)] public float PeakLean = 0.2f;
+        [Tooltip("Ёжики: бороздки от звёздчатой насадки на каждом пике")]
+        [Range(0f, 0.3f)] public float PeakGrooves = 0.12f;
+
         [Header("Форма — улей со спиралью")]
         [Tooltip("Радиус основания (круглая шапка), в осях объекта")]
         [Min(0.005f)] public float Radius = 0.25f;
@@ -88,7 +104,9 @@ namespace CatCooks.Food
         [Tooltip("Румяниться от горелок самой")]
         public bool ToastByJets = true;
         [Tooltip("Подпал в секунду в центре пламени обычной горелки")]
-        [Range(0.01f, 1f)] public float ToastRate = 0.16f;
+        [Range(0.01f, 3f)] public float ToastRate = 0.16f;
+        [Tooltip("v23.50: пятно пламени шире во столько раз (быстрее румянится весь купол)")]
+        [Range(1f, 4f)] public float ToastSpot = 1f;
         public Color[] Ramp =
         {
             new Color(0.99f, 0.97f, 0.93f), new Color(0.98f, 0.90f, 0.74f), new Color(0.90f, 0.66f, 0.38f),
@@ -104,6 +122,7 @@ namespace CatCooks.Food
         private bool _topoDirty = true, _shapeDirty = true, _colorDirty = true;
         private float _colorAt, _jetAt, _shapeAt;
         private float _shownSpread = -1f;
+        private float _growAt;
 
         /// <summary>Подпал всего купола (0 — белая, 1 — уголь).</summary>
         public float Toast
@@ -155,7 +174,7 @@ namespace CatCooks.Food
         public void MarkShapeDirty()
         {
             if (Rings != _rings || Segments != _segs) _topoDirty = true;
-            else _shownSpread = -1f;
+            else InvalidateFinal();
         }
 
         private float MaxScale()
@@ -172,7 +191,7 @@ namespace CatCooks.Food
 
         private void OnValidate()
         {
-            _topoDirty = true; _colorDirty = true;
+            _topoDirty = true; _colorDirty = true; _fValid = false;
 #if UNITY_EDITOR
             if (!Application.isPlaying) UnityEditor.EditorApplication.QueuePlayerLoopUpdate();
 #endif
@@ -188,6 +207,8 @@ namespace CatCooks.Food
         {
             if (_topoDirty) { Rebuild(); return; }
             float now = Time.unscaledTime;
+            if (_growAnim && (now >= _shapeAt || !Application.isPlaying)) { StepGrow(Application.isPlaying ? Mathf.Clamp(now - _growAt, 0.02f, 0.2f) : 1f); _growAt = now; }
+            else if (!_growAnim) _growAt = now;
             if (Mathf.Abs(Spread - _shownSpread) > 0.002f && (now >= _shapeAt || !Application.isPlaying))
             {
                 _shapeAt = now + 0.05f;
@@ -240,6 +261,7 @@ namespace CatCooks.Food
             if (_mesh == null) { _mesh = new Mesh { name = "MeringueCap (auto)" }; _mesh.hideFlags = HideFlags.DontSave; }
             _mesh.Clear();
             if (total > 65000) _mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            _fValid = false;
             _shownSpread = -1f;
             Shape();                        // вершины
             _mesh.triangles = tris;
@@ -278,13 +300,243 @@ namespace CatCooks.Food
             float fade = Mathf.Clamp01((1f - t) * 9f);
             float curl = TopCurl * R * Mathf.Pow(Mathf.Max(0f, (t - 0.86f) / 0.14f), 2f);
             float baseR = Foot(th, ax, az, nExp) * g;
+            noise = Mathf.PerlinNoise(Seed * 13.37f + Mathf.Cos(th) * 1.7f + t * 3f, Seed * 7.13f + Mathf.Sin(th) * 1.7f + t * 5f) - 0.5f;
+            if (Style == CapStyle.Spiky || Style == CapStyle.Piped)
+            {
+                // v23.47: ЁЖИКИ — пики отсажены рядами по куполу, острые, кончик загнут вверх, на боках бороздки от насадки
+                float pk = Spiky(t, a, H, (ax + az) * 0.5f, wallT, out float lift);
+                float amp = PeakHeight * R * (0.3f + 0.7f * _ridgeK);
+                float rS = baseR * (Style == CapStyle.Piped ? 0.97f : 0.94f) + amp * pk + Wobble * R * noise * 2f;
+                tip = Mathf.Clamp01(pk * 1.15f);
+                return new Vector3(rS * Mathf.Cos(th), H * t + PeakLean * R * lift * (0.3f + 0.7f * _ridgeK), rS * Mathf.Sin(th));
+            }
             float s2 = t * turns + a;
             float p = s2 - Mathf.Floor(s2);
             float bump = Mathf.Pow(Mathf.Sin(Mathf.PI * p), RidgeRound);
-            noise = Mathf.PerlinNoise(Seed * 13.37f + Mathf.Cos(th) * 1.7f + t * 3f, Seed * 7.13f + Mathf.Sin(th) * 1.7f + t * 5f) - 0.5f;
             float r = baseR + RidgeDepth * _ridgeK * R * bump * (0.35f + 0.65f * Mathf.Min(1f, g)) * fade + Wobble * R * noise * 2f;
             tip = bump * fade + (1f - fade) * 0.85f;
             return new Vector3(r * Mathf.Cos(th), H * t + curl, r * Mathf.Sin(th));
+        }
+
+        private static float Hash(float x) { float s = Mathf.Sin(x * 12.9898f + 78.233f) * 43758.5453f; return s - Mathf.Floor(s); }
+
+        private static float GFun(float t, float wallT)
+        {
+            if (t <= wallT) return 1f;
+            float s = (t - wallT) / Mathf.Max(1e-4f, 1f - wallT);
+            return Mathf.Pow(Mathf.Max(0f, 1f - Mathf.Pow(s, 2.4f)), 0.55f);
+        }
+
+        /// <summary>
+        /// v23.47: «ёжики» в точке (t — высота 0..1, a — угол 0..1): 0 — впадина между пиками, ~1 — кончик пика.
+        /// Пики стоят рядами, в ряду их столько, сколько влезает по окружности; ряды сдвинуты в шахматку, чуть случайно.
+        /// lift — насколько кончик загнут вверх (только у самого кончика).
+        /// </summary>
+        private float Spiky(float t, float a, float H, float avgA, float wallT, out float lift)
+        {
+            lift = 0f;
+            int rows = Mathf.Max(2, PeakRows);
+            const float t0 = 0.03f, t1 = 0.97f;
+            float dtR = (t1 - t0) / rows;
+            int r0 = Mathf.FloorToInt((t - t0) / dtR - 0.5f);
+            float best = 0f;
+            for (int k = r0 - 1; k <= r0 + 2; k++)
+            {
+                if (k < 0 || k >= rows) continue;
+                float tk = t0 + (k + 0.5f) * dtR;
+                float radk = Mathf.Max(1e-4f, avgA * GFun(tk, wallT));
+                float circ = 2f * Mathf.PI * radk;
+                float rowSp = Mathf.Max(1e-4f, dtR * H * 1.15f);
+                int n = Mathf.Max(3, Mathf.RoundToInt(circ / rowSp));
+                bool piped = Style == CapStyle.Piped;
+                int baseIdx = piped && _rowStart != null && k < _rowStart.Length ? _rowStart[k] : -1;
+                float off = (k % 2) * 0.5f + Hash(k * 7.31f + Seed) * 0.3f;
+                float ai = a * n - off;
+                int i0 = Mathf.RoundToInt(ai);
+                float w = 0.75f * Mathf.Max(rowSp, circ / n);
+                for (int ii = i0 - 1; ii <= i0 + 1; ii++)
+                {
+                    int iw = ((ii % n) + n) % n;                         // шов a = 0/1 — те же пики
+                    float gk = 1f;
+                    if (piped)
+                    {
+                        int gi = baseIdx + iw;
+                        gk = baseIdx >= 0 && _growShown != null && gi < _growShown.Length ? _growShown[gi] : 0f;
+                        if (gk <= 0.001f) continue;                      // тут ещё не отсадили
+                    }
+                    float hs = Hash(k * 13.1f + iw * 3.7f + Seed * 1.9f);
+                    float jit = (hs - 0.5f) * 0.5f;
+                    float jitT = (Hash(k * 5.7f + iw * 11.3f + Seed) - 0.5f) * dtR * 0.35f;
+                    float sizeK = 0.75f + 0.5f * Hash(k * 2.3f + iw * 17.9f + Seed * 0.7f);
+                    float du = (ai - ii - jit) / n * circ;
+                    float dv = (t - tk - jitT) * H;
+                    float dvs = dv * (dv > 0f ? 0.65f : 1.25f);           // пик как язычок пламени: снизу полого, кончик тянется вверх
+                    float d = Mathf.Sqrt(du * du + dvs * dvs) / (w * sizeK);
+                    if (d >= 1f) continue;
+                    float s = 1f - d;
+                    float ang = Mathf.Atan2(dv, du);
+                    float groove = Mathf.Cos(ang * 6f + d * 5f + hs * 6.28f) * PeakGrooves * s * (1f - s);   // насадка-звёздочка, к кончику — гладко
+                    float v = (Mathf.Pow(s, 1.5f) + groove) * sizeK * gk;
+                    if (v > best) { best = v; lift = Mathf.Pow(s, 4f) * sizeK * gk; }
+                }
+            }
+            return best;
+        }
+
+        // ───────────────────────── v23.48: ХВОСТИКИ РУКАВОМ ─────────────────────────
+
+        private int[] _rowStart;
+        private int _peakTotal;
+        private float[] _grow, _growShown;
+        private float _lH, _lA, _lWall, _lR, _lMinT;
+        private bool _layoutOk, _growAnim;
+
+        /// <summary>Сколько мест под хвостики (пики) на куполе.</summary>
+        public int PeakCount { get { EnsureLayout(); return _peakTotal; } }
+
+        /// <summary>Расстояние между соседними хвостиками (оси объекта).</summary>
+        public float PeakSpacing { get { EnsureLayout(); int rows = Mathf.Max(2, PeakRows); return (0.97f - 0.03f) / rows * _lH * 1.15f; } }
+
+        /// <summary>Доля мест, где хвостик отсажен хотя бы наполовину.</summary>
+        public float PipedShare
+        {
+            get
+            {
+                EnsureLayout();
+                if (_grow == null || _peakTotal == 0) return 0f;
+                int n = 0;
+                for (int i = 0; i < _peakTotal; i++) if (_grow[i] >= 0.5f) n++;
+                return n / (float)_peakTotal;
+            }
+        }
+
+        /// <summary>Хвостик i вырос до g (0..1). Растёт плавно.</summary>
+        public void SetGrow(int i, float g)
+        {
+            EnsureLayout();
+            if (_grow == null || i < 0 || i >= _grow.Length) return;
+            g = Mathf.Clamp01(g);
+            if (Mathf.Abs(_grow[i] - g) < 1e-4f) return;
+            _grow[i] = g;
+            _growAnim = true;
+        }
+
+        public float GetGrow(int i) => _grow != null && i >= 0 && i < _grow.Length ? _grow[i] : 0f;
+
+        /// <summary>Убрать все хвостики (меренгу убрали).</summary>
+        public void ClearGrow()
+        {
+            if (_grow != null) System.Array.Clear(_grow, 0, _grow.Length);
+            if (_growShown != null) System.Array.Clear(_growShown, 0, _growShown.Length);
+            _shownSpread = -1f;
+        }
+
+        /// <summary>Раскладка мест под хвостики по готовому куполу (одинаково у всех: зависит только от размеров).</summary>
+        private void EnsureLayout()
+        {
+            float H = FullH, R = RefR;
+            bool boxy = Boxy;
+            float wallT = boxy ? Mathf.Clamp(WallHeight / Mathf.Max(1e-4f, H), 0f, 0.8f) : 0f;
+            float avgA = boxy ? (BaseHalf.x + BaseHalf.y) * 0.5f : Radius;
+            if (_layoutOk && Mathf.Abs(H - _lH) < 1e-5f && Mathf.Abs(avgA - _lA) < 1e-5f && Mathf.Abs(wallT - _lWall) < 1e-5f
+                && _rowStart != null && _rowStart.Length == Mathf.Max(2, PeakRows)) return;
+            _layoutOk = true; _lH = H; _lA = avgA; _lWall = wallT; _lR = R; _lMinT = MinThickness * R;
+            int rows = Mathf.Max(2, PeakRows);
+            const float t0 = 0.03f, t1 = 0.97f;
+            float dtR = (t1 - t0) / rows;
+            _rowStart = new int[rows];
+            int total = 0;
+            for (int k = 0; k < rows; k++)
+            {
+                _rowStart[k] = total;
+                float tk = t0 + (k + 0.5f) * dtR;
+                float circ = 2f * Mathf.PI * Mathf.Max(1e-4f, avgA * GFun(tk, wallT));
+                float rowSp = Mathf.Max(1e-4f, dtR * H * 1.15f);
+                total += Mathf.Max(3, Mathf.RoundToInt(circ / rowSp));
+            }
+            float[] old = _grow;
+            _peakTotal = total;
+            _grow = new float[total];
+            _growShown = new float[total];
+            if (old != null) for (int i = 0; i < Mathf.Min(old.Length, total); i++) { _grow[i] = old[i]; _growShown[i] = old[i]; }
+        }
+
+        /// <summary>Центр места под хвостик i на готовом куполе (оси объекта). false — нет такого.</summary>
+        public bool PeakLocal(int i, out Vector3 pos, out Vector3 nrm)
+        {
+            pos = Vector3.zero; nrm = Vector3.up;
+            EnsureLayout();
+            if (i < 0 || i >= _peakTotal) return false;
+            int rows = _rowStart.Length, k = rows - 1;
+            for (int q = 1; q < rows; q++) if (i < _rowStart[q]) { k = q - 1; break; }
+            int iw = i - _rowStart[k];
+            int n = (k + 1 < rows ? _rowStart[k + 1] : _peakTotal) - _rowStart[k];
+            const float t0 = 0.03f, t1 = 0.97f;
+            float dtR = (t1 - t0) / rows;
+            float tk = t0 + (k + 0.5f) * dtR;
+            float hs = Hash(k * 13.1f + iw * 3.7f + Seed * 1.9f);
+            float jit = (hs - 0.5f) * 0.5f;
+            float jitT = (Hash(k * 5.7f + iw * 11.3f + Seed) - 0.5f) * dtR * 0.35f;
+            float off = (k % 2) * 0.5f + Hash(k * 7.31f + Seed) * 0.3f;
+            float a = (iw + jit + off) / n;
+            float t = Mathf.Clamp01(tk + jitT);
+            float th = a * Mathf.PI * 2f;
+            bool boxy = Boxy;
+            float ax = boxy ? BaseHalf.x : Radius, az = boxy ? BaseHalf.y : Radius;
+            float nExp = 2f;
+            if (boxy) nExp = t <= _lWall ? BaseSquareness : Mathf.Lerp(BaseSquareness, 2f, Mathf.SmoothStep(0f, 1f, (t - _lWall) / Mathf.Max(1e-4f, 1f - _lWall) * 2.5f));
+            float r = Foot(th, ax, az, nExp) * GFun(t, _lWall) * 0.97f;
+            Vector3 p = new Vector3(r * Mathf.Cos(th), _lH * t, r * Mathf.Sin(th));
+            Vector3 v = p - _c;
+            float rF = v.magnitude;
+            Vector3 d = rF > 1e-6f ? v / rF : Vector3.up;
+            float rS = SupportDist(d);
+            if (rF < rS + _lMinT) p = _c + d * (rS + _lMinT);
+            pos = p;
+            Vector3 hz = new Vector3(p.x, 0f, p.z);
+            nrm = (hz.normalized * (1f - t) + Vector3.up * t).normalized;
+            return true;
+        }
+
+        private void StepGrow(float dt)
+        {
+            if (!_growAnim || _grow == null || _growShown == null) return;
+            bool more = false;
+            bool full = !_fValid || _fD == null;
+            for (int i = 0; i < _grow.Length; i++)
+            {
+                if (_growShown[i] == _grow[i]) continue;
+                _growShown[i] = Mathf.MoveTowards(_growShown[i], _grow[i], dt * 6f);     // v23.50: хвостик выдавливается ~0,15 с
+                if (_growShown[i] != _grow[i]) more = true;
+                if (!full) RecomputePeak(i);                              // v23.50: только окно вокруг хвостика
+            }
+            _growAnim = more;
+            _shownSpread = -1f;                                           // перестроить форму (дёшево, из кэша)
+            _colorDirty = true;                                           // кончики хвостиков румянятся первыми
+        }
+
+        /// <summary>v23.50: пересчитать кэш купола только вокруг хвостика i (а не все вершины).</summary>
+        private void RecomputePeak(int i)
+        {
+            if (_rowStart == null || i < 0 || i >= _peakTotal || _fD == null) return;
+            int rows = _rowStart.Length, k = rows - 1;
+            for (int q = 1; q < rows; q++) if (i < _rowStart[q]) { k = q - 1; break; }
+            int iw = i - _rowStart[k];
+            int n = (k + 1 < rows ? _rowStart[k + 1] : _peakTotal) - _rowStart[k];
+            const float t0 = 0.03f, t1 = 0.97f;
+            float dtR = (t1 - t0) / rows;
+            float tk = t0 + (k + 0.5f) * dtR;
+            float off = (k % 2) * 0.5f + Hash(k * 7.31f + Seed) * 0.3f;
+            float jit = (Hash(k * 13.1f + iw * 3.7f + Seed * 1.9f) - 0.5f) * 0.5f;
+            float ac = (iw + jit + off) / n;
+            float circ = 2f * Mathf.PI * Mathf.Max(1e-4f, _lA * GFun(tk, _lWall));
+            float rowSp = Mathf.Max(1e-4f, dtR * _lH * 1.15f);
+            float w = 0.75f * Mathf.Max(rowSp, circ / n) * 1.3f;          // радиус пика с запасом (size до 1.25)
+            float tUp = w / 0.65f / Mathf.Max(1e-4f, _lH), tDn = w / Mathf.Max(1e-4f, _lH) + dtR * 0.2f;
+            float aW = w / Mathf.Max(1e-4f, circ) + 0.5f / n;
+            int i0 = Mathf.FloorToInt((tk - tDn) * _rings) - 1, i1 = Mathf.CeilToInt((tk + tUp) * _rings) + 1;
+            int j0 = Mathf.FloorToInt((ac - aW) * _segs) - 1, j1 = Mathf.CeilToInt((ac + aW) * _segs) + 1;
+            ComputeFinal(i0, i1, j0, j1, true);
         }
 
         // ───────────────────────── ОПОРА: кубик + мороженое ─────────────────────────
@@ -362,29 +614,79 @@ namespace CatCooks.Food
             return t * t * (3f - 2f * t);
         }
 
-        /// <summary>Положение вершин: купол × растекание по опоре. Топология та же.</summary>
-        private void Shape()
+        // v23.50: КЭШ готового купола (направление, радиус купола, радиус опоры, гребень, шум) — от растекания не зависит,
+        // поэтому пока меренга стекает, считается один раз (было: каждые 0,05 с по всем вершинам — лагало).
+        private Vector3[] _fD;
+        private float[] _fRF, _fRS, _fTip, _fNoise;
+        private bool _fValid;
+        private float _fH, _fR, _fWallT, _fAx, _fAz, _fMinT;
+        private bool _fBoxy;
+
+        private void InvalidateFinal() { _fValid = false; _shownSpread = -1f; }
+
+        /// <summary>Пересчитать готовый купол в вершинах (все или только окно строк/столбцов).</summary>
+        private void ComputeFinal(int i0, int i1, int j0, int j1, bool wrapJ)
         {
-            if (_v == null) return;
-            _shownSpread = Spread;
             int rings = _rings, segs = _segs;
+            for (int jj = j0; jj <= j1; jj++)
+            {
+                int j = wrapJ ? ((jj % segs) + segs) % segs : jj;
+                if (j < 0 || j > segs) continue;
+                float a = j / (float)segs;
+                for (int i = Mathf.Max(0, i0); i <= Mathf.Min(rings, i1); i++)
+                {
+                    float t = i / (float)rings;
+                    int idx = i * (segs + 1) + j;
+                    _fD[idx] = Final(t, a, _fAx, _fAz, _fWallT, _fH, _fR, _fBoxy, _fMinT, out _fRF[idx], out _fRS[idx], out _fTip[idx], out _fNoise[idx]);
+                    if (j == 0)                                           // шов: последний столбец = первый
+                    {
+                        int idx2 = i * (segs + 1) + segs;
+                        _fD[idx2] = _fD[idx]; _fRF[idx2] = _fRF[idx]; _fRS[idx2] = _fRS[idx]; _fTip[idx2] = _fTip[idx]; _fNoise[idx2] = _fNoise[idx];
+                    }
+                }
+            }
+        }
+
+        private void EnsureFinal()
+        {
+            int n = (_rings + 1) * (_segs + 1);
+            if (_fD == null || _fD.Length != n)
+            {
+                _fD = new Vector3[n]; _fRF = new float[n]; _fRS = new float[n]; _fTip = new float[n]; _fNoise = new float[n];
+                _fValid = false;
+            }
             float H = FullH, R = RefR;
             bool boxy = Boxy;
             float wallT = boxy ? Mathf.Clamp(WallHeight / Mathf.Max(1e-4f, H), 0f, 0.8f) : 0f;
             float ax = boxy ? BaseHalf.x : Radius, az = boxy ? BaseHalf.y : Radius;
             float minT = MinThickness * R;
-
+            if (_fValid && H == _fH && R == _fR && wallT == _fWallT && ax == _fAx && az == _fAz && minT == _fMinT && boxy == _fBoxy) return;
+            _fH = H; _fR = R; _fWallT = wallT; _fAx = ax; _fAz = az; _fMinT = minT; _fBoxy = boxy;
             float boxH = Mathf.Max(0f, SupportBox.y), iceH = SupportIce.y > 1e-4f ? SupportIce.y : 0f;
             _c = new Vector3(0f, boxH > 1e-4f ? boxH * 0.5f : Mathf.Max(0.001f, iceH * 0.25f), 0f);
+            _ridgeK = 1f;
+            if (Style == CapStyle.Piped) EnsureLayout();
+            ComputeFinal(0, _rings, 0, _segs - 1, false);
+            _fValid = true;
+            _colorDirty = true;
+        }
+
+        /// <summary>
+        /// Положение вершин. v23.50: меренга СРАЗУ своего размера — не набухает: готовый купол «срезан» кромкой,
+        /// кромка (круглый толстый нос с подтёками) сползает от макушки мороженого до тарелки. Дешёво: купол из кэша.
+        /// </summary>
+        private void Shape()
+        {
+            if (_v == null) return;
+            _shownSpread = Spread;
+            EnsureFinal();
+            int rings = _rings, segs = _segs;
+            float H = _fH;
+            float boxH = Mathf.Max(0f, SupportBox.y), iceH = SupportIce.y > 1e-4f ? SupportIce.y : 0f;
             bool hasSupport = boxH > 1e-4f || iceH > 1e-4f;
             float tStart = hasSupport ? Mathf.Clamp((boxH + iceH * 0.8f) / Mathf.Max(1e-4f, H), 0.05f, 0.95f) : SpreadFrom;
-            float tTop = Mathf.Max(minT * 2f, H - (boxH + iceH));          // толщина на макушке готового купола
-
             float sp = Mathf.Clamp01(Spread);
-            float eased = 1f - (1f - sp) * (1f - sp);                      // к концу медленнее — густая масса
-            float blend = Smooth01(0.75f, 1f, sp);                         // в конце пушится в купол
-            float cap = tTop * Mathf.Lerp(1.1f, 1f, sp);
-            _ridgeK = 0.3f + 0.7f * eased;                                 // жгут проступает, пока оседает
+            float eased = 1f - (1f - sp) * (1f - sp) * (1f - sp);           // падает быстро, у тарелки — мягко
             const float band = 0.07f;                                      // ширина «носа» кромки (доля высоты)
 
             for (int j = 0; j <= segs; j++)
@@ -393,18 +695,18 @@ namespace CatCooks.Food
                 float th = a * Mathf.PI * 2f;
                 float drip = (0.7f * (0.5f + 0.5f * Mathf.Sin(3f * th + 1.3f + Seed)) + 0.4f * (0.5f + 0.5f * Mathf.Sin(7f * th + 0.4f + Seed * 0.7f)))
                              * Drips * Mathf.Sin(Mathf.PI * sp);
-                float tF = Mathf.Lerp(tStart, -0.03f, eased) - drip;     // кромка: ниже неё меренги ещё нет
+                float tF = sp >= 0.999f ? -1f : Mathf.Lerp(tStart, -0.03f, eased) - drip;   // кромка: ниже неё меренги ещё нет
 
-                // кромка: где она, какой толщины, куда «вниз» по куполу
                 Vector3 dF = Vector3.up, down = Vector3.down;
                 float rSF = 0f, LF = 0f;
                 if (tF > 0f)
                 {
-                    float tc = Mathf.Clamp01(tF);
-                    dF = Final(tc, a, ax, az, wallT, H, R, boxy, minT, out float rFF, out rSF, out _, out _);
-                    LF = Layer(rFF - rSF, cap * Lay(tc, tF), blend);
-                    Vector3 fu = Surf(tc, a, ax, az, wallT, H, R, boxy, Turns, out _, out _);
-                    Vector3 fd = Surf(Mathf.Clamp01(tc - 0.03f), a, ax, az, wallT, H, R, boxy, Turns, out _, out _);
+                    // кромка — из кэша ближайшей строки (без новых расчётов купола)
+                    int iF = Mathf.Clamp(Mathf.RoundToInt(tF * rings), 0, rings);
+                    int iD = Mathf.Clamp(iF - Mathf.Max(1, Mathf.RoundToInt(0.03f * rings)), 0, rings);
+                    int kF = iF * (segs + 1) + j, kD = iD * (segs + 1) + j;
+                    dF = _fD[kF]; rSF = _fRS[kF]; LF = Mathf.Max(0f, _fRF[kF] - _fRS[kF]);
+                    Vector3 fu = _c + _fD[kF] * _fRF[kF], fd = _c + _fD[kD] * _fRF[kD];
                     down = fd - fu;
                     down = down.sqrMagnitude > 1e-10f ? down.normalized : Vector3.down;
                 }
@@ -412,26 +714,23 @@ namespace CatCooks.Food
                 for (int i = 0; i <= rings; i++)
                 {
                     float t = i / (float)rings;
-                    Vector3 d = Final(t, a, ax, az, wallT, H, R, boxy, minT, out float rF, out float rS, out float tip, out float n);
+                    int idx = i * (segs + 1) + j;
                     Vector3 pos;
-                    if (t >= tF || tF <= 0f)
-                        pos = _c + d * (rS + Layer(rF - rS, cap * Lay(t, tF), blend));
+                    if (t >= tF || tF <= 0f) pos = _c + _fD[idx] * _fRF[idx];
                     else
                     {
                         float u = (tF - t) / band;
                         if (u < 1f)
                         {
-                            // круглый толстый нос кромки: от наружной поверхности заворачивает к бисквиту
                             float ang = u * Mathf.PI * 0.5f;
                             pos = _c + dF * (rSF + LF * Mathf.Cos(ang)) + down * (LF * 0.45f * Mathf.Sin(ang));
                         }
                         else pos = _c + dF * (rSF * 0.97f);                  // ещё не дотекло — спрятано внутри
                     }
-                    int idx = i * (segs + 1) + j;
                     _v[idx] = pos;
                     _uv[idx] = new Vector2(a, t);
-                    _tip[idx] = tip;
-                    _noise[idx] = n;
+                    _tip[idx] = _fTip[idx];
+                    _noise[idx] = _fNoise[idx];
                 }
             }
             int c0 = _sideCount;
@@ -490,7 +789,7 @@ namespace CatCooks.Food
                     float along = Vector3.Dot(d, dir);
                     if (along < 0f || along > l) continue;
                     float radial = (d - dir * along).magnitude;
-                    float rr = rad * (0.6f + along / l);
+                    float rr = rad * (0.6f + along / l) * ToastSpot;
                     if (radial > rr) continue;
                     float facing = -Vector3.Dot(_nrm[i], dir);           // смотрит на сопло
                     if (facing <= 0.05f) continue;

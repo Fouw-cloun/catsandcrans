@@ -255,10 +255,10 @@ namespace CatCooks.Food
             if (d != null) return d;
             DS.EnsureDir(DS.DefDir);
             d = ScriptableObject.CreateInstance<CookwareDef>();
-            d.Title = "Грохот"; d.Kind = CookwareKind.Storage; d.Capacity = 16;
+            d.Title = "Грохот"; d.Kind = CookwareKind.Storage; d.Capacity = 20;   // v23.55: 10 мастерков
             d.HeatProcess = FoodProcess.None; d.NeedsHeatSource = true; d.Absorbs = false; d.BlendsColor = false;
             AssetDatabase.CreateAsset(d, path);
-            log.AppendLine($"  ＋ тара {path}: «Грохот», 16 порций, не глотает");
+            log.AppendLine($"  ＋ тара {path}: «Грохот», 20 порций (10 мастерков), не глотает");
             return d;
         }
 

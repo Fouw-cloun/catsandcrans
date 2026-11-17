@@ -120,6 +120,50 @@ Shader "CatCooks/Food Heap"
             half l = dot(c, half3(0.299h, 0.587h, 0.114h));
             return max(0.0h, lerp(l.xxx, c, s));
         }
+
+        // v23.43: ПОРЫ БИСКВИТА. Включаются только у мешей с меткой uv0.y = 7 (SpongeMesh), uv0.x = сколько пор (0..1).
+        // Остальная еда этим шейдером не меняется.
+        float3 CCP_H33(float3 p)
+        {
+            p = frac(p * float3(0.1031, 0.1030, 0.0973));
+            p += dot(p, p.yxz + 33.33);
+            return frac((p.xxy + p.yxx) * p.zyx);
+        }
+
+        // v23.44: 3D шум 0..1 для рыхлости мякиша
+        float CCP_VN3(float3 p)
+        {
+            float3 i = floor(p), f = frac(p);
+            f = f * f * (3.0 - 2.0 * f);
+            float a = CCP_H33(i).x, b = CCP_H33(i + float3(1, 0, 0)).x, c = CCP_H33(i + float3(0, 1, 0)).x, d = CCP_H33(i + float3(1, 1, 0)).x;
+            float e = CCP_H33(i + float3(0, 0, 1)).x, g = CCP_H33(i + float3(1, 0, 1)).x, h = CCP_H33(i + float3(0, 1, 1)).x, k = CCP_H33(i + float3(1, 1, 1)).x;
+            return lerp(lerp(lerp(a, b, f.x), lerp(c, d, f.x), f.y), lerp(lerp(e, g, f.x), lerp(h, k, f.x), f.y), f.z);
+        }
+        float CCP_Crumb(float3 p) { return CCP_VN3(p) * 0.6 + CCP_VN3(p * 2.3 + 4.7) * 0.4; }
+
+        // x — расстояние до ближайшей поры в её радиусах (<1 — внутри), yzw — направление от центра поры (в радиусах)
+        float4 CCP_Pore(float3 p, float cover, float sizeK)
+        {
+            float3 ip = floor(p), fp = frac(p);
+            float best = 9.0;
+            float3 bestD = float3(0, 0, 0);
+            [unroll] for (int z = -1; z <= 1; z++)
+            {
+            [unroll] for (int y = -1; y <= 1; y++)
+            {
+            [unroll] for (int x = -1; x <= 1; x++)
+            {
+                float3 o = float3(x, y, z);
+                float3 h = CCP_H33(ip + o);
+                float3 c = o + 0.2 + 0.6 * CCP_H33(ip + o + 17.31) - fp;
+                float r = sizeK * (0.2 + 0.22 * h.y);
+                float d = length(c) / r + (h.x > cover ? 9.0 : 0.0);
+                if (d < best) { best = d; bestD = -c / r; }
+            }
+            }
+            }
+            return float4(best, bestD);
+        }
         ENDHLSL
 
         // ─────────────────────────── основной проход ───────────────────────────
@@ -187,6 +231,43 @@ Shader "CatCooks/Food Heap"
                 UNITY_SETUP_INSTANCE_ID(i);
 
                 float3 nOS = normalize(i.normalOS);
+                // v23.43: поры бисквита (метка uv0.y = 7)
+                half spongeK = (abs(i.uv.y - 7.0) < 0.02 && _UseMeshUV < 0.5h) ? saturate(i.uv.x) : 0.0h;
+                float fwOS = length(fwidth(i.positionOS));
+                half poreHole = 0.0h, poreLip = 0.0h, poreDeep = 0.0h, crumbTone = 0.0h;
+                float3 poreDir = float3(0, 0, 0);
+                if (spongeK > 0.001h)
+                {
+                    // мелкие частые поры + редкие крупные пузырьки; издали плавно пропадают (без ряби)
+                    // v23.44: поры неровной формы (координаты чуть «плывут» шумом) — как в настоящем мякише, не идеальные кружки
+                    float3 wp = float3(CCP_VN3(i.positionOS * 160.0), CCP_VN3(i.positionOS * 160.0 + 11.1), CCP_VN3(i.positionOS * 160.0 + 23.7)) - 0.5;
+                    float4 pa = CCP_Pore(i.positionOS * 230.0 + wp * 0.9, 0.3 + 0.55 * spongeK, 1.0);
+                    float4 pb = CCP_Pore(i.positionOS * 90.0 + 5.7 + wp * 0.6, 0.1 + 0.35 * spongeK, 0.95);
+                    half fa = 1.0h - smoothstep(0.3h, 0.85h, fwOS * 230.0);
+                    half fb = 1.0h - smoothstep(0.3h, 0.85h, fwOS * 90.0);
+                    half ha = (1.0h - smoothstep(0.8h, 1.0h, pa.x)) * fa;
+                    half hb = (1.0h - smoothstep(0.82h, 1.0h, pb.x)) * fb;
+                    half la = smoothstep(0.85h, 1.0h, pa.x) * (1.0h - smoothstep(1.0h, 1.3h, pa.x)) * fa;
+                    half lb = smoothstep(0.85h, 1.0h, pb.x) * (1.0h - smoothstep(1.0h, 1.3h, pb.x)) * fb;
+                    // v23.45: в корочке пор нет (только шершавость), поры — в мякише
+                    half poreK = saturate((spongeK - 0.3h) / 0.3h);
+                    ha *= poreK; hb *= poreK; la *= poreK; lb *= poreK;
+                    if (hb >= ha) { poreHole = hb; poreDir = pb.yzw; poreDeep = saturate(1.0 - pb.x); }
+                    else          { poreHole = ha; poreDir = pa.yzw; poreDeep = saturate(1.0 - pa.x); }
+                    poreLip = max(la, lb) * (1.0h - poreHole);
+                    // стенки поры смотрят внутрь — свет ложится полумесяцем
+                    float3 dT = poreDir - nOS * dot(poreDir, nOS);
+                    nOS = normalize(nOS - dT * 0.9 * poreHole);
+                    // v23.44: РЫХЛОСТЬ — мелкие бугорки и крупинки мякиша (свет рябит), тон крупинок чуть разный; корочка — гладкая
+                    half crumbK = 0.45h + 0.55h * saturate((spongeK - 0.2h) / 0.6h);   // корочка — чуть шершавая, мякиш — рыхлый
+                    half fc = 1.0h - smoothstep(0.3h, 0.9h, fwOS * 520.0);
+                    float3 cp = i.positionOS * 520.0;
+                    float c0 = CCP_Crumb(cp);
+                    float3 cg = float3(CCP_Crumb(cp + float3(0.35, 0, 0)), CCP_Crumb(cp + float3(0, 0.35, 0)), CCP_Crumb(cp + float3(0, 0, 0.35))) - c0;
+                    cg -= nOS * dot(cg, nOS);
+                    nOS = normalize(nOS - cg * 2.2 * crumbK * fc);
+                    crumbTone = (half)(c0 - 0.5) * crumbK * fc;
+                }
                 half3 tex;
                 float3 bentOS;
 
@@ -221,7 +302,7 @@ Shader "CatCooks/Food Heap"
 
                 // Узор только там, где альфа вершины > 0: масса и стружки — с узором,
                 // гладкие кусочки — без. Нормали от узора — туда же.
-                half detail = _TexDetail * i.color.a;
+                half detail = _TexDetail * i.color.a * (spongeK > 0.001h ? 0.35h : 1.0h);   // v23.43: у бисквита поры рисуются сами, текстура — слабым фоном
                 float3 nFinal = normalize(lerp(nOS, bentOS, detail));
                 float3 nWS = normalize(TransformObjectToWorldNormal(nFinal));
 
@@ -233,6 +314,11 @@ Shader "CatCooks/Food Heap"
                 half3 albedo = i.color.rgb * _BaseColor.rgb;
                 albedo *= lerp(1.0h, lum * _DetailBoost, detail);
                 albedo *= 1.0h + CCA_Paint(i.positionOS.xz * 6.0 + i.positionOS.y * 2.0) * 0.12h * _AnimePaint * _Anime;
+                // v23.43: пора — тёмная ямка (глубже — темнее, верхняя стенка в тени), светлая кромка по краю
+                half poreShade = lerp(0.62h, 0.3h, poreDeep) * (1.0h - 0.22h * saturate(poreDir.y));
+                albedo *= lerp(1.0h, poreShade, poreHole);
+                albedo *= 1.0h + 0.16h * poreLip * saturate(0.4h - poreDir.y * 0.6h);
+                albedo *= 1.0h + crumbTone * 0.35h;                                                    // v23.44: крупинки мякиша
                 albedo = Saturate3(albedo, _Saturation);
 
                 // ── мультяшный свет ──
@@ -261,11 +347,13 @@ Shader "CatCooks/Food Heap"
                 float3 V = normalize(GetWorldSpaceViewDir(i.positionWS));
                 float3 Hh = normalize(light.direction + V);
                 half glint = smoothstep(_GlintSize, _GlintSize + 0.015h, saturate(dot(nWS, Hh))) * lit;
+                if (spongeK > 0.001h) glint = 0.0h;                                                     // v23.44: бисквит матовый, без пластиковых бликов
 
                 // ── подсветка края ──
                 half rim = pow(1.0h - saturate(dot(nWS, V)), _RimPower) * _Rim * (0.4h + 0.6h * lit);
                 rim = lerp(rim, CCA_Rim(nWS, V, 0.28h) * _Rim * 1.3h * (0.3h + 0.7h * lit), _Anime);   // v23.4: контур — ступенькой
 
+                if (spongeK > 0.001h) rim *= 0.35h;
                 half3 col = albedo * diffuse * _Brightness
                           + _GlintColor.rgb * glint * _GlintStrength * light.color
                           + _RimColor.rgb * rim;

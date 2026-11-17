@@ -14,6 +14,8 @@ namespace CatCooks.Food
     ///   Puck    — капля теста в кольце / начинка: плоский купол, радиус 1, высота 1.
     ///   Shell   — скорлупка макарон: гладкий купол + «юбочка» (кружевной ободок) снизу; треснувшая —
     ///             купол в буграх и тёмных трещинах.
+    ///   Dollop  — v23.61: отсаженная капля с хвостиком от носика, оседает по уровням.
+    ///   ShellRise — v23.61: скорлупка поднимается в духовке (юбочка растёт по шагам).
     ///   Tube    — обрубок трубы (кольцо для отсадки): внутренний радиус ri, внешний ro, высота h.
     /// </summary>
     public static class MacaronMesh
@@ -92,7 +94,33 @@ namespace CatCooks.Food
         {
             if (!cracked && _shell != null) return _shell;
             if (cracked && _shellCracked != null) return _shellCracked;
-            const float feet = 0.15f;
+            Mesh m = BuildShell(cracked, 1f, cracked ? "MacaronShellCracked (auto)" : "MacaronShell (auto)");
+            if (cracked) _shellCracked = m; else _shell = m;
+            return m;
+        }
+
+        public const int RiseSteps = 8;
+        private static Mesh[] _rise;
+
+        /// <summary>
+        /// v23.61: скорлупка ПОДНИМАЕТСЯ в духовке. step 0 — гладкий купол без юбочки (как капля теста),
+        /// RiseSteps — готовая юбочка. Высота купола одна; общий рост даёт масштаб противня.
+        /// </summary>
+        public static Mesh ShellRise(int step)
+        {
+            step = Mathf.Clamp(step, 0, RiseSteps);
+            if (step == RiseSteps) return Shell(false);
+            if (_rise == null) _rise = new Mesh[RiseSteps];
+            if (_rise[step] != null) return _rise[step];
+            float t = step / (float)RiseSteps;
+            _rise[step] = BuildShell(false, Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((t - 0.15f) / 0.7f)), "MacaronShellRise" + step + " (auto)");
+            return _rise[step];
+        }
+
+        /// <summary>feetK 0..1 — насколько выросла юбочка (0 — её нет, купол сидит на листе).</summary>
+        private static Mesh BuildShell(bool cracked, float feetK, string name)
+        {
+            float feet = 0.15f * Mathf.Max(0.02f, feetK);
             var prof = new List<Vector2>();
             // купол: центр → край
             for (int k = 0; k <= 10; k++)
@@ -104,16 +132,18 @@ namespace CatCooks.Food
             int domeEnd = prof.Count - 1;
             prof.Add(prof[domeEnd]);                                    // грань купол/юбочка
             // юбочка: чуть шире купола, кружевная
-            prof.Add(new Vector2(1.0f, feet * 0.9f));
-            prof.Add(new Vector2(1.03f, feet * 0.55f));
-            prof.Add(new Vector2(1.0f, feet * 0.15f));
+            float wide = Mathf.Lerp(0.97f, 1.0f, feetK), bulge = Mathf.Lerp(0.97f, 1.03f, feetK);
+            prof.Add(new Vector2(wide, feet * 0.9f));
+            prof.Add(new Vector2(bulge, feet * 0.55f));
+            prof.Add(new Vector2(wide, feet * 0.15f));
             prof.Add(new Vector2(0.97f, 0f)); prof.Add(new Vector2(0.97f, 0f));
             prof.Add(new Vector2(0f, 0f));
             int feetFrom = domeEnd + 2, feetTo = domeEnd + 4;
+            float lace = feetK;
             Mesh m = Lathe(null, prof, 56,
                 (i, th, p) =>
                 {
-                    if (i >= feetFrom && i <= feetTo) return new Color(1.04f, 1.02f, 0.98f, 1f);   // юбочка — пористая
+                    if (i >= feetFrom && i <= feetTo) return new Color(Mathf.Lerp(1f, 1.04f, lace), Mathf.Lerp(1f, 1.02f, lace), Mathf.Lerp(1f, 0.98f, lace), 1f);   // юбочка — пористая
                     if (i > feetTo) return new Color(0.92f, 0.9f, 0.86f, 0.6f);                 // донышко
                     if (!cracked) return new Color(1f, 1f, 1f, 0.35f);                            // купол — гладкий
                     float crack = CrackAt(th, p.x * p.x + p.z * p.z);
@@ -124,8 +154,8 @@ namespace CatCooks.Food
                     if (i >= feetFrom && i <= feetTo)
                     {
                         // кружевная юбочка: частые бугорки по кругу
-                        float k = 1f + 0.035f * (0.5f + 0.5f * Mathf.Sin(th * 41f)) + 0.02f * Mathf.PerlinNoise(th * 6f, i * 1.3f);
-                        return new Vector3(p.x * k, p.y + 0.012f * Mathf.Sin(th * 29f + i), p.z * k);
+                        float k = 1f + lace * (0.035f * (0.5f + 0.5f * Mathf.Sin(th * 41f)) + 0.02f * Mathf.PerlinNoise(th * 6f, i * 1.3f));
+                        return new Vector3(p.x * k, p.y + lace * 0.012f * Mathf.Sin(th * 29f + i), p.z * k);
                     }
                     if (cracked && i <= domeEnd && i > 0)
                     {
@@ -134,9 +164,52 @@ namespace CatCooks.Food
                         return new Vector3(p.x, p.y + bump - crack * 0.05f, p.z);
                     }
                     return p;
-                }, cracked ? "MacaronShellCracked (auto)" : "MacaronShell (auto)");
+                }, name);
             m.hideFlags = HideFlags.DontSave;
-            if (cracked) _shellCracked = m; else _shell = m;
+            return m;
+        }
+
+        public const int DollopLevels = 6;
+        /// <summary>v23.62: на каком уровне хвостик остаётся (осел наполовину и подогнулся).</summary>
+        public const int DollopRest = 3;
+        private static Mesh[] _dollop;
+
+        /// <summary>
+        /// v23.61: ОТСАЖЕННАЯ КАПЛЯ ТЕСТА (радиус 1, высота ~1 без хвостика). level 0 — уже осела, гладкий купол;
+        /// DollopLevels — только что отсадили: в центре «хвостик» от носика шприца с лёгким завитком.
+        /// Хвостик оседает за пару секунд (меняется level) — как у настоящего макаронажа.
+        /// </summary>
+        public static Mesh Dollop(int level)
+        {
+            level = Mathf.Clamp(level, 0, DollopLevels);
+            if (_dollop == null) _dollop = new Mesh[DollopLevels + 1];
+            if (_dollop[level] != null) return _dollop[level];
+            float pk = level / (float)DollopLevels;
+            var prof = new List<Vector2>();
+            const int N = 16;
+            for (int k = 0; k <= N; k++)
+            {
+                float r = k / (float)N;
+                float y = 0.12f + 0.88f * Mathf.Pow(Mathf.Max(0f, 1f - r * r), 0.7f);
+                y += pk * 0.38f * Mathf.Exp(-(r / 0.18f) * (r / 0.18f));          // хвостик от носика
+                prof.Add(new Vector2(r * 0.97f, y));
+            }
+            prof.Add(new Vector2(1f, 0.06f));
+            prof.Add(new Vector2(0.98f, 0f)); prof.Add(new Vector2(0.98f, 0f));
+            prof.Add(new Vector2(0f, 0f));
+            Mesh m = Lathe(null, prof, 48, (i, th, p) => new Color(1f, 1f, 1f, 0.55f),
+                (i, th, p) =>
+                {
+                    if (i > N || pk <= 0f) return p;
+                    // завиток: хвостик чуть закручен и наклонён, по краю купола — еле заметная волна
+                    float r = Mathf.Sqrt(p.x * p.x + p.z * p.z);
+                    float swirl = pk * 0.05f * Mathf.Sin(th * 3f + r * 14f) * Mathf.Exp(-(r / 0.45f) * (r / 0.45f));
+                    // v23.62: чем ниже осел хвостик, тем сильнее он подогнут набок (как у настоящей отсадки)
+                    float lean = (0.08f + 0.5f * (1f - pk)) * Mathf.Exp(-(r / 0.25f) * (r / 0.25f)) * Mathf.Max(0f, p.y - 0.85f);
+                    return new Vector3(p.x + lean, p.y + swirl, p.z);
+                }, "MacaronDollop" + level + " (auto)");
+            m.hideFlags = HideFlags.DontSave;
+            _dollop[level] = m;
             return m;
         }
 

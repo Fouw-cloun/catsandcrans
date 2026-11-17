@@ -182,6 +182,53 @@ namespace CatCooks.Food
                 Pose();
             }
             else GlueOld();
+            FixBladePiece();                                                       // v23.50
+        }
+
+        // ── v23.50: кубик бисквита на мастерке лежит ПЛАШМЯ на полотне (мастерок ставит его по оси объекта полотна,
+        //    а у модели полотна «верх» может быть другой осью — кубик стоял на ребре) + дрожит и парит ──
+        private Transform _bladePiece;
+        private float _bpSearchAt;
+        private Mesh _bpOwn, _bpSrc;
+        private Vector3 _bpAxis;
+
+        private void FixBladePiece()
+        {
+            if (_blade == null) return;
+            if (_bladePiece == null)
+            {
+                if (Time.unscaledTime < _bpSearchAt) return;
+                _bpSearchAt = Time.unscaledTime + 0.5f;
+                _bladePiece = _blade.Find("BladePiece (auto)");
+                if (_bladePiece == null) return;
+            }
+            if (!_bladePiece.gameObject.activeInHierarchy) return;
+            if (!_axisSet) PickAxis();
+            MeshFilter mf = _bladePiece.GetComponent<MeshFilter>();
+            if (mf == null || mf.sharedMesh == null) return;
+            bool fresh = false;
+            if (mf.sharedMesh != _bpOwn)
+            {
+                _bpSrc = mf.sharedMesh;
+                if (_bpOwn != null) Destroy(_bpOwn);
+                _bpOwn = _bpSrc.isReadable ? Instantiate(_bpSrc) : _bpSrc;
+                if (_bpOwn != _bpSrc) { _bpOwn.name = "BladePiece own (auto)"; _bpOwn.hideFlags = HideFlags.DontSave; }
+                mf.sharedMesh = _bpOwn;
+                if (_bladePiece.GetComponent<SpongeJiggle>() == null) _bladePiece.gameObject.AddComponent<SpongeJiggle>().Strength = 0.012f;
+                if (_bladePiece.GetComponent<SpongeSteam>() == null) _bladePiece.gameObject.AddComponent<SpongeSteam>();
+                fresh = true;
+            }
+            if (fresh || _bpAxis != _axis)
+            {
+                _bpAxis = _axis;
+                _bladePiece.localRotation = Quaternion.FromToRotation(Vector3.up, _axis);
+                // масштаб 1 в мире (полотно бывает растянуто по осям)
+                _bladePiece.localScale = Vector3.one;
+                Vector3 ls = _bladePiece.lossyScale;
+                _bladePiece.localScale = new Vector3(1f / Mathf.Max(1e-5f, Mathf.Abs(ls.x)), 1f / Mathf.Max(1e-5f, Mathf.Abs(ls.y)), 1f / Mathf.Max(1e-5f, Mathf.Abs(ls.z)));
+            }
+            float h = _bpSrc != null ? _bpSrc.bounds.size.y : 0.1f;
+            _bladePiece.position = _blade.position + _blade.TransformDirection(_axis).normalized * (h * 0.5f);
         }
 
         private bool _dirty = true;
@@ -252,7 +299,7 @@ namespace CatCooks.Food
             FishNet.Object.NetworkBehaviour nb = _scoop as FishNet.Object.NetworkBehaviour;
             int seed = nb != null && nb.IsSpawned ? nb.ObjectId * 31 + 5 : 3;
             FoodSubstanceMesh.SpoilK = FoodStateInfo.IsSpoiled((FoodState)_state) ? 1f : 0f;   // v19: испорченное — видно
-            if (_sub.Look == SubstanceLook.Powder) FoodSubstanceMesh.Powder(_mesh, _dims, _sub.Wonky, _col, seed);
+            if (_sub.Look == SubstanceLook.Powder) FoodSubstanceMesh.Powder(_mesh, _dims, _sub.Wonky, _col, seed, _sub.Sugar);   // v23.62: смесь — с крупинками сахара
             else if (_sub.Look == SubstanceLook.Crystals) FoodSubstanceMesh.Crystals(_mesh, _dims, _sub.CrystalSize, _sub.CrystalDensity, _col, seed);
             else if (_sub.Look == SubstanceLook.Spread)
             {
@@ -274,6 +321,8 @@ namespace CatCooks.Food
                 FoodSubstanceMesh.SpreadTailAng = float.NaN;
                 FoodSubstanceMesh.SpreadDrips = 0;
             }
+            else if (_sub.Look == SubstanceLook.IceCream) FoodSubstanceMesh.IceCream(_mesh, _dims, _col, seed);   // v23.35: шарики мороженого
+            else if (_sub.Look == SubstanceLook.Meringue) FoodSubstanceMesh.MeringueKiss(_mesh, _dims, _col, seed); // v23.51: безе-розочка
             else FoodSubstanceMesh.ButterSmear(_mesh, _dims, _sub.Curl, _col, seed);     // v18.7: мазок ножом, а не «кубик»
             FoodSubstanceMesh.SpoilK = 0f;
             Material m = _sub.GetMaterial();

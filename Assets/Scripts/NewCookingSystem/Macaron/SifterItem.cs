@@ -28,6 +28,10 @@ namespace CatCooks.Food
         [SerializeField] private ProductDef _sugar;
         [SerializeField] private ProductDef _mix;
 
+        [Header("Вместимость")]
+        [Tooltip("v23.55: сколько мастерков влезает в грохот за раз (1 мастерок = 2 порции). Тара «Грохот» поднимается до этого сама")]
+        [Range(1, 30)][SerializeField] private int _trowels = 10;
+
         [Header("Тряска")]
         [Tooltip("Сколько «пути мыши» (влево-вправо) на одну просеянную порцию")]
         [SerializeField] private float _shakePerPortion = 2.2f;
@@ -58,6 +62,11 @@ namespace CatCooks.Food
         private MaterialPropertyBlock _mpb;
         private Renderer _pileR;
         private readonly RaycastHit[] _hits = new RaycastHit[12];
+        // v23.53: тучки при просеивании (у всех игроков)
+        private float _curtainAcc, _topAcc, _belowAt;
+        private Vector3 _belowPoint;
+        private bool _belowHasCw;
+        private Renderer _meshR;
 
         public bool IsShaking => base.IsOwner ? _lmb : _shaking.Value;
 
@@ -66,9 +75,51 @@ namespace CatCooks.Food
             base.Awake();
             _canPickup = true;
             _cw = GetComponent<Cookware>();
+            // v23.55: 10 мастерков за раз — поднять вместимость тары «Грохот» (ассет общий только для грохотов)
+            if (_cw != null && _cw.Def != null && _cw.Def.Capacity < _trowels * 2)
+            {
+                int was = _cw.Def.Capacity;
+                _cw.Def.Capacity = _trowels * 2;
+                if (_log) Debug.Log($"[Грохот] «{name}»: вместимость {was} → {_cw.Def.Capacity} порций ({_trowels} мастерков)", this);
+            }
             if (_pile == null) _pile = transform.Find("Pile");
             if (_mesh == null) _mesh = transform.Find("Mesh");
             if (_pile != null) { _pileScale = _pile.localScale; _pileR = _pile.GetComponent<Renderer>(); }
+            if (_mesh != null) _meshR = _mesh.GetComponent<Renderer>();
+        }
+
+        /// <summary>v23.53: радиус сетки (м) — по модели сетки, иначе по грохоту.</summary>
+        private float MeshRadius()
+        {
+            if (_meshR != null) { Bounds b = _meshR.bounds; return Mathf.Max(0.03f, Mathf.Min(b.extents.x, b.extents.z) * 0.85f); }
+            Renderer r = GetComponentInChildren<Renderer>();
+            if (r != null) { Bounds b = r.bounds; return Mathf.Max(0.03f, Mathf.Min(b.extents.x, b.extents.z) * 0.7f); }
+            return 0.25f;
+        }
+
+        /// <summary>v23.53: пока трясут — сквозь сетку сыплется завеса мультяшных тучек, мука подпрыгивает на сетке. Только вид.</summary>
+        private void SiftFx()
+        {
+            if (Application.isBatchMode || !IsShaking || _cw == null || _cw.IsEmpty) { _curtainAcc = 0f; _topAcc = 0f; return; }
+            Vector3 from = _mesh != null ? _mesh.position : transform.position;
+            if (Time.time >= _belowAt)
+            {
+                _belowAt = Time.time + 0.2f;
+                Cookware c = FindBelow(out _belowPoint);
+                _belowHasCw = c != null;
+                if (c != null) _belowPoint = c.MouthPoint;
+            }
+            float rad = MeshRadius();
+            float size = Mathf.Clamp(rad * 2f, 0.08f, 1f);
+            Color col = TopColor();
+            _curtainAcc += Time.deltaTime * 55f;
+            int n = Mathf.Min(8, (int)_curtainAcc);
+            _curtainAcc -= n;
+            for (int i = 0; i < n; i++) CCPowderFx.SiftCurtain(from, _belowPoint, rad, col, size);
+            _topAcc += Time.deltaTime * 9f;
+            int m = Mathf.Min(3, (int)_topAcc);
+            _topAcc -= m;
+            for (int i = 0; i < m; i++) CCPowderFx.SiftTop(from + Vector3.up * size * 0.05f, rad, col, size);
         }
 
         public override void OnStartNetwork()
@@ -134,6 +185,8 @@ namespace CatCooks.Food
         private void LateUpdate()
         {
             _look.Late(base.IsOwner && _lmb, base.IsOwner && _lmb);
+            SiftFx();                                                            // v23.53
+            PlaceHeap();                                                         // v23.54
         }
 
         public override void UpdateHeldPose(Transform handAnchor)
@@ -229,17 +282,9 @@ namespace CatCooks.Food
         [ObserversRpc]
         private void RpcDust(Vector3 from, Vector3 to, Color color, bool intoCookware)
         {
-            Color c2 = Color.Lerp(color, Color.white, 0.4f);
-            Vector3 d = to - from;
-            float len = d.magnitude;
-            Vector3 dir = len > 1e-4f ? d / len : Vector3.down;
-            // сыплется струйкой пыли сквозь сетку
-            for (int i = 0; i < 3; i++)
-            {
-                Vector3 p = from + dir * (len * (i + 0.5f) / 3f) + Random.insideUnitSphere * 0.04f;
-                CCRuntimeParticles.Burst(p, Vector3.down, color, c2, 3, CCRuntimeParticles.Look.Dust.Scaled(0.25f));
-            }
-            if (intoCookware) CCRuntimeParticles.Burst(to, Vector3.up, color, c2, 4, CCRuntimeParticles.Look.Dust.Scaled(0.35f));
+            // v23.53: порция долетела — «пых» мультяшными тучками из тары (или облачко на полу, если трясёшь впустую)
+            float size = Mathf.Clamp(MeshRadius() * 2f, 0.08f, 1f);
+            CCPowderFx.SiftLand(to, color, intoCookware ? size : size * 0.7f);
         }
 
         private void Hint(string text)
@@ -251,8 +296,109 @@ namespace CatCooks.Food
 
         // ───────────────────────── ВИД: горка на сетке ─────────────────────────
 
+        // v23.54: ОБЪЁМНАЯ КУЧКА на сетке — тем же кодом, что кучка на мастерке (FoodSubstanceMesh), а не плоский купол.
+        private Transform _heapT;
+        private MeshFilter _heapMf;
+        private MeshRenderer _heapMr;
+        private Mesh _heapMesh;
+        private int _heapKey = -1;
+        private float _heapBounce;
+
+        /// <summary>Свои «рисовальщики» содержимого у грохота (жидкость/кучка тары) — выключить: кучку рисует грохот.</summary>
+        private void MuteCookwareVisuals()
+        {
+            foreach (CookwareLiquidVisual lv in GetComponentsInChildren<CookwareLiquidVisual>(true))
+            {
+                if (lv.enabled) lv.enabled = false;
+                for (int i = 0; i < lv.transform.childCount; i++)
+                {
+                    Transform c = lv.transform.GetChild(i);
+                    if (c != _heapT && c.name.EndsWith("(auto)") && c.gameObject.activeSelf) c.gameObject.SetActive(false);
+                }
+            }
+            foreach (CookwareHeapVisual hv in GetComponentsInChildren<CookwareHeapVisual>(true))
+            {
+                if (hv.enabled) hv.enabled = false;
+                FoodHeapRenderer fh = hv.GetComponent<FoodHeapRenderer>();
+                if (fh != null && fh.enabled) fh.enabled = false;
+                if (hv.gameObject != gameObject) foreach (Renderer r in hv.GetComponentsInChildren<Renderer>(true)) r.enabled = false;
+            }
+        }
+
+        /// <summary>v23.54: построить кучку по содержимому. false — вещество не нашлось (тогда старый купол Pile).</summary>
+        private bool RefreshHeap()
+        {
+            MuteCookwareVisuals();
+            FoodDatabase db = FoodDatabase.Instance;
+            int total = _cw.TotalCount;
+            BagView top = default(BagView);
+            bool has = false;
+            for (int i = _cw.ViewCount - 1; i >= 0; i--) { BagView v = _cw.GetView(i); if (v.Count > 0) { top = v; has = true; break; } }
+            if (!has || total <= 0 || db == null)
+            {
+                if (_heapT != null) _heapT.gameObject.SetActive(false);
+                _heapKey = -1;
+                return true;
+            }
+            ProductDef def = db.Get(top.Product);
+            FoodSubstance sub = def != null ? FoodSubstanceTable.Resolve(def, top.State) : null;
+            if (sub == null) return false;
+            int key = total * 4096 + top.Product * 8 + (int)top.State % 8;
+            if (key == _heapKey && _heapT != null && _heapT.gameObject.activeSelf) return true;
+            _heapKey = key;
+            if (_heapT == null)
+            {
+                var go = new GameObject("SifterHeap (auto)");
+                go.layer = gameObject.layer;
+                _heapT = go.transform;
+                _heapT.SetParent(transform, false);
+                _heapMf = go.AddComponent<MeshFilter>();
+                _heapMr = go.AddComponent<MeshRenderer>();
+                _heapMr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                _heapMesh = new Mesh { name = "SifterHeap (auto)", hideFlags = HideFlags.DontSave };
+                _heapMesh.MarkDynamic();
+                _heapMf.sharedMesh = _heapMesh;
+            }
+            _heapT.gameObject.SetActive(true);
+            // размер: от сетки; чем больше насыпано — тем шире и выше (как горка с мастерка, объёмная)
+            float k = _cw.Capacity > 0 ? Mathf.Clamp01(total / (float)_cw.Capacity) : 0.5f;
+            float rad = MeshRadius();
+            var d = new FoodSubstanceMesh.Dims();
+            d.Rx = d.Rz = rad * Mathf.Lerp(0.32f, 0.8f, Mathf.Sqrt(k));
+            d.H = d.Rx * Mathf.Lerp(0.55f, 0.8f, k) * Mathf.Max(0.6f, sub.FloorSlope * sub.BladeHeight);
+            d.Edge = 0f;
+            d.RectN = 2f;
+            Color col = sub.ColorFor(FoodColors.Of(def, top.State));
+            int seed = (base.NetworkObject != null && base.NetworkObject.IsSpawned ? base.NetworkObject.ObjectId * 17 : 7) + total;
+            if (sub.Look == SubstanceLook.Crystals) FoodSubstanceMesh.Crystals(_heapMesh, d, sub.CrystalSize, sub.CrystalDensity, col, seed);
+            else FoodSubstanceMesh.Powder(_heapMesh, d, sub.Wonky, col, seed, sub.Sugar);
+            Material m = sub.GetMaterial();
+            if (m != null) _heapMr.sharedMaterial = m;
+            PlaceHeap();
+            return true;
+        }
+
+        /// <summary>Кучка — на сетке, в метрах мира (грохот бывает отмасштабирован), чуть подпрыгивает, когда трясут.</summary>
+        private void PlaceHeap()
+        {
+            if (_heapT == null || !_heapT.gameObject.activeSelf) return;
+            Vector3 c = _meshR != null ? _meshR.bounds.center : (_mesh != null ? _mesh.position : transform.position);
+            _heapBounce = IsShaking ? Mathf.Abs(Mathf.Sin(Time.time * 22f)) : Mathf.MoveTowards(_heapBounce, 0f, Time.deltaTime * 4f);
+            float rad = MeshRadius();
+            _heapT.position = c + transform.up * (rad * 0.03f * _heapBounce);
+            _heapT.rotation = transform.rotation;
+            Vector3 ls = transform.lossyScale;
+            float sq = 1f - 0.08f * _heapBounce;                                 // трясут — кучка приседает
+            _heapT.localScale = new Vector3(1f / Mathf.Max(1e-5f, Mathf.Abs(ls.x)) / Mathf.Sqrt(sq), sq / Mathf.Max(1e-5f, Mathf.Abs(ls.y)), 1f / Mathf.Max(1e-5f, Mathf.Abs(ls.z)) / Mathf.Sqrt(sq));
+        }
+
         private void RefreshPile()
         {
+            if (RefreshHeap())                                                  // v23.54: объёмная кучка вместо купола
+            {
+                if (_pile != null && _pile.gameObject.activeSelf) _pile.gameObject.SetActive(false);
+                return;
+            }
             if (_pile == null) return;
             float k = _cw.Capacity > 0 ? Mathf.Clamp01(_cw.TotalCount / (float)_cw.Capacity) : 0f;
             _pile.gameObject.SetActive(k > 0.001f);

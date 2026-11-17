@@ -94,6 +94,100 @@ namespace CatCooks.Food
         /// <summary>Сбросить кэш (после правки таблицы в редакторе).</summary>
         public static void Reload() { _loaded = false; _inst = null; _cache.Clear(); }
 
+        private static FoodSubstance _iceProfile;
+        /// <summary>v23.35: профиль «Мороженое» создаётся кодом (ассет не нужен): держит ком, рисуется шариками.</summary>
+        public static FoodSubstance IceCreamProfile
+        {
+            get
+            {
+                if (_iceProfile != null) return _iceProfile;
+                _iceProfile = ScriptableObject.CreateInstance<FoodSubstance>();
+                _iceProfile.name = "Substance_IceCream (auto)";
+                _iceProfile.hideFlags = HideFlags.DontSave;
+                _iceProfile.Title = "Мороженое (шарики)";
+                _iceProfile.Look = SubstanceLook.IceCream;
+                _iceProfile.Flow = SubstanceFlow.HoldsLump;
+                _iceProfile.UseProductColor = true;
+                _iceProfile.Brightness = 1.03f;
+                _iceProfile.InCookware = false;
+                _iceProfile.FloorSlope = 0.9f;
+                _iceProfile.Wonky = 0.5f;
+                _iceProfile.BladeHeight = 1.4f;
+                _iceProfile.Curl = 0.3f;
+                _iceProfile.Jiggle = 0.12f;
+                _iceProfile.BladeCover = 0.75f;
+                _iceProfile.BladeVolume = 4f;
+                _iceProfile.SmearNotPiece = true;
+                _iceProfile.StickToCookware = false;
+                return _iceProfile;
+            }
+        }
+
+        private static FoodSubstance _almondMix;
+
+        /// <summary>
+        /// v23.62: профиль «Миндальная смесь» кодом — копия профиля миндальной муки (рыхлая горка, крупное зерно)
+        /// + крупинки сахара (Sugar). Цвет — мука чуть светлее (в ней сахар).
+        /// </summary>
+        public static FoodSubstance AlmondMixProfile(ProductDef mix)
+        {
+            if (_almondMix != null) return _almondMix;
+            FoodDatabase db = FoodDatabase.Instance;
+            ProductDef flour = MacaronTitles.Find(db, "Мука миндальная");
+            FoodSubstance src = flour != null ? Resolve(flour, FoodState.None) : null;
+            if (src != null && src.Look == SubstanceLook.Powder) _almondMix = UnityEngine.Object.Instantiate(src);
+            else
+            {
+                _almondMix = ScriptableObject.CreateInstance<FoodSubstance>();
+                _almondMix.Look = SubstanceLook.Powder;
+                _almondMix.Flow = SubstanceFlow.Spills;
+                _almondMix.FloorSlope = 0.6f;
+                _almondMix.Wonky = 0.5f;
+                _almondMix.BladeHeight = 1.2f;
+                _almondMix.DustOnScoop = true;
+            }
+            _almondMix.name = "Substance_AlmondMix (auto)";
+            _almondMix.hideFlags = HideFlags.DontSave;
+            _almondMix.Title = "Миндальная смесь (мука + сахар)";
+            _almondMix.Material = null;
+            _almondMix.Sugar = 1f;
+            Color fc = flour != null ? FoodColors.Of(flour, FoodState.None) : new Color(0.93f, 0.82f, 0.62f);
+            _almondMix.UseProductColor = false;
+            _almondMix.Brightness = 1f;
+            Color mc = Color.Lerp(fc, new Color(0.985f, 0.975f, 0.95f), 0.2f); mc.a = 1f;
+            _almondMix.Color = mc;
+            return _almondMix;
+        }
+
+        private static FoodSubstance _merProfile;
+        /// <summary>v23.51: профиль «Меренга» кодом: на мастерке, лопате и полу — безе-розочка с пикой, белая, дрожит.</summary>
+        public static FoodSubstance MeringueProfile
+        {
+            get
+            {
+                if (_merProfile != null) return _merProfile;
+                _merProfile = ScriptableObject.CreateInstance<FoodSubstance>();
+                _merProfile.name = "Substance_Meringue (auto)";
+                _merProfile.hideFlags = HideFlags.DontSave;
+                _merProfile.Title = "Меренга (розочка)";
+                _merProfile.Look = SubstanceLook.Meringue;
+                _merProfile.Flow = SubstanceFlow.HoldsLump;
+                _merProfile.UseProductColor = true;
+                _merProfile.Brightness = 1.05f;
+                _merProfile.InCookware = false;
+                _merProfile.FloorSlope = 0.9f;
+                _merProfile.Wonky = 0.4f;
+                _merProfile.BladeHeight = 1.5f;
+                _merProfile.Curl = 0.3f;
+                _merProfile.Jiggle = 0.25f;
+                _merProfile.BladeCover = 0.7f;
+                _merProfile.BladeVolume = 4f;
+                _merProfile.SmearNotPiece = true;
+                _merProfile.StickToCookware = false;
+                return _merProfile;
+            }
+        }
+
         public static FoodSubstance Resolve(ProductDef p, FoodState s)
         {
             if (p == null) return null;
@@ -113,6 +207,15 @@ namespace CatCooks.Food
                 if (r.Substance != null && r.Product == p && (r.State == FoodState.None || r.State == s)) return r.Substance;
 
             string title = string.IsNullOrEmpty(p.Title) ? "" : p.Title.ToLowerInvariant();
+            // v23.35: мороженое (не смесь, не растаявшее) — шариками после ложки на мастерке, лопате и полу
+            if (title.Contains("морожен") && !title.Contains("смесь") && s != FoodState.Melted && s != FoodState.Dissolved)
+                return IceCreamProfile;
+            // v23.62: миндальная смесь (мука миндальная + сахар из грохота) — порошок муки с крошечными блестящими кубиками сахара
+            if (title.Contains("миндальная смесь") && s != FoodState.Melted && s != FoodState.Dissolved)
+                return AlmondMixProfile(p);
+            // v23.51: меренга (не перебитая) — безе-розочкой
+            if (title.Contains("меренг") && !title.Contains("перебит") && s != FoodState.Melted && s != FoodState.Dissolved)
+                return MeringueProfile;
             // v18.10: «жидкое» = только РАСТОПЛЕНО / растворилось. Состояния «В таре» и «Налито» — это просто
             // «лежит в ведре»: сливочное масло в ведре именно так и хранится. Раньше они тоже пропускались —
             // поэтому у масла в ведре и на мастерке профиль не находился и всё выглядело по-старому.

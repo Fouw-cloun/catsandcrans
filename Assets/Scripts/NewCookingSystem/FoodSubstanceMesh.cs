@@ -71,7 +71,10 @@ namespace CatCooks.Food
 
         // ───────────────────────── ПОРОШОК ─────────────────────────
 
-        public static void Powder(Mesh m, Dims d, float wonky, Color col, int seed)
+        public static void Powder(Mesh m, Dims d, float wonky, Color col, int seed) { Powder(m, d, wonky, col, seed, 0f); }
+
+        /// <summary>v23.62: sugar &gt; 0 — СМЕСЬ с сахаром: по муке рассыпаны крошечные блестящие кубики-кристаллы.</summary>
+        public static void Powder(Mesh m, Dims d, float wonky, Color col, int seed, float sugar)
         {
             Begin();
             Rings = 30; Segs = 84;
@@ -164,6 +167,22 @@ namespace CatCooks.Food
                     float sz = R * Mathf.Lerp(0.022f, 0.045f, coarse) * (0.6f + 0.8f * (float)rnd.NextDouble());
                     if (i >= nc - (darkP || beige > 0.3f ? 45 : 20)) sz *= 0.5f;             // мелкие песчинки
                     Blob(new Vector3(Mathf.Cos(a) * rr * d.Rx, sz * 0.45f, Mathf.Sin(a) * rr * d.Rz), sz, 0.9f, cc);
+                }
+            }
+            // v23.62: крупинки сахара — крошечные белые кубики по всей горке (блестят гранями), в таре — по поверхности
+            if (sugar > 0.001f)
+            {
+                float cs = Mathf.Max(0.0012f, R * 0.016f);
+                float area = Mathf.PI * d.Rx * d.Rz;
+                int ns = Mathf.Clamp(Mathf.RoundToInt(area / (cs * cs) * 0.06f * sugar), 60, 900);
+                for (int i = 0; i < ns; i++)
+                {
+                    float rr = Mathf.Sqrt((float)rnd.NextDouble()) * (mound ? 0.95f : 0.97f), a = (float)rnd.NextDouble() * 6.28f;
+                    float x = Mathf.Cos(a) * rr * d.Rx, z = Mathf.Sin(a) * rr * d.Rz;
+                    float sz = cs * (0.5f + (float)rnd.NextDouble() * 0.9f);
+                    Quaternion q = Quaternion.Euler((float)rnd.NextDouble() * 360f, (float)rnd.NextDouble() * 360f, (float)rnd.NextDouble() * 360f);
+                    float tint = 0.97f + (float)rnd.NextDouble() * 0.03f;
+                    Cube(new Vector3(x, hf(x, z, rr, a) + sz * 0.2f, z), q, sz, new Color(tint, tint, tint * 0.985f, 1f));
                 }
             }
             Finish(m);
@@ -364,6 +383,184 @@ namespace CatCooks.Food
         }
 
         /// <summary>v23.9: МАСЛО НА ПОЛОТНЕ — тонкий брусок-пластинка с бороздками (без стружки).</summary>
+        // ───────────────────────── v23.35: МОРОЖЕНОЕ (шарики после ложки) ─────────────────────────
+
+        /// <summary>
+        /// v23.35: МОРОЖЕНОЕ на мастерке / лопате / полу — 2–3 слепленных шарика, как из ложки-скупа:
+        /// не идеальные (приплюснуты, бугристые), на каждом изогнутые бороздки от ложки, губа-завиток с одной стороны,
+        /// снизу срез (стоят на полотне); третий шарик — сверху между двумя. Редкие чёрные точки ванили.
+        /// </summary>
+        public static void IceCream(Mesh m, Dims d, Color col, int seed)
+        {
+            Begin();
+            var rnd = new System.Random(seed);
+            if (d.Edge <= 0.001f) d = SoftScaled(d);                                   // как паста и масло: крупно
+            float Rm = Mathf.Max(1e-4f, Mathf.Min(d.Rx, d.Rz));
+            int n = 1;                                                               // v23.36: один шарик
+            float r = Rm * 0.8f;
+            float a0 = (float)rnd.NextDouble() * 6.28f;
+            Vector2 ax = new Vector2(Mathf.Cos(a0), Mathf.Sin(a0));
+            var cs = new Vector3[Mathf.Max(2, n)];
+            var rs = new float[Mathf.Max(2, n)];
+            rs[0] = r * (0.95f + 0.1f * (float)rnd.NextDouble());
+            rs[1] = r * (0.85f + 0.1f * (float)rnd.NextDouble());
+            float sep = (rs[0] + rs[1]) * 0.62f;
+            if (n == 1) cs[0] = Vector3.zero;
+            else
+            {
+                cs[0] = new Vector3(-ax.x * sep * 0.5f, 0f, -ax.y * sep * 0.5f);
+                cs[1] = new Vector3(ax.x * sep * 0.5f, 0f, ax.y * sep * 0.5f) + new Vector3(-ax.y, 0f, ax.x) * r * 0.12f;
+            }
+            if (n == 3)
+            {
+                rs[2] = r * (0.8f + 0.1f * (float)rnd.NextDouble());
+                cs[2] = new Vector3(-ax.y * r * 0.1f, 0f, ax.x * r * 0.1f);
+            }
+            for (int k = 0; k < n; k++)
+            {
+                float rk = rs[k];
+                float baseY = k == 2 ? rs[0] * 1.05f : 0f;                           // верхний шарик лежит на двух нижних
+                float squash = 0.9f + 0.07f * (float)rnd.NextDouble();
+                float cut = -0.6f;                                                   // срез снизу (доля радиуса): почти шар
+                Vector3 c = cs[k] + Vector3.up * (baseY - cut * rk * squash);
+                ScoopBall(c, rk, squash, cut, col, rnd);
+            }
+            // чёрные точки ванили — по верхней части шариков
+            Color vd = new Color(0.07f, 0.05f, 0.04f, 1f);
+            int dots = 150 + n * 30;                                                 // v23.37: точек сильно больше и они крошечные
+            for (int i = 0; i < dots; i++)
+            {
+                int k = rnd.Next(n);
+                float u = (float)rnd.NextDouble() * 6.2832f, v = Mathf.Acos(Mathf.Lerp(0.98f, -0.45f, (float)rnd.NextDouble()));   // v23.37: по всему шарику равномерно
+                Vector3 dir = new Vector3(Mathf.Sin(v) * Mathf.Cos(u), Mathf.Cos(v), Mathf.Sin(v) * Mathf.Sin(u));
+                float rk = rs[k];
+                float baseY = k == 2 ? rs[0] * 1.05f : 0f;
+                Vector3 c = cs[k] + Vector3.up * (baseY + 0.6f * rk * 0.93f);
+                Vector3 p = c + new Vector3(dir.x * rk, dir.y * rk * 0.9f, dir.z * rk) * 1.01f;
+                Blob(p, rk * (0.006f + 0.004f * (float)rnd.NextDouble()), 0.45f, vd);
+            }
+            Finish(m);
+        }
+
+        /// <summary>Один шарик мороженого: сфера, приплюснута, срезана снизу, бороздки от ложки, губа, бугристость.</summary>
+        private static void ScoopBall(Vector3 c, float r, float squash, float cut, Color col, System.Random rnd)
+        {
+            const int RR = 18, SS = 30;
+            int start = V.Count;
+            float aD = (float)rnd.NextDouble() * 6.2832f;                            // куда тянули ложку
+            Vector3 drag = new Vector3(Mathf.Cos(aD), 0.25f, Mathf.Sin(aD)).normalized;
+            Vector3 side = Vector3.Cross(drag, Vector3.up).normalized;
+            float p1 = (float)rnd.NextDouble() * 10f, p2 = (float)rnd.NextDouble() * 10f;
+            float phiCut = Mathf.Acos(Mathf.Clamp(cut, -1f, 1f));                   // ниже — срез
+            for (int i = 0; i <= RR; i++)
+            {
+                float phi = i / (float)RR * phiCut;
+                for (int j = 0; j < SS; j++)
+                {
+                    float th = j / (float)SS * Mathf.PI * 2f;
+                    Vector3 nd = new Vector3(Mathf.Sin(phi) * Mathf.Cos(th), Mathf.Cos(phi), Mathf.Sin(phi) * Mathf.Sin(th));
+                    // бороздки ложки: изогнутые параллельные полосы поперёк шарика
+                    float sv = Vector3.Dot(nd, drag) + 0.35f * Vector3.Dot(nd, side) * Vector3.Dot(nd, side);
+                    float rib = Mathf.Sin(sv * 13f + p1);
+                    float upper = Mathf.Clamp01((nd.y + 0.2f) / 0.6f);
+                    float ribD = rib * 0.03f * upper;
+                    // губа-завиток: валик с одной стороны внизу шарика
+                    float lipA = Vector3.Dot(new Vector3(nd.x, 0f, nd.z), new Vector3(drag.x, 0f, drag.z));
+                    float lip = Mathf.Exp(-((nd.y + 0.15f) / 0.12f) * ((nd.y + 0.15f) / 0.12f)) * Mathf.Clamp01(lipA * 1.6f) * 0.09f;
+                    // «грязно»: бугры и сколы
+                    float lumpy = (Mathf.Sin(nd.x * 5.1f + p2) * Mathf.Sin(nd.z * 4.3f + p1) * 0.5f + Mathf.Sin(nd.y * 6.7f + nd.x * 3.1f + p2) * 0.5f) * 0.05f;
+                    float rr = r * (1f + ribD + lip + lumpy);
+                    Vector3 pos = c + new Vector3(nd.x * rr, nd.y * rr * squash, nd.z * rr);
+                    if (i == RR) pos.y = c.y + cut * r * squash;                   // ровное дно-срез
+                    V.Add(pos);
+                    float tone = 1f - Mathf.Clamp01(-rib) * 0.09f * upper;            // в бороздке темнее
+                    float crest = Mathf.Clamp01(rib - 0.6f) * 2.5f * upper + lip * 6f;
+                    C.Add(new Color(col.r * tone, col.g * tone, col.b * tone, 1f - Mathf.Clamp01(crest)));
+                }
+            }
+            for (int i = 0; i < RR; i++)
+                for (int j = 0; j < SS; j++)
+                {
+                    int j1 = (j + 1) % SS;
+                    int a = start + i * SS + j, b = start + i * SS + j1, c2 = a + SS, d2 = b + SS;
+                    T.Add(a); T.Add(b); T.Add(c2);
+                    T.Add(b); T.Add(d2); T.Add(c2);
+                }
+            // донышко (закрыть срез)
+            int ctr = V.Count;
+            V.Add(new Vector3(c.x, c.y + cut * r * squash, c.z));
+            C.Add(new Color(col.r * 0.9f, col.g * 0.9f, col.b * 0.9f, 1f));
+            int ring = start + RR * SS;
+            for (int j = 0; j < SS; j++) { int j1 = (j + 1) % SS; T.Add(ctr); T.Add(ring + j); T.Add(ring + j1); }
+        }
+
+        /// <summary>
+        /// v23.51: МЕРЕНГА на мастерке / лопате / полу — одна отсаженная «безе-розочка», как с кондитерского мешка:
+        /// жгут винтом поднимается к мягкой пике с загнутым кончиком, на жгуте бороздки от насадки-звёздочки.
+        /// Белая (цвет продукта почти не тянет), чуть неровная. Низ ровный — стоит на полотне.
+        /// </summary>
+        public static void MeringueKiss(Mesh m, Dims d, Color col, int seed)
+        {
+            Begin();
+            var rnd = new System.Random(seed);
+            if (d.Edge <= 0.001f) d = SoftScaled(d);
+            float R = Mathf.Max(1e-4f, Mathf.Min(d.Rx, d.Rz)) * 0.85f;
+            float H = R * (1.6f + 0.25f * (float)rnd.NextDouble());
+            Color white = Color.Lerp(new Color(0.99f, 0.98f, 0.96f, 1f), col, 0.12f);
+            float ph = (float)rnd.NextDouble() * 6.2832f;
+            float turns = 2.4f + 0.4f * (float)rnd.NextDouble();               // витков жгута снизу доверху
+            float leanA = (float)rnd.NextDouble() * 6.2832f;
+            Vector2 lean = new Vector2(Mathf.Cos(leanA), Mathf.Sin(leanA)) * R * 0.22f;
+            const int RR = 30, SS = 44;
+            int start = V.Count;
+            for (int i = 0; i <= RR; i++)
+            {
+                float v = i / (float)RR;
+                // силуэт: широкое мягкое основание → «луковка» → тонкая пика
+                float body = Mathf.Pow(Mathf.Max(0f, 1f - Mathf.Pow(v, 1.25f)), 0.85f);
+                float foot = 1f + 0.12f * Mathf.Exp(-v * 18f);                    // чуть растёкся у полотна
+                for (int j = 0; j < SS; j++)
+                {
+                    float th = j / (float)SS * Mathf.PI * 2f;
+                    // жгут винтом: валики, которые поднимаются по спирали
+                    float coil = 0.5f + 0.5f * Mathf.Cos(2f * Mathf.PI * (turns * v) - th + ph);
+                    coil = coil * coil;
+                    // насадка-звёздочка: 7 бороздок, закручены вместе с жгутом
+                    float star = Mathf.Cos(7f * (th + v * 2.2f) + ph);
+                    float ridge = 0.24f * coil * (1f - v * 0.5f) + 0.06f * star * (1f - v * 0.8f);
+                    float rr = R * body * foot * (1f + ridge);
+                    float tip = Mathf.Pow(Mathf.Max(0f, (v - 0.7f) / 0.3f), 2f);     // кончик загибается
+                    Vector3 p = new Vector3(Mathf.Cos(th) * rr + lean.x * tip, H * v + coil * R * 0.08f * (1f - v), Mathf.Sin(th) * rr + lean.y * tip);
+                    if (i == 0) p.y = 0f;
+                    V.Add(p);
+                    float groove = Mathf.Clamp01(-star) * (1f - v) * 0.5f + (1f - coil) * 0.35f * (1f - v);
+                    float tone = 1f - 0.06f * groove;
+                    C.Add(new Color(white.r * tone, white.g * tone, white.b * tone, 1f - 0.5f * groove));
+                }
+            }
+            for (int i = 0; i < RR; i++)
+                for (int j = 0; j < SS; j++)
+                {
+                    int j1 = (j + 1) % SS;
+                    int a = start + i * SS + j, b = start + i * SS + j1, c2 = a + SS, d2 = b + SS;
+                    T.Add(a); T.Add(c2); T.Add(b);
+                    T.Add(b); T.Add(c2); T.Add(d2);
+                }
+            // макушка — точка пики
+            int top = V.Count;
+            Vector3 last = V[start + RR * SS];
+            V.Add(new Vector3(lean.x, H * 1.02f, lean.y));
+            C.Add(new Color(white.r, white.g, white.b, 1f));
+            int ring = start + RR * SS;
+            for (int j = 0; j < SS; j++) { int j1 = (j + 1) % SS; T.Add(ring + j); T.Add(top); T.Add(ring + j1); }
+            // донышко
+            int ctr = V.Count;
+            V.Add(Vector3.zero);
+            C.Add(new Color(white.r * 0.9f, white.g * 0.9f, white.b * 0.9f, 1f));
+            for (int j = 0; j < SS; j++) { int j1 = (j + 1) % SS; T.Add(ctr); T.Add(start + j); T.Add(start + j1); }
+            Finish(m);
+        }
+
         public static void ButterSmear(Mesh m, Dims d, float curl, Color col, int seed)
         {
             ButterCubes(m, d, col, seed, false);

@@ -10,6 +10,8 @@ namespace CatCooks.Food
         [InspectorName("Масло (рваное, фермерское)")]        Butter = 2,
         [InspectorName("Кристаллы (сахар, соль)")]            Crystals = 3,
         [InspectorName("Паста (гладкая, глянец, завиток — нутелла)")] Spread = 4,
+        [InspectorName("Мороженое (2–3 шарика, след ложки)")] IceCream = 5,
+        [InspectorName("Меренга (безе-розочка с пикой)")] Meringue = 6,
     }
 
     /// <summary>Поведение: что делает вещество, когда тару наклоняют.</summary>
@@ -106,6 +108,8 @@ namespace CatCooks.Food
         [Range(0.01f, 0.15f)] public float CrystalSize = 0.05f;
         [Tooltip("Сколько кристалликов на кучке (густота)")]
         [Range(0.1f, 2f)] public float CrystalDensity = 1f;
+        [Tooltip("v23.62: смесь с сахаром — по порошку крошечные блестящие кубики (0 — нет). Миндальная смесь ставит сама")]
+        [Range(0f, 2f)] public float Sugar = 0f;
 
         [Header("Пропорции (смесь по рецепту)")]
         [Tooltip("v19: результат рецепта «перемешать» считается по ПРОПОРЦИЯМ: в допуске рецепта — норма (хуже только оценка), " +
@@ -137,7 +141,7 @@ namespace CatCooks.Food
         }
 
         private static Material _autoPowder, _autoButter, _autoSugar, _autoSpread;
-        private static Material[] _anime = new Material[5];
+        private static Material[] _anime = new Material[7];
         private static bool _animeWarned;
 
         /// <summary>
@@ -152,6 +156,11 @@ namespace CatCooks.Food
         /// <summary>Материал вещества: свой или созданный по виду.</summary>
         public Material GetMaterial()
         {
+            if (AnimeHeaps && Look == SubstanceLook.Powder && Sugar > 0.001f)
+            {
+                Material sm = SugarMixMaterial();                                   // v23.62: мука с искрами сахара
+                if (sm != null) return sm;
+            }
             if (AnimeHeaps && OwnLook)
             {
                 if (Material != null && Material.shader != null && Material.shader.name == AnimeShader) return Material;
@@ -169,7 +178,7 @@ namespace CatCooks.Food
                 if (_autoPowder == null) _autoPowder = Make("CatCooks/Powder Heap", "CC Substance Powder (auto)");
                 return _autoPowder;
             }
-            if (look == SubstanceLook.Butter)
+            if (look == SubstanceLook.Butter || look == SubstanceLook.IceCream || look == SubstanceLook.Meringue)
             {
                 if (_autoButter == null) { _autoButter = Make("CatCooks/Toon Food", "CC Substance Butter (auto)"); ToonPreset(_autoButter, SubstanceLook.Butter); }   // v19.2: Toon Food v3
                 return _autoButter;
@@ -189,6 +198,21 @@ namespace CatCooks.Food
                 return _autoSpread;
             }
             return null;
+        }
+
+        private static Material _sugarMix;
+
+        /// <summary>v23.62: порошок-смесь с сахаром: тот же аниме-порошок, но с искорками и лёгким бликом на гранях кубиков.</summary>
+        public static Material SugarMixMaterial()
+        {
+            if (_sugarMix != null) return _sugarMix;
+            Material b = AnimeMaterial(SubstanceLook.Powder);
+            if (b == null) return null;
+            _sugarMix = new Material(b) { name = "CC Anime Heap PowderSugar (auto)", hideFlags = HideFlags.DontSave };
+            SetF(_sugarMix, "_HSparkle", 0.45f);
+            SetF(_sugarMix, "_HSpec", 0.35f);
+            SetF(_sugarMix, "_HSpecSize", 0.975f);
+            return _sugarMix;
         }
 
         /// <summary>v23.6: общий аниме-материал вида (создаётся один раз, настройки — <see cref="AnimePreset"/>).</summary>
@@ -235,6 +259,24 @@ namespace CatCooks.Food
                 SetF(m, "_HSpecSize", 0.986f); SetF(m, "_HSpecBreak", 0.15f); SetF(m, "_HBounceAmt", 0.5f); SetF(m, "_HTermGlow", 0.55f);
                 SetF(m, "_HLayers", 0f); SetF(m, "_HSparkle", 0.05f); SetF(m, "_HBrush", 0.08f); SetF(m, "_HInk", 0.15f);
                 SetF(m, "_HSat", 1.3f); SetF(m, "_HRim", 0.55f); SetF(m, "_HSss", 0.5f); SetF(m, "_HOutline", 1.6f);
+            }
+            else if (look == SubstanceLook.IceCream)
+            {
+                // v23.35: мороженое — матовое, мягкая холодная тень, обводка, без блеска и искр
+                SetF(m, "_HKind", 1f); SetF(m, "_HShadeDepth", 0.84f); SetF(m, "_HDeep", 0.66f); SetF(m, "_HTermGlow", 0.15f);
+                SetF(m, "_HInk", 0.3f); SetF(m, "_HSat", 1.05f); SetF(m, "_HSpec", 0.12f); SetF(m, "_HSpecSize", 0.96f);
+                SetF(m, "_HSparkle", 0f); SetF(m, "_HRim", 0.45f); SetF(m, "_HBounceAmt", 0.3f); SetF(m, "_HLayers", 0f);
+                SetF(m, "_HBrush", 0.12f); SetF(m, "_HOutline", 2f); SetF(m, "_HSss", 0f);
+                if (m.HasProperty("_HShadeCool")) m.SetColor("_HShadeCool", new Color(0.8f, 0.88f, 1f, 1f));
+            }
+            else if (look == SubstanceLook.Meringue)
+            {
+                // v23.51: меренга — белая, нежная: мягкая сиреневая тень, лёгкий атласный блик, обводка
+                SetF(m, "_HKind", 1f); SetF(m, "_HShadeDepth", 0.86f); SetF(m, "_HDeep", 0.7f); SetF(m, "_HTermGlow", 0.1f);
+                SetF(m, "_HInk", 0.25f); SetF(m, "_HSat", 1f); SetF(m, "_HSpec", 0.25f); SetF(m, "_HSpecSize", 0.97f);
+                SetF(m, "_HSparkle", 0f); SetF(m, "_HRim", 0.5f); SetF(m, "_HBounceAmt", 0.35f); SetF(m, "_HLayers", 0f);
+                SetF(m, "_HBrush", 0.06f); SetF(m, "_HOutline", 2f); SetF(m, "_HSss", 0.2f);
+                if (m.HasProperty("_HShadeCool")) m.SetColor("_HShadeCool", new Color(0.86f, 0.84f, 1f, 1f));
             }
             else if (look == SubstanceLook.Crystals)
             {

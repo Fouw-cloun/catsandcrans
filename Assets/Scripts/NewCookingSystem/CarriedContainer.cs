@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using FishNet.Object;
 using FishNet.Object.Synchronizing;
 using UnityEngine;
@@ -427,9 +428,16 @@ namespace CatCooks.Food
             while (_scoopAcc >= 1f)
             {
                 _scoopAcc -= 1f;
+                _carriedTmp.Clear();
                 if (!TakeOne(from, out ushort product, out FoodState state, out byte cook)) break;
                 int added = _self.ServerAddContent(product, state, 1, cook, false);
-                if (added < 1) { from.ServerAddContent(product, state, 1, cook, false); break; }
+                if (added < 1)
+                {
+                    from.ServerAddContent(product, state, 1, cook, false);
+                    foreach (BagEntry c in _carriedTmp) from.ServerAddContent(c.Product, c.State, c.Count, c.Cook, false);
+                    break;
+                }
+                foreach (BagEntry c in _carriedTmp) _self.ServerAddContent(c.Product, c.State, c.Count, c.Cook, false);   // v23.27: сахар — вместе с молоком
                 _scoopedTotal++;
                 _scoopFrom = from.name;
                 from.ServerAgitate(0.6f);
@@ -441,6 +449,8 @@ namespace CatCooks.Food
         /// Одна порция из тары: сперва ЖИДКОСТЬ сверху (вода, соус — то, что ведро черпает),
         /// только если жидкого нет совсем — верхнее что есть (кусочки, кучка).
         /// </summary>
+        private static readonly List<BagEntry> _carriedTmp = new List<BagEntry>();
+
         private static bool TakeOne(Cookware from, out ushort product, out FoodState state, out byte cook)
         {
             product = 0; state = FoodState.None; cook = 0;
@@ -455,7 +465,7 @@ namespace CatCooks.Food
                     liquid = role != CookwareLiquidVisual.Role.Floating && role != CookwareLiquidVisual.Role.Paste;
                 else liquid = FoodHeapLook.IsLiquid(db != null ? db.Get(v.Product) : null, v.State);
                 if (!liquid) continue;
-                if (from.ServerTake(v.Product, 1) <= 0) continue;
+                if (from.ServerTakeLiquid(v.Product, 1, _carriedTmp) <= 0) continue;   // v23.27: растворённое уходит с жидкостью
                 product = v.Product; state = v.State; cook = v.Cook;
                 return true;
             }

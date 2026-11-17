@@ -1022,6 +1022,8 @@ namespace CatCooks.Food
         // ── v23: глянцевые жидкости, яйца раздельно, кипение, кучки по порциям ──
         private float _glossyK, _liqFrac;
         private int _yolkN;
+        private int _yolkMixedN;                                                 // v23.28: сколько желтков уже размешано (не рисуем)
+        private float _yolkMixT;
         private Color _yolkColor = new Color(1f, 0.72f, 0.1f);
         private bool _eggWhiteLook;
         private bool _yolkPile;                                                             // v23.20: одни желтки — кучей
@@ -1110,6 +1112,7 @@ namespace CatCooks.Food
             _mpb.SetColor(AnimeVeinColorId, vc);
             float pores = _batterK > 0.01f ? _batterK : (_thickShown > 0.3f && !_eggWhiteLook ? 0.5f : 0f);
             if (_animeKind == 3) pores = 0f;                                    // v23.16: у теста свои пузырьки (слой шейдера)
+            if (_animeKind == 4) pores = 0f;                                    // v23.43: шоколад — гладкие слои, без пор и светлых капель
             if (Powder || Slab || _ice > 0) pores = 0f;
             _mpb.SetFloat(AnimePoresId, pores);
             // v23.10: многослойность — как у кучек: озерцо, ступени к стенке, складки по виду, мениск, блик-окно, контур
@@ -1125,7 +1128,15 @@ namespace CatCooks.Food
             _mpb.SetFloat(AnimeBreathId, EggClear ? 0f : BreathFor(_animeKind) * RadiusAtRim * meshK);
             _mpb.SetFloat(AnimeRadiusId, RadiusAtRim);                                        // v23.24: узор капель — по размеру тары
         }
-        private static readonly Color MilkChoc = new Color(0.6f, 0.4f, 0.26f, 1f);
+        /// <summary>v23.51: эффект взбивания (тучки, капли) сильнее во столько раз.</summary>
+        private const float WhipBoost = 3f;
+        /// <summary>v23.63: непрозрачность чистой карамели (1 — совсем плотная). Сквозь неё чуть видно дно кастрюли.</summary>
+        private const float CaramelOpacity = 0.78f;
+        /// <summary>v23.62: эффекты взбивания крупнее (тучки, взрывчики) — во столько раз по размеру.</summary>
+        private const float WhipSizeK = 2.4f;
+        /// <summary>v23.62: капель больше и они крупнее; плюс мелкие брызги-капельки.</summary>
+        private const float WhipDropK = 2f;
+        private static readonly Color MilkChoc = new Color(0.36f, 0.21f, 0.13f, 1f);   // v23.51: бисквитное тесто — шоколадное (было светлое 0.6/0.4/0.26)
         private static bool IsSpongeBatter(ProductDef d) => TitleHas(d, "бисквит");
         private static bool IsGlossyLiquid(ProductDef d) => TitleHas(d, "шоколад", "карамел", "мёд", "сироп", "глазур", "джем", "нутелл", "ганаш");
         private static bool IsYolkP(ProductDef d, FoodState s) => s == FoodState.Yolk || TitleHas(d, "желток");
@@ -1193,7 +1204,34 @@ namespace CatCooks.Food
             if (sub == null || !sub.OwnLook || FoodHeapLook.IsLiquid(d, st)) return false;
             if (sub.Look != SubstanceLook.Powder && sub.Look != SubstanceLook.Crystals) return false;
             int cap = _cookware != null && _cookware.Capacity > 0 ? _cookware.Capacity : 20;
-            return count < cap * 0.4f;
+            // v23.62: на меренге/жидкости сыпучее ВСЕГДА лежит кучками (мука, смесь, какао), пока не вмешают — даже много
+            return count < cap * (WetBase() ? 0.9f : 0.4f);
+        }
+
+        private int _wetFrame = -1;
+        private bool _wet, _thickBase;
+
+        /// <summary>v23.62: в таре есть основа не-сыпучая (жидкость, меренга, масса) — сыпучее на ней лежит кучками.</summary>
+        private bool WetBase()
+        {
+            if (_wetFrame == Time.frameCount) return _wet;
+            _wetFrame = Time.frameCount;
+            _wet = false; _thickBase = false;
+            FoodDatabase db = FoodDatabase.Instance;
+            if (_cookware == null || db == null) return false;
+            for (int i = 0; i < _cookware.ViewCount; i++)
+            {
+                BagView v = _cookware.GetView(i);
+                if (v.Count <= 0) continue;
+                ProductDef d = db.Get(v.Product);
+                if (d == null) continue;
+                string tt = string.IsNullOrEmpty(d.Title) ? "" : d.Title.ToLowerInvariant();
+                if (tt.Contains("меренг") || tt.Contains("тесто") || tt.Contains("крем") || tt.Contains("масса")) { _wet = true; _thickBase = true; }
+                if (FoodHeapLook.IsLiquid(d, v.State)) { _wet = true; continue; }
+                FoodSubstance sub = FoodSubstance.Of(d, v.State);
+                if (sub != null && sub.OwnLook && sub.Look != SubstanceLook.Powder && sub.Look != SubstanceLook.Crystals && !d.Solid) _wet = true;
+            }
+            return _wet;
         }
 
         private void RebuildToppings()
@@ -1351,7 +1389,11 @@ namespace CatCooks.Food
         /// </summary>
         private void UpdateBoil(float dt)
         {
-            float target = Time.time - _boilSetT < 0.5f ? _boilTarget : 0f;
+            // v23.39: густое и вязкое (шоколадная масса, тесто, меренга, мороженое, мёд, яичная масса) на огне НЕ кипит пузырями —
+            // просто греется/тает (чистый переход без «взрывов»); кипят только жидкие (вода, молоко, бульон)
+            int ak = _animeKind;
+            bool calmMass = ak == 2 || ak == 3 || ak == 4 || ak == 5 || ak == 7 || ak == 8 || ak == 9 || _glossyK > 0.3f || Stiff > 0.35f || _batterK > 0.3f;
+            float target = Time.time - _boilSetT < 0.5f && !calmMass ? _boilTarget : 0f;
             _boil = Mathf.MoveTowards(_boil, target, dt * (target > _boil ? 0.7f : 0.5f));
             float S = Scale, R = Mathf.Max(0.04f, RadiusAtRim);
             float thick = Mathf.Max(Stiff, Mathf.Max(_glossyK * 0.7f, _viscK));
@@ -1561,7 +1603,8 @@ namespace CatCooks.Food
         private void SyncYolks()
         {
             if (Application.isBatchMode) return;
-            int want = Mathf.Min(_yolkN, _yolkPile ? 16 : 24);                   // v23.20: куча — до 16
+            if (_yolkMixedN > _yolkN) _yolkMixedN = _yolkN;                      // v23.28: размешанные желтки не показываем
+            int want = Mathf.Min(Mathf.Max(0, _yolkN - _yolkMixedN), _yolkPile ? 16 : 24);   // v23.20: куча — до 16
             while (_yolkGos.Count > want)
             {
                 Transform y = _yolkGos[_yolkGos.Count - 1];
@@ -1643,7 +1686,18 @@ namespace CatCooks.Food
             // v23.3: размер настоящего желтка (как у шлепка на полу) — одинаковый в любой таре; в маленькой — не больше её
             // v23.24: ОДИН размер желтка везде (ведро, банка, ковш, пол) — от размера самого яйца, не от тары.
             // Уменьшается только если тара уже двух желтков.
-            float size = Mathf.Min(CatCooks.Food.Tools.EggSplat.LastSize * YolkOfEgg, R * S * 1.2f);   // v23.25: без множителя тары — везде один
+            float size = Mathf.Min(CatCooks.Food.Tools.EggSplat.YolkWorld, R * S * 1.2f);   // v23.28: один размер (от яйца, запомненного один раз)
+            // v23.28: мешают (миксер/вибратор) — желтки за 3 с расходятся в смеси и пропадают; новые — снова целые
+            bool stirY = _stirAmt > 0.3f && Time.time < _stirUntil + 0.1f;
+            if (stirY && !_yolkPile && (_liquid > 0 || _layer > 0)) _yolkMixT += dt;
+            float mixY = Mathf.Clamp01(_yolkMixT / 3f);
+            if (mixY >= 1f)
+            {
+                _yolkMixedN = _yolkN; _yolkMixT = 0f;
+                SyncYolks();
+                return;
+            }
+            size *= 1f - 0.9f * mixY * mixY;
             float edgeL = Mathf.Max(0.02f, _tEdgeMin);
             int n = _yolkGos.Count;
             for (int k = 0; k < n; k++)
@@ -1739,9 +1793,11 @@ namespace CatCooks.Food
                     FoodSubstanceMesh.SpoilK = FoodStateInfo.IsSpoiled(t.State) ? 1f : 0f;
                     float softK = FoodSubstanceMesh.SoftHeapScale;
                     FoodSubstanceMesh.SoftHeapScale = 1f;                               // v23.24: в таре — размер по таре
-                    if (t.Sub.Look == SubstanceLook.Powder) FoodSubstanceMesh.Powder(t.Mesh, dm, t.Sub.Wonky, c, seed);
+                    if (t.Sub.Look == SubstanceLook.Powder) FoodSubstanceMesh.Powder(t.Mesh, dm, t.Sub.Wonky, c, seed, t.Sub.Sugar);
                     else if (t.Sub.Look == SubstanceLook.Crystals) FoodSubstanceMesh.Crystals(t.Mesh, dm, t.Sub.CrystalSize, t.Sub.CrystalDensity, c, seed);
                     else if (t.Sub.Look == SubstanceLook.Spread) FoodSubstanceMesh.Spread(t.Mesh, dm, t.Sub.Curl * 0.6f, c, seed);
+                    else if (t.Sub.Look == SubstanceLook.IceCream) FoodSubstanceMesh.IceCream(t.Mesh, dm, c, seed);
+                    else if (t.Sub.Look == SubstanceLook.Meringue) FoodSubstanceMesh.MeringueKiss(t.Mesh, dm, c, seed);
                     else FoodSubstanceMesh.ButterSmear(t.Mesh, dm, 0f, c, seed);
                     FoodSubstanceMesh.SoftHeapScale = softK;
                     FoodSubstanceMesh.SpoilK = 0f;
@@ -1750,7 +1806,7 @@ namespace CatCooks.Food
                 }
                 float ease = 1f - Mathf.Exp(-dt * 6f);
                 t.ShowX = Mathf.Lerp(t.ShowX, t.X, ease); t.ShowZ = Mathf.Lerp(t.ShowZ, t.Z, ease);
-                float swirl = _mixP * _mixP * 7.5f;                                 // мешаешь — закручиваются к центру
+                float swirl = _mixP * _mixP * 4f;                                   // мешаешь — закручиваются к центру (v23.62: спокойнее)
                 float cs = Mathf.Cos(swirl), sn = Mathf.Sin(swirl);
                 float k01 = R * (1f - 0.85f * _mixP);
                 float px = (t.ShowX * cs - t.ShowZ * sn) * k01, pz = (t.ShowX * sn + t.ShowZ * cs) * k01;
@@ -1774,6 +1830,16 @@ namespace CatCooks.Food
                 t.Go.transform.SetPositionAndRotation(transform.position + transform.rotation * (local * S),
                                                       transform.rotation * Quaternion.Euler(0f, -ang * Mathf.Rad2Deg, 0f));
                 float sc = Mathf.Pow(1f - _mixP, 0.8f) * fit;                      // и тают
+                // v23.27: сахар/мука/какао на жидкости РАСТВОРЯЮТСЯ: полсекунды лежат, потом за 2,5 с тонут и исчезают
+                // (мастерком их из жидкости уже не достать, кучкой не высыпаются — так решает сервер, Cookware.DissolvesIn)
+                if (_surfaceOk && _liquid + _layer > 0 && t.Sub != null && !(WetBase() && _thickBase) &&   // v23.62: в меренге/тесте не тонут — лежат, пока не вмешают
+                    (t.Sub.Look == SubstanceLook.Powder || t.Sub.Look == SubstanceLook.Crystals))
+                {
+                    float dk = Mathf.Clamp01((Time.time - t.AddT - 0.5f) / 2.5f);
+                    sc *= 1f - dk * dk * (3f - 2f * dk);
+                    local.y -= dk * R * Mathf.Max(0.05f, t.Rn) * 0.25f;
+                    t.Go.transform.position = transform.position + transform.rotation * (local * S);
+                }
                 t.Go.transform.localScale = Vector3.one * sc;
                 bool show = sc > 0.03f && (_surfaceOk || Butter + _liquid + _layer + _thick + _ice == 0);
                 if (t.Go.activeSelf != show) t.Go.SetActive(show);
@@ -2082,10 +2148,43 @@ namespace CatCooks.Food
         // ───────────── v23.14: РЕЛЬЕФ ПО ВИДУ ВЕЩЕСТВА (общий для тары и стенда) ─────────────
 
         /// <summary>v23.15: насколько «дышит» поверхность (доля радиуса): тесто, шоколад, мёд — заметно; густое — чуть; молоко — плавно; вода — нет.</summary>
+        /// <summary>
+        /// v23.63: КАРАМЕЛЬ — 7 лёгких хвостов-стёков: широкие у стенки, тянутся к центру, слегка закручены, кончик — тонкий
+        /// и круглый. 0..1 — насколько точка на хвосте. Та же формула, что kd 9 в шейдере Liquid Surface.
+        /// </summary>
+        public static float CaramelTails(float ang, float rho)
+        {
+            float best = 0f;
+            for (int k = 0; k < 7; k++)
+            {
+                float e = 0.25f + 0.25f * Fr(k * 0.618f);
+                if (rho < e - 0.03f || rho > 0.985f) continue;
+                float sAlong = Mathf.Clamp01((1f - rho) / (1f - e));
+                float ac = k * 0.8976f + 0.35f * Mathf.Sin(k * 2.1f) + 0.35f * (1f - rho) * (1f + 0.3f * Mathf.Sin(k));
+                float da = ang - ac;
+                da -= 6.2831853f * Mathf.Round(da / 6.2831853f);
+                float d = da * rho;
+                float w = 0.09f * (1f - 0.7f * sAlong) + 0.012f;
+                float across = Mathf.Exp(-(d / w) * (d / w));
+                float m = (1f - Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((sAlong - 0.8f) / 0.2f))) * (1f - Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((rho - 0.95f) / 0.035f)));
+                best = Mathf.Max(best, across * m);
+            }
+            return best;
+        }
+
+        private bool _caramelClear;
+
         public static float BreathFor(int kind)
         {
-            switch (kind) { case 3: case 4: case 7: return 0.012f; case 8: return 0.007f; case 1: case 2: case 5: return 0.005f; case 0: return 0.004f; default: return 0f; }
+            switch (kind) { case 3: case 4: case 7: return 0.012f; case 9: return 0.006f; case 8: return 0.007f; case 1: case 2: case 5: return 0.005f; case 0: return 0.004f; default: return 0f; }
         }
+
+        /// <summary>v23.43: слои шоколада (центр x,z в долях радиуса, радиус, фаза волны) — те же, что chl[] в шейдере Liquid Surface.</summary>
+        private static readonly Vector4[] ChocLayers =
+        {
+            new Vector4(0f, 0f, 0.8f, 0f), new Vector4(-0.13f, 0.08f, 0.6f, 1.7f), new Vector4(0.15f, -0.07f, 0.47f, 3.4f),
+            new Vector4(-0.05f, -0.13f, 0.33f, 5.1f), new Vector4(0.07f, 0.1f, 0.19f, 6.8f)
+        };
 
         private static float Fr(float v) => v - Mathf.Floor(v);
         /// <summary>Тот же хэш, что hash21 в шейдере Liquid Surface — бугры модели совпадают с каплями и пиками шейдера.</summary>
@@ -2108,7 +2207,7 @@ namespace CatCooks.Food
             // v23.16: узоры в нормированных координатах круга q (|q| = доля до стенки) — те же формулы, что в шейдере,
             // поэтому контуры и блики ложатся точно на бугры. Поверх — пологие случайные бугры (их шейдер не рисует, их видно светом).
             float fade = 1f - Mathf.Pow(Mathf.Clamp01(rho), 5f);
-            if (kind < 1 || kind > 8 || kind == 6 || fade <= 0f || R <= 1e-4f) return 0f;
+            if (kind < 1 || kind > 9 || kind == 6 || fade <= 0f || R <= 1e-4f) return 0f;
             float len = Mathf.Sqrt(x * x + z * z);
             float ang = Mathf.Atan2(z, x);
             float qx = len > 1e-6f ? x / len * rho : 0f, qz = len > 1e-6f ? z / len * rho : 0f;
@@ -2121,65 +2220,52 @@ namespace CatCooks.Food
             switch (kind)
             {
                 case 1:                                                                    // сметана: складки
-                case 3:                                                                    // тесто: пологие ленты
+                case 3:                                                                    // тесто: v23.39 почти гладкое (льётся), лёгкие волны
                 {
                     float s1 = Mathf.Sin(ang * 3f + rho * (kind == 1 ? 14.4f : 11.2f) + wq);
                     float fold = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.3f, 1f, s1));
-                    float amp = kind == 1 ? 0.1f : 0.06f;
-                    float blobs = kind == 3 ? R * 0.08f * (Mathf.PerlinNoise(u * 3.6f + 8.8f, v * 3.6f + 1.4f) - 0.5f) : 0f;
-                    return (R * amp * fold + blobs + bumps * 1.2f) * fade;
+                    float amp = kind == 1 ? 0.1f : 0.022f;
+                    float blobs = kind == 3 ? R * 0.025f * (Mathf.PerlinNoise(u * 3.6f + 8.8f, v * 3.6f + 1.4f) - 0.5f) : 0f;
+                    return (R * amp * fold + blobs + bumps * (kind == 3 ? 0.4f : 1.2f)) * fade;
                 }
-                case 2:                                                                    // меренга: волны, одна большая пика, следы венчика
+                case 2:                                                                    // меренга: v23.51 нежная — мягкие облачка-клубы и пара мягких пик, без спиралей
                 {
-                    float sw = Mathf.Sin(ang * 2f + rho * 9f + 1.3f * Mathf.Sin(ang * 3f));
-                    float waves = 0.065f * sw * (0.5f + 0.5f * (1f - rho));
-                    float whisk = 0.012f * Mathf.Sin(rho * 48f + ang * 3f);
-                    float dpx = qx - 0.08f, dpz = qz + 0.05f;
-                    float peak = 0.38f * Mathf.Exp(-(dpx * dpx + dpz * dpz) / (0.22f * 0.22f));
-                    float tx = dpx - 0.05f, tz = dpz - 0.03f;
-                    float tip = 0.12f * Mathf.Exp(-(tx * tx + tz * tz) / (0.07f * 0.07f));
-                    float dome = 0.08f * (1f - rho * rho);
-                    return (R * (dome + waves + whisk + peak + tip) + bumps * 0.6f) * fade;
+                    float dome = 0.14f * (1f - rho * rho);
+                    float c1 = Mathf.PerlinNoise(u * 2.1f + 41.7f, v * 2.1f + 9.3f);
+                    float c2 = Mathf.PerlinNoise(u * 4.3f + 3.1f, v * 4.3f + 27.9f);
+                    float billow = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.35f, 0.8f, c1)) * 0.09f + (c2 - 0.5f) * 0.03f;   // мягкие клубы
+                    float dpx = qx - 0.1f, dpz = qz + 0.06f;
+                    float peak = 0.2f * Mathf.Exp(-(dpx * dpx + dpz * dpz) / (0.2f * 0.2f));                // мягкая пика
+                    float ex = qx + 0.28f, ez = qz - 0.2f;
+                    float peak2 = 0.1f * Mathf.Exp(-(ex * ex + ez * ez) / (0.14f * 0.14f));                 // вторая, пониже
+                    float tx = dpx - 0.04f, tz = dpz - 0.02f;
+                    float tip = 0.06f * Mathf.Exp(-(tx * tx + tz * tz) / (0.06f * 0.06f));                  // загнутый кончик
+                    float edgeK = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.8f, 0.96f, rho));
+                    return (R * (dome + (billow + peak + peak2 + tip) * edgeK)) * fade;
                 }
-                case 4:                                                                    // шоколад: выпуклые капли (там же, где шейдер)
+                case 4:                                                                    // шоколад: v23.43 многослойный — налитые друг на друга гладкие слои
                 {
-                    float px = x / lfR * 5.5f + 1.7f, pz = z / lfR * 5.5f + 4.1f;
-                    float ix = Mathf.Floor(px), iz = Mathf.Floor(pz), fx = px - ix, fz = pz - iz;
-                    float best = 9f;
-                    for (int yy = -1; yy <= 1; yy++)
-                        for (int xx = -1; xx <= 1; xx++)
-                        {
-                            float cx = ix + xx, cz = iz + yy;
-                            if (SH21(cx + 4.4f, cz + 1.7f) > 0.65f) continue;
-                            Vector2 h = SH22(cx, cz);
-                            float vx = xx + 0.25f + h.x * 0.5f - fx, vz = yy + 0.25f + h.y * 0.5f - fz;
-                            float rad = 0.32f + 0.16f * h.y;
-                            float dd = Mathf.Sqrt(vx * vx + vz * vz) / rad;
-                            if (dd < best) best = dd;
-                        }
-                    float inner = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.12f, 0.3f, rho));
-                    float drop = best < 1f ? R * 0.1f * Mathf.Sqrt(1f - best * best) * inner : 0f;
-                    return (drop + bumps * 0.9f) * fade;
-                }
-                case 5:                                                                    // мороженое: шарики после ложки
-                {
-                    float h = 0.06f * (1f - rho * rho);
-                    for (int k = 0; k < 4; k++)
+                    float h = 0.02f * (1f - rho * rho);
+                    for (int l = 0; l < 5; l++)
                     {
-                        float a = k * 2.09f + 0.6f;
-                        float cx = k == 0 ? 0f : Mathf.Cos(a) * 0.48f, cz = k == 0 ? 0f : Mathf.Sin(a) * 0.48f;
-                        float rq = k == 0 ? 0.55f : 0.42f;
-                        float dx = qx - cx, dz = qz - cz;
-                        float dd = Mathf.Sqrt(dx * dx + dz * dz) / rq;
-                        if (dd > 1.25f) continue;
-                        float domeK = Mathf.Sqrt(Mathf.Max(0f, 1f - dd * dd * 0.8f));
-                        float a5 = Mathf.Atan2(dz, dx) + k * 1.3f;
-                        float arc = Mathf.Sin(dd * 15f + a5 * (k % 2 == 0 ? 1.5f : -1.5f));
-                        float marks = (arc * 0.5f + 0.5f); marks = marks * marks * 0.05f * Mathf.SmoothStep(0.15f, 0.7f, dd);
-                        float lip = Mathf.Exp(-(dd - 0.95f) * (dd - 0.95f) / 0.01f) * 0.04f;
-                        h = Mathf.Max(h, 0.14f * domeK * rq + marks + lip);
+                        Vector4 c = ChocLayers[l];
+                        float dx = qx - c.x, dz = qz - c.y;
+                        float aq = Mathf.Atan2(dz, dx);
+                        float wk = Mathf.Min(1f, c.z * 1.8f);
+                        float e = Mathf.Sqrt(dx * dx + dz * dz) - c.z - wk * (0.035f * Mathf.Sin(aq * 3f + c.w) + 0.02f * Mathf.Sin(aq * 5f + c.w * 1.3f));
+                        h += 0.03f * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.05f, -0.03f, e));   // скруглённая ступенька слоя
                     }
-                    return (R * h + bumps * 0.5f) * fade;
+                    float w1 = Mathf.PerlinNoise(u * 1.6f + 21.3f, v * 1.6f + 5.1f) - 0.5f;
+                    return (R * (h + 0.012f * w1)) * fade;
+                }
+                case 5:                                                                    // мороженое: v23.36 естественный рыхлый рельеф (без круглых шариков)
+                {
+                    float m1 = Mathf.PerlinNoise(u * 2.4f + 12.3f, v * 2.4f + 4.7f) - 0.5f;
+                    float m2 = Mathf.PerlinNoise(u * 5.2f + 3.9f, v * 5.2f + 21.1f) - 0.5f;
+                    float rn = Mathf.PerlinNoise(u * 3.6f + 7.7f, v * 3.6f + 1.9f);
+                    float ridge = Mathf.Pow(1f - Mathf.Abs(rn * 2f - 1f), 3f);            // стружки-завитки от ложки
+                    float h = 0.06f * (1f - rho * rho) + 0.09f * m1 + 0.04f * m2 + 0.045f * ridge;
+                    return (R * h + bumps * 0.4f) * fade;
                 }
                 case 8:                                                                    // v23.20: яичная масса — пологие бугры пены (там же, где кучки пузырьков шейдера)
                 {
@@ -2211,6 +2297,11 @@ namespace CatCooks.Food
                     }
                     float dome = 0.05f * (1f - rho * rho) + 0.02f * Mathf.Sin(ang * 3f + rho * 6f);
                     return (R * (dome + 0.07f * rib) + bumps * 0.5f) * fade;
+                }
+                case 9:                                                                    // v23.63: карамель — гладкая, лёгкие хвосты-стёки от стенки
+                {
+                    float tl = CaramelTails(ang, rho);
+                    return (R * (0.012f * (1f - rho * rho) + 0.03f * tl) + bumps * 0.12f) * fade;
                 }
             }
             return 0f;
@@ -2244,6 +2335,7 @@ namespace CatCooks.Food
             int merN = 0, foamN = 0, creamN = 0;                                // v23.10: вид складок
             int eggMassN = 0, yolkOnlyN = 0;                                    // v23.20
             int syrupThickN = 0;                                                // v23.12: мёд ролью «сметана» — без острых пиков
+            int caramelN = 0, caramelSaltN = 0;                                 // v23.63: карамель (и солёная — она сливочная, плотнее)
             _yolkN = 0;
             ComputeHeapBase();
             for (int i = 0; i < _cookware.ViewCount; i++)
@@ -2283,8 +2375,13 @@ namespace CatCooks.Food
                             }
                             if (IsWhiteP(e.Product, v.State)) { whiteN += v.Count; col = new Color(0.98f, 0.96f, 0.86f, 1f); }
                             if (IsGlossyLiquid(e.Product)) glossyN += v.Count;
+                            // v23.39: шоколадная масса — светлее и теплее (молочный шоколад, как на фото), не чёрная
+                            if (TitleHas(e.Product, "шоколадная масса", "ганаш")) { col = Color.Lerp(col, new Color(0.5f, 0.31f, 0.19f, 1f), 0.8f); col.a = 1f; }   // v23.43: молочный шоколад
+                            if (TitleHas(e.Product, "карамел")) caramelN += v.Count;                                  // v23.63: карамель — свой вид
+                            if (TitleHas(e.Product, "карамел") && TitleHas(e.Product, "солён", "солен")) caramelSaltN += v.Count;
                             if (TitleHas(e.Product, "мёд", "мед ", "сироп", "карамел")) { syrupN += v.Count; col = Color.Lerp(col, new Color(1f, 0.85f, 0.45f, 1f), 0.25f); col.a = 1f; }   // v23.12: мёд светлее, нежнее
-                            if (IsSpongeBatter(e.Product)) { batterN += v.Count; col = Color.Lerp(col, MilkChoc, 0.85f); col.a = 1f; }
+                            if (IsSpongeBatter(e.Product)) { batterN += v.Count; col = Color.Lerp(col, MilkChoc, 0.9f); col.a = 1f; }
+                            if (TitleHas(e.Product, "тесто для макарон")) { col = new Color(0.62f, 0.45f, 0.31f, 1f); }   // v23.61: светлое шоколадное — как в кольцах противня
                             _liquid += v.Count; _liquidColor = col;
                             if (v.Count > waterBest) { waterBest = v.Count; _waterLike = IsWater(e.Product) && e.Color.a <= 0.01f; }
                             break;
@@ -2292,6 +2389,8 @@ namespace CatCooks.Food
                         case Role.Floating: _floating += v.Count; _floatColor = col; if (v.Count > _pasteBest) { _pasteBest = v.Count; _pasteColor = col; _baseId = e.Product.Id; } if (IsPowder(e.Product, v.State)) _powderN += v.Count; else if (IsSlab(e.Product, v.State)) { _slabN += v.Count; if (FoodStateInfo.IsSpoiled(v.State)) _slabSpoilN += v.Count; } break;
                         case Role.Paste: _paste += v.Count; if (v.Count > _pasteBest) { _pasteBest = v.Count; _pasteColor = col; _baseId = e.Product.Id; } if (IsPowder(e.Product, v.State)) _powderN += v.Count; else if (IsSlab(e.Product, v.State)) { _slabN += v.Count; if (FoodStateInfo.IsSpoiled(v.State)) _slabSpoilN += v.Count; } break;
                         case Role.Thick:
+                            if (TitleHas(e.Product, "карамел")) caramelN += v.Count;
+                            if (TitleHas(e.Product, "карамел") && TitleHas(e.Product, "солён", "солен")) caramelSaltN += v.Count;
                             if (TitleHas(e.Product, "мёд", "мед ", "сироп", "карамел")) { syrupThickN += v.Count; glossyN += v.Count; col = Color.Lerp(col, new Color(1f, 0.85f, 0.45f, 1f), 0.25f); col.a = 1f; }
                             _thick += v.Count; _thickColor = col; if (v.State == FoodState.Spoiled) _spoiledN += v.Count; if (IsSlab(e.Product, v.State)) _slabThickN += v.Count; break;
                         case Role.IceCream:
@@ -2330,10 +2429,12 @@ namespace CatCooks.Food
                 else if (merN * 2 >= totK) _animeKind = 2;
                 else if (eggMassN * 2 >= totK) _animeKind = 8;                   // v23.20: яичная масса — своя
                 else if ((batterN + foamN) * 2 >= totK) _animeKind = 3;
+                else if (caramelN * 2 >= totK) _animeKind = 9;                    // v23.63: карамель — прозрачная, хвосты-стёки
                 else if ((syrupN + syrupThickN) * 2 >= totK) _animeKind = 7;   // v23.16: мёд, карамель — свои ленты
                 else if (glossyN * 2 >= totK) _animeKind = 4;
                 else if ((_thick + creamN) * 2 >= totK) _animeKind = 1;
             }
+            _caramelClear = _animeKind == 9 && caramelSaltN * 2 < caramelN;     // v23.63: чистая карамель — чуть прозрачная (солёная — сливочная, плотная)
             SyncYolks();
             CountSolids();
             LogSubstanceMode();
@@ -2768,7 +2869,7 @@ namespace CatCooks.Food
             UpdateTrailAndStirWaves(dt);
             if (_mf != null)
             {
-                float dens = (_waterLike || EggClear) ? 0f : _density;
+                float dens = (_waterLike || EggClear || _caramelClear) ? 0f : _density;   // v23.63: карамель — не «плотная» (видно дно сквозь неё)
                 Material want = SurfaceOverride != null ? SurfaceOverride : dens >= 0.99f ? DenseMat(SurfaceMat) : SurfaceMat;
                 if (Powder && PowderMat != null) want = PowderMat;          // v17.4: порошок — сразу своим материалом
                 else if (Slab)
@@ -2812,9 +2913,9 @@ namespace CatCooks.Food
                 if (_batterK > 0.01f) foamK = Mathf.Lerp(foamK, 0.22f, _batterK);   // v23.2: тесто — редкие лёгкие пузырьки, а не белая крупа
                 _mpb.SetFloat(FoamId, foamK);
                 _mpb.SetFloat(MeniscusId, 1f);
-                _mpb.SetFloat(DensityId, EggClear ? 0f : Mathf.Max(dens, _glossyK));
+                _mpb.SetFloat(DensityId, EggClear || _caramelClear ? 0f : Mathf.Max(dens, _glossyK));
                 _mpb.SetFloat(SkinId, _waterLike ? 0f : _milkSkin * (1f - _creamShown * 0.6f) * (1f - Stiff) * (1f - _glossyK));
-                float baseOpacity = EggClear ? 0.42f : _waterLike ? _waterOpacity
+                float baseOpacity = EggClear ? 0.42f : _caramelClear ? CaramelOpacity : _waterLike ? _waterOpacity
                                   : (want != null && want.HasProperty(OpacityId) ? want.GetFloat(OpacityId) : 0.95f);
                 float soupK = _soupTint > 0.001f ? Mathf.Clamp01(_soupShown / _soupTint) : 0f;
                 _mpb.SetFloat(OpacityId, Mathf.Lerp(baseOpacity, Mathf.Max(baseOpacity, _soupOpacity), soupK));
@@ -2825,7 +2926,7 @@ namespace CatCooks.Food
                 _mpb.SetFloat(FatScaleId, _fatScale);
                 for (int i = 0; i < _trail.Length; i++) _trailSend[i] = _trail[i];
                 _mpb.SetVectorArray(TrailId, _trailSend);
-                _mpb.SetFloat(TrailAmountId, (_waterLike ? _stirTrails * 0.4f : _stirTrails) * ((_animeKind == 1 || _animeKind == 3) ? 0.15f : 0.45f));   // v23.16: в сметане и смесях — едва заметно
+                _mpb.SetFloat(TrailAmountId, (_waterLike ? _stirTrails * 0.4f : _stirTrails) * ((_animeKind == 1 || _animeKind == 3) ? 0.15f : (_animeKind == 2 ? 0.12f : (_animeKind == 4 || _animeKind == 7 || _animeKind == 9) ? 0f : 0.45f)));   // v23.42: в шоколаде и мёде следа миксера нет   // v23.16: в сметане и смесях — едва заметно; v23.27: в меренге ещё тише
                 // v7: молоко матовое — меньше блика, отсвета и френеля, свет площе (не «металл», не вода)
                 float matte = _waterLike ? 0f : _milkMatte * (1f - _soupShown) * (1f - _glossyK);
                 if (want != null)
@@ -3301,7 +3402,7 @@ namespace CatCooks.Food
                 float fall = Mathf.Exp(-sd * sd / (br * br));
                 float boilA = Mathf.PerlinNoise(fx * 70f + t * 9f, fz * 70f - t * 8f) - 0.35f;
                 float boilB = Mathf.PerlinNoise(fx * 140f - t * 15f, fz * 140f + t * 13f) - 0.5f;
-                float soft = (_animeKind == 1 || _animeKind == 3) ? 0.25f : 0.5f;           // v23.16: в сметане и смесях ещё мягче
+                float soft = (_animeKind == 1 || _animeKind == 3) ? 0.25f : (_animeKind == 2 ? 0.2f : (_animeKind == 4 || _animeKind == 7 || _animeKind == 9) ? 0.08f : 0.5f);   // v23.16; v23.27: меренга — мягко; v23.42: шоколад — почти без вмятин
                 d += _stirAmt * _whipBoil * fall * (0.55f + boilA + boilB * 0.7f) * soft;
                 d += _stirAmt * 0.0035f * Mathf.Sin(sd * 140f - t * 38f) * Mathf.Exp(-sd / 0.06f) * soft;
                 d -= _stirAmt * 0.004f * Mathf.Exp(-sd * sd / 0.0005f) * soft;      // ямка прямо у щупа
@@ -3408,12 +3509,19 @@ namespace CatCooks.Food
                 lift = Mathf.Min(lift, Rr * 0.01f);
                 jellyShear = Vector3.zero;
             }
-            else d = Mathf.Clamp(d, -Rr * 0.3f, Rr * 0.6f);                    // v23.25: страховка от «игл» в любой таре
+            else d = Mathf.Clamp(d, -Rr * 0.3f, Rr * 0.95f);                   // v23.25: страховка от «игл» в любой таре
             Vector3 q = p + n * (d + lift) + jellyShear;
             if (!lip && q.y > H - 0.002f) q.y = H - 0.002f;
             if (lip && q.y > _maxHeight - 0.003f) q.y = _maxHeight - 0.003f;
             if (q.y < 0.0015f) q.y = 0.0015f;
             _vtx[i] = Vector3.Scale(q, toLocal);
+            if (_mixP > 0.001f && _tops.Count > 0 && !(Slab || Powder))
+            {
+                // v23.62: кучки сыпучего вмешивают в меренгу/жидкость — основа плавно перекрашивается разводами по спирали в цвет результата
+                Color c0 = (Color)col;
+                Color mc = MixSwirl(c0, p.x, p.z); mc.a = c0.a;
+                col = (Color32)mc;
+            }
             _col[i] = col;
             _uv0[i] = new Vector2(rho, lip ? 1f : 0f);
             _uv1[i] = new Vector2(p.x - _creamDrift.x, p.z - _creamDrift.y);
@@ -3512,57 +3620,13 @@ namespace CatCooks.Food
         /// </summary>
         private float IceH(float x, float z, float rho, float im)
         {
+            // v23.34: шарики мороженого — ТЕ ЖЕ формулы, что рисует аниме-шейдер (kd 5): круглые купола со скруглённой
+            // губой-завитком от ложки. Мелкие «кубики» шума убраны: следы ложки и точки ванили рисует шейдер.
             float R = Mathf.Max(0.05f, RadiusAtRim);
             Vector2 q = new Vector2(x, z);
-            float h = 0f;
-            if (_iceDunes > 0.001f)
-            {
-                // «КАК ИЗ МАГАЗИННОЙ БАНКИ»: поверхность в волнах-дюнах, как после
-                // заводской ложки-скребка: изогнутые гребни с мягкими острыми макушками,
-                // в двух направлениях поверх общего купола.
-                float u = x / R, v = z / R;
-                float warp = (Mathf.PerlinNoise(u * 1.6f + 3.1f, v * 1.6f + 7.7f) - 0.5f) * 3.2f;
-                float a1 = (u * 0.8f + v * 0.6f) * 6.5f + warp;
-                float a2 = (u * -0.55f + v * 0.83f) * 4.2f + warp * 0.7f + 1.3f;
-                // асимметричный гребень дюны: пологий склон, крутой подветренный, острая макушка
-                float d1 = Mathf.Repeat(a1 / 6.2832f, 1f);
-                float dune1 = d1 < 0.7f ? Mathf.SmoothStep(0f, 1f, d1 / 0.7f) : Mathf.SmoothStep(1f, 0f, (d1 - 0.7f) / 0.3f);
-                float d2 = Mathf.Repeat(a2 / 6.2832f, 1f);
-                float dune2 = d2 < 0.65f ? Mathf.SmoothStep(0f, 1f, d2 / 0.65f) : Mathf.SmoothStep(1f, 0f, (d2 - 0.65f) / 0.35f);
-                float dunes = Mathf.Max(dune1, dune2 * 0.75f);
-                float peak = Mathf.Pow(dunes, 5f);                                   // кончики гребней — пиками
-                float dome = 0.35f * (1f - rho * rho);
-                h = Mathf.Max(h, (dome + dunes * 0.08f + peak * 0f) * _iceDunes);     // v23.16: без «башенок» — только шарики после ложки
-            }
-            // Шарики: центр + три вокруг. Положения постоянные для тары — у всех одинаково.
-            for (int k = 0; k < 4; k++)
-            {
-                float ang = k * 2.09f + 0.6f;
-                Vector2 c = k == 0 ? Vector2.zero : new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * R * 0.48f;
-                float r = R * (k == 0 ? 0.55f : 0.42f);
-                Vector2 dq = q - c;
-                float dd = dq.magnitude / r;
-                if (dd > 1.25f) continue;
-                float dome = Mathf.Sqrt(Mathf.Max(0f, 1f - dd * dd * 0.8f));
-                // Следы ложки: дуги, закрученные вокруг шарика (каждый шарик — в свою сторону).
-                float a = Mathf.Atan2(dq.y, dq.x) + k * 1.3f;
-                float arc = Mathf.Sin(dd * 15f + a * (k % 2 == 0 ? 1.5f : -1.5f));
-                float marks = (arc * 0.5f + 0.5f);
-                marks = marks * marks * _iceScoopMarks * 0.28f * Mathf.SmoothStep(0.15f, 0.7f, dd);
-                // край шарика — завиток/губа, как стружка у ложки
-                float lipC = Mathf.Exp(-(dd - 0.95f) * (dd - 0.95f) / 0.01f) * 0.18f * (0.6f + Mathf.PerlinNoise(a * 2f + k, dd * 3f) * 0.8f);
-                h = Mathf.Max(h, (dome - marks + lipC) * (k == 0 ? 1f : 0.88f) * _iceScoops);
-            }
-            // крупная неровность — не идеальные шары
-            h += (Mathf.PerlinNoise(x * 17f + 3.3f, z * 17f + 5.5f) - 0.5f) * 0.18f;
-            // Рыхлость: мелкие комочки и «крошка» по всей поверхности, как у только что
-            // наскобленного мороженого — не ровная масса.
-            float crumb = Mathf.PerlinNoise(x * 48f + 11.1f, z * 48f + 2.9f);
-            float crumb2 = Mathf.PerlinNoise(x * 95f + 7.7f, z * 95f + 19.3f);
-            h += (Mathf.SmoothStep(0.35f, 0.8f, crumb) - 0.45f) * 0.32f * _iceLoose + (crumb2 - 0.5f) * 0.12f * _iceLoose;
-            // у стенки мороженое налипает валиком
-            h += Mathf.SmoothStep(0.82f, 1f, rho) * 0.25f;
-            h *= _iceRelief * im;
+            float h = KindRelief(5, x, z, rho, R);
+            h += Mathf.SmoothStep(0.85f, 1f, rho) * R * 0.03f;                   // у стенки налипает валиком
+            h *= im;
             // ямки от мастерка
             for (int i = 0; i < _dents.Length; i++)
             {
@@ -3620,10 +3684,37 @@ namespace CatCooks.Food
             float cold = Mathf.Max(_iceShown, _frozenShown);
             EmitFrostSparkles(dt, cold);
             if (!_coldVapor || !_surfaceOk || cold < 0.4f || _coldVaporRate <= 0f) { _vaporAcc = 0f; return; }
-            _vaporAcc += dt * _coldVaporRate * cold * UnityEngine.Random.Range(0.5f, 1.5f);
-            if (_vaporAcc < 1f) return;
-            _vaporAcc -= 1f;
-            float S = Scale;
+            // v23.34: МОРОЗНЫЙ ПАР — заметнее: клубы крупнее (по размеру тары), чаще; часть переваливает через край и стекает вниз
+            _vaporAcc += dt * _coldVaporRate * 2.4f * cold * UnityEngine.Random.Range(0.6f, 1.4f);
+            int nv = 0;
+            while (_vaporAcc >= 1f && nv < 3)
+            {
+                _vaporAcc -= 1f; nv++;
+                EmitOneVapor(cold);
+            }
+        }
+
+        private void EmitOneVapor(float cold)
+        {
+            float S = Scale, Rv = Mathf.Max(0.05f, RadiusAtRim);
+            if (UnityEngine.Random.value < 0.3f)
+            {
+                // у края: холодный воздух тяжелее — переваливает через бортик и стекает вниз
+                float ang = UnityEngine.Random.value * 6.2832f;
+                Vector3 dirL = _e1 * Mathf.Cos(ang) + _e2 * Mathf.Sin(ang);
+                Vector3 rimL = _center + dirL * (_tEdgeMin * 0.92f);
+                Vector3 rimW = transform.position + transform.rotation * (rimL * S) + Vector3.up * 0.02f * S;
+                Vector3 outW = (transform.rotation * dirL).normalized;
+                Vector3 velR = outW * UnityEngine.Random.Range(0.05f, 0.1f) + Vector3.down * UnityEngine.Random.Range(0.03f, 0.08f);
+                Color cr = Color.Lerp(CCFreezeFx.IceBlue, CCFreezeFx.IceWhite, UnityEngine.Random.Range(0.6f, 1f)); cr.a = 0.32f;
+                CCFreezeFx.Mist(rimW, velR, Rv * S * UnityEngine.Random.Range(0.18f, 0.3f), UnityEngine.Random.Range(1.6f, 2.6f), cr);
+                return;
+            }
+            EmitSurfaceVapor(S, Rv);
+        }
+
+        private void EmitSurfaceVapor(float S, float Rv)
+        {
             Vector2 rnd = UnityEngine.Random.insideUnitCircle * _tEdgeMin * 0.8f;
             Vector3 local = _center + _e1 * rnd.x + _e2 * rnd.y;
             if (!Inside(local)) return;
@@ -3631,8 +3722,9 @@ namespace CatCooks.Food
             // холодный воздух: чуть вверх и в сторону, потом сползает вниз через край
             Vector3 vel = new Vector3(UnityEngine.Random.Range(-0.12f, 0.12f), UnityEngine.Random.Range(0.02f, 0.1f),
                                       UnityEngine.Random.Range(-0.12f, 0.12f));
-            Color c = Color.Lerp(CCFreezeFx.IceBlue, CCFreezeFx.IceWhite, UnityEngine.Random.Range(0.5f, 1f)); c.a = 0.45f;
-            CCFreezeFx.Mist(at, vel, 0.05f * S, UnityEngine.Random.Range(0.9f, 1.6f), c);       // v23.2: мягкий ледяной пар (без кубиков)
+            vel = new Vector3(vel.x * 0.5f, UnityEngine.Random.Range(0.03f, 0.08f), vel.z * 0.5f);   // v23.34: медленно поднимается
+            Color c = Color.Lerp(CCFreezeFx.IceBlue, CCFreezeFx.IceWhite, UnityEngine.Random.Range(0.6f, 1f)); c.a = 0.3f;
+            CCFreezeFx.Mist(at, vel, Rv * S * UnityEngine.Random.Range(0.14f, 0.26f), UnityEngine.Random.Range(1.8f, 3f), c);   // мягкий клуб, не «кубики»
         }
 
         /// <summary>Закваска бродит — редкие пузыри поднимаются и лопаются («буль»).</summary>
@@ -4099,22 +4191,31 @@ namespace CatCooks.Food
                 _whipCloud = LiquidFx.CreateWhipCloud("CC Whip Cloud (auto)");
                 if (_whipCloud != null) { ParticleSystem.MainModule wm = _whipCloud.main; wm.simulationSpeed = _whipFxSpeed; }   // v18.8: тучки живут вдвое быстрее
             }
-            float fxk = Mathf.Max(0.1f, _whipFxSpeed * (Time.time < _stirFxUntil ? _stirFxK : 1f));   // большой миксер — медленнее вибратора
+            float fxk = Mathf.Max(0.1f, _whipFxSpeed * 1.4f * (Time.time < _stirFxUntil ? _stirFxK : 1f));   // большой миксер — медленнее вибратора; v23.51: быстрее
             dt *= fxk;                                                           // v18.8: и появляются вдвое чаще
             if (_whipCloud != null) _whipCloud.transform.parent.SetPositionAndRotation(atRaw, Quaternion.identity);
 
             // v5: редкие крупные капли — вверх и в стороны
-            _sprayAcc += dt * _whipDrops * _stirAmt * wet;
-            int n = Mathf.Min(4, (int)_sprayAcc);
+            _sprayAcc += dt * _whipDrops * _stirAmt * Mathf.Max(wet, 0.35f) * WhipBoost * WhipDropK;   // v23.51: капель втрое больше (и у густого); v23.62: ещё вдвое
+            int n = Mathf.Min(24, (int)_sprayAcc);
             _sprayAcc -= n;
             for (int i = 0; i < n; i++)
             {
                 Vector2 j = UnityEngine.Random.insideUnitCircle * 0.025f;
                 Vector3 off = rot * new Vector3(j.x, 0f, j.y);
                 Vector3 rad = off.sqrMagnitude > 1e-8f ? off.normalized : rot * Vector3.right;
-                Vector3 vel = _nDynW * UnityEngine.Random.Range(0.9f, 1.8f) + rad * UnityEngine.Random.Range(0.3f, 0.85f) + _velF;
-                float size = UnityEngine.Random.Range(_whipDropSize.x, Mathf.Max(_whipDropSize.x, _whipDropSize.y)) * S;
+                Vector3 vel = _nDynW * UnityEngine.Random.Range(1f, 2.1f) + rad * UnityEngine.Random.Range(0.35f, 1.1f) + _velF;
+                float size = UnityEngine.Random.Range(_whipDropSize.x, Mathf.Max(_whipDropSize.x, _whipDropSize.y)) * S * 1.5f;   // v23.62: крупнее
                 LiquidFx.Drop(at + off * S, vel, size, c, UnityEngine.Random.Range(0.5f, 0.9f));
+                // v23.62: и россыпь мелких капелек вокруг — летят шире и ниже
+                int fine = UnityEngine.Random.Range(1, 4);
+                for (int k = 0; k < fine; k++)
+                {
+                    Vector2 j2 = UnityEngine.Random.insideUnitCircle;
+                    Vector3 r2 = rot * new Vector3(j2.x, 0f, j2.y);
+                    Vector3 v2 = _nDynW * UnityEngine.Random.Range(0.6f, 1.4f) + r2 * UnityEngine.Random.Range(0.6f, 1.5f) + _velF;
+                    LiquidFx.Drop(at + off * S, v2, size * UnityEngine.Random.Range(0.3f, 0.5f), c, UnityEngine.Random.Range(0.35f, 0.7f));
+                }
             }
 
             // v7/v8: «возня» — крупные комки-тучки разной формы шапкой у щупа. Если есть туча
@@ -4124,10 +4225,10 @@ namespace CatCooks.Food
             _stirPrevW = atRaw; _stirPrevOk = true;
             _stirVelW = Vector3.Lerp(_stirVelW, stirVel, 1f - Mathf.Exp(-dt / 0.06f));
             float follow = _whipPoofFollow;
-            float pScale = _whipPoofScale * 1.9f;                            // v9: ещё крупнее
+            float pScale = _whipPoofScale * 1.9f * WhipSizeK;                // v9: ещё крупнее; v23.62: ×2.4
             bool inCloud = _whipCloud != null && follow > 0.01f;
-            _puffAcc += dt * _whipDust * _stirAmt * (0.6f + 0.4f * _whipFoam) / Mathf.Max(1f, pScale * 0.5f);
-            n = Mathf.Min(16, (int)_puffAcc);
+            _puffAcc += dt * _whipDust * _stirAmt * (0.6f + 0.4f * _whipFoam) / Mathf.Max(1f, pScale * 0.5f / WhipSizeK) * WhipBoost;   // v23.51: тучек втрое больше (v23.62: крупнее, а не реже)
+            n = Mathf.Min(48, (int)_puffAcc);
             _puffAcc -= n;
             Color foamC = Color.Lerp(c, Color.white, 0.5f);
             for (int i = 0; i < n; i++)
@@ -4160,7 +4261,7 @@ namespace CatCooks.Food
             }
 
             // v6: взрывчики разных видов — то клубок, то взрыв с искрами, то кольцо, то столбик
-            _poofBurstT -= dt * _stirAmt;
+            _poofBurstT -= dt * _stirAmt * 2f;                                  // v23.51: взрывчики вдвое чаще
             if (_whipBursts > 0f && _poofBurstT <= 0f)
             {
                 float mean = 1f / _whipBursts;
@@ -4172,9 +4273,9 @@ namespace CatCooks.Food
                     Vector3 pos = atRaw + rot * new Vector3(j.x, 0f, j.y) * S;
                     bool cloud = _whipCloud != null && _whipPoofFollow > 0.5f;
                     LiquidFx.WhipBurst(pos, _nDynW, Color.Lerp(c, Color.white, 0.2f),
-                                       S * _whipBurstSize * (0.85f + 0.3f * _whipFoam),
+                                       S * _whipBurstSize * (0.85f + 0.3f * _whipFoam) * WhipSizeK,
                                        cloud ? Vector3.zero : _velF + _stirVelW * (0.7f * _whipPoofFollow), kind,
-                                       _whipPoofScale * 1.1f, Mathf.Lerp(1f, 0.45f, _whipPoofFollow), cloud ? _whipCloud : null);
+                                       _whipPoofScale * 1.1f * WhipSizeK, Mathf.Lerp(1f, 0.45f, _whipPoofFollow), cloud ? _whipCloud : null);
                 }
             }
 
@@ -4203,7 +4304,7 @@ namespace CatCooks.Food
                     Vector3 pos = atRaw + rot * new Vector3(j.x, 0f, j.y) * S;
                     Vector3 vel = _nDynW * UnityEngine.Random.Range(0.08f, 0.22f) + UnityEngine.Random.insideUnitSphere * 0.08f
                                 + _stirVelW * 0.3f + _velF;
-                    float size = _whipBubbleSize * S * UnityEngine.Random.Range(0.25f, 0.55f);
+                    float size = _whipBubbleSize * S * UnityEngine.Random.Range(0.25f, 0.55f) * 2f;   // v23.62: хлопья крупнее
                     LiquidFx.Poof(pos, vel * fxk, size, flC, UnityEngine.Random.Range(0.5f, 0.9f) / fxk);
                 }
             }

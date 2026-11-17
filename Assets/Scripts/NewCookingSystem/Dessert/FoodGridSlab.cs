@@ -86,10 +86,14 @@ namespace CatCooks.Food
         private bool _warned;
 
         public int CellCount => _countX * _countZ;
+        /// <summary>v23.37: купол корочки — не меньше 0.1 высоты (бисквит поднялся), даже если в префабе меньше.</summary>
+        private float Bulge => Mathf.Max(_topBulge, 0.1f);
         public int CellsLeft => CellCount - _removed.Count;
         public Vector3 CellSize => _cell;
         public int CountX => _countX;
         public int CountZ => _countZ;
+        /// <summary>v23.51: префаб кубика (опалубка режет бисквит сама и спавнит такие же кубики).</summary>
+        public GameObject PiecePrefab => _piecePrefab;
 
         // ───────────────────────── ICuttable ─────────────────────────
 
@@ -138,6 +142,8 @@ namespace CatCooks.Food
             _present = new bool[CellCount];
             for (int i = 0; i < _present.Length; i++) _present[i] = true;
             MakeColliders();
+            if (GetComponent<SpongeJiggle>() == null && !Application.isBatchMode) gameObject.AddComponent<SpongeJiggle>().Strength = 0.014f;   // v23.37: дрожит как желе (v23.39: слабее)
+            if (GetComponent<SpongeSteam>() == null && !Application.isBatchMode) gameObject.AddComponent<SpongeSteam>();                       // v23.50: пар, пока свежий
             Rebuild();
         }
 
@@ -160,6 +166,7 @@ namespace CatCooks.Food
         public override void OnStartNetwork()
         {
             base.OnStartNetwork();
+            _startedAt = Time.time;
             _removed.OnChange += OnRemovedChanged;
             _clamped.OnChange += OnClampChanged;
             ApplyRemoved();
@@ -181,6 +188,31 @@ namespace CatCooks.Food
         {
             if (asServer && base.IsClientInitialized) return;
             ApplyRemoved();
+            if (op == SyncListOperation.Add && !asServer && Time.time - _startedAt > 1f) CrumbBurst(newItem);   // v23.50: крошки от пилы
+        }
+
+        private float _startedAt;
+
+        /// <summary>v23.50: отпилили кубик — крошки летят вверх и в стороны от места распила. Только вид.</summary>
+        private void CrumbBurst(int cell)
+        {
+            if (Application.isBatchMode || cell < 0 || cell >= CellCount) return;
+            int ix = cell % _countX, iz = cell / _countX;
+            Vector3 c = transform.TransformPoint(SpongeMesh.CellCenter(_countX, _countZ, _cell, ix, iz) + Vector3.up * _cell.y * 0.45f);
+            float s = Mathf.Clamp(Mathf.Min(_cell.x, _cell.z), 0.03f, 0.8f);
+            Color crumb = SpongeMesh.CutCrumb, crust = SpongeMesh.SideCrust;
+            crumb.a = 1f; crust.a = 1f;
+            int n = Mathf.Clamp(Mathf.RoundToInt(14f + s * 30f), 14, 40);
+            float sp = Mathf.Sqrt(s / 0.3f);
+            for (int i = 0; i < n; i++)
+            {
+                Vector2 h = Random.insideUnitCircle;
+                Vector3 vel = new Vector3(h.x * 1.4f, Random.Range(1.6f, 3.4f), h.y * 1.4f) * sp;
+                Vector3 at = c + new Vector3(h.x, 0f, h.y) * s * 0.3f;
+                Color col = Random.value < 0.75f ? crumb : crust;
+                col *= Random.Range(0.85f, 1.1f); col.a = 1f;
+                CCPowderFx.Crumb(at, vel, col, s * Random.Range(0.04f, 0.1f), Random.value < 0.6f);
+            }
         }
 
         private void ApplyRemoved()
@@ -194,9 +226,11 @@ namespace CatCooks.Food
         private void Rebuild()
         {
             if (_mesh == null) { _mesh = new Mesh(); _mesh.hideFlags = HideFlags.DontSave; }
-            SpongeMesh.BuildSlab(_mesh, _countX, _countZ, _cell, _present, _topBulge, _detail);
+            SpongeMesh.BuildSlab(_mesh, _countX, _countZ, _cell, _present, Bulge, Mathf.Max(_detail, 3));   // v23.37: купол и трещинки корочки
             MeshFilter mf = GetComponent<MeshFilter>();
             if (mf != null) mf.sharedMesh = _mesh;
+            SpongeJiggle jg = GetComponent<SpongeJiggle>();
+            if (jg != null) jg.Rebase();
         }
 
         /// <summary>Коллайдер на каждую клетку (дети Cells/Cell_i): отпилил — пропал и коллайдер.
@@ -279,7 +313,7 @@ namespace CatCooks.Food
             if (i < 0) return false;
             Vector3 c = Center(i);
             float hx = _cell.x * 0.52f, hz = _cell.z * 0.52f;
-            float y0 = -_cell.y * 0.5f - 0.004f, y1 = _cell.y * (0.5f + _topBulge) + 0.006f;
+            float y0 = -_cell.y * 0.5f - 0.004f, y1 = _cell.y * (0.5f + Bulge) + 0.006f;
             for (int k = 0; k < 2; k++)
             {
                 float y = k == 0 ? y0 : y1;

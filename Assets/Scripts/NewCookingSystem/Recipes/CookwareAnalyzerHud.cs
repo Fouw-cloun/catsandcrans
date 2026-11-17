@@ -17,7 +17,10 @@ namespace CatCooks.Food
         /// <summary>Отладка (только хост), смотришь на тару: J — +1 ведро воды, Shift+J — до полной, K — опустошить.</summary>
         public static KeyCode FillKey = KeyCode.J;
         public static KeyCode EmptyKey = KeyCode.K;
-        /// <summary>Отладка (хост): N — положить в тару под прицелом всё для выбранного рецепта (одна порция рецепта), Shift+N — следующий рецепт.</summary>
+        /// <summary>Отладка (хост): N — положить в тару под прицелом всё для выбранного рецепта (одна порция рецепта),
+        /// Ctrl+N / Ctrl+Shift+N — следующий / предыдущий рецепт.
+        /// v23.49: Shift+N — «новинки»: тара — заменить содержимое на следующее (шоколадная масса, тесто, мороженое, меренга…);
+        /// опалубка — сразу испечённый бисквит; тарелка Аляски — собрать / отсадить хвостики.</summary>
         public static KeyCode RecipeFillKey = KeyCode.N;
         /// <summary>Отладка (хост): X — положить в тару под прицелом сразу ГОТОВЫЙ продукт выбранного рецепта
         /// (тесто, ганаш, карамель…), столько, сколько дал бы рецепт. Ctrl+N — предыдущий рецепт.</summary>
@@ -59,8 +62,10 @@ namespace CatCooks.Food
             if (Input.GetKeyDown(EmptyKey)) DebugEmpty();
             if (Input.GetKeyDown(RecipeFillKey))
             {
-                if (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)) NextTestRecipe(1);
-                else if (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)) NextTestRecipe(-1);
+                bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+                bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+                if (ctrl) NextTestRecipe(shift ? -1 : 1);                  // v23.49: рецепты — Ctrl+N (вперёд) / Ctrl+Shift+N (назад)
+                else if (shift) DebugShowcase();                           // v23.49: Shift+N — новинки
                 else DebugFillRecipe();
             }
             if (Input.GetKeyDown(ReadyFillKey)) DebugFillReady();
@@ -159,7 +164,7 @@ namespace CatCooks.Food
             if (list.Count == 0) { Flash("N: в книге нет рецептов"); return; }
             _testRecipe = ((_testRecipe + dir) % list.Count + list.Count) % list.Count;
             CookRecipeDef r = list[_testRecipe];
-            Flash($"«{r.Title}» ({_testRecipe + 1}/{list.Count}): N — ингредиенты, X — готовое «{r.Result.Title}» · Shift+N / Ctrl+N — другой");
+            Flash($"«{r.Title}» ({_testRecipe + 1}/{list.Count}): N — ингредиенты, X — готовое «{r.Result.Title}» · Ctrl+N / Ctrl+Shift+N — другой");
             _t = 0f;
         }
 
@@ -258,6 +263,82 @@ namespace CatCooks.Food
             return s;
         }
 
+        // ───────────────────────── v23.49: Shift+N — НОВИНКИ ─────────────────────────
+
+        /// <summary>Что Shift+N по очереди кладёт в тару (то, что перестроили: вид, рельеф, пар). Нет продукта — пропуск.</summary>
+        private static readonly string[] Showcase =
+        {
+            "Шоколадная масса", "Бисквитное тесто", "Мороженое", "Меренга", "Яичная масса", "Яичный белок", "Яичный желток",
+            "Сливки", "Молоко", "Сметана", "Мёд", "Карамель", "Вода"
+        };
+        private static int _showcase = -1;
+
+        private static string ShowcaseHint(Cookware cw)
+        {
+            if (cw != null && FindOn<BakeTray>(cw) != null) return "<size=11>Shift+N — сразу ИСПЕЧЁННЫЙ бисквит в опалубке (режь пилой прямо в ней)</size>";
+            if (cw != null && cw.GetComponent<DessertPlate>() != null) return "<size=11>Shift+N — собрать Аляску (бисквит, мороженое, меренга); ещё раз — отсадить все хвостики</size>";
+            string next = Showcase[(_showcase + 1 + Showcase.Length) % Showcase.Length];
+            return $"<size=11>Shift+N — заменить содержимое на новинку (следующая: «{next}»)</size>";
+        }
+
+        private static T FindOn<T>(Cookware cw) where T : Component
+        {
+            T t = cw.GetComponent<T>();
+            if (t == null) t = cw.GetComponentInParent<T>();
+            if (t == null) t = cw.GetComponentInChildren<T>();
+            return t;
+        }
+
+        private void DebugShowcase()
+        {
+            Cookware cw = Aim();
+            if (cw == null) { Flash("Shift+N: наведись на тару, опалубку или тарелку Аляски"); return; }
+            if (!cw.IsServerInitialized) { Flash("Shift+N работает у хоста"); return; }
+            string where = cw.Def != null ? cw.Def.Title : cw.name;
+
+            // опалубка — сразу испечённый бисквит
+            BakeTray tray = FindOn<BakeTray>(cw);
+            if (tray != null)
+            {
+                string r = tray.DebugBakeNow();
+                Flash("Shift+N: " + r);
+                _t = 0f;
+                return;
+            }
+            // тарелка Аляски — собрать, потом хвостики
+            DessertPlate plate = cw.GetComponent<DessertPlate>();
+            if (plate != null)
+            {
+                Flash("Shift+N: " + plate.DebugNextStage());
+                _t = 0f;
+                return;
+            }
+
+            FoodDatabase db = CookRecipeBook.Db();
+            if (db == null || db.Table == null) { Flash("Shift+N: нет базы продуктов"); return; }
+            for (int tries = 0; tries < Showcase.Length; tries++)
+            {
+                _showcase = (_showcase + 1 + Showcase.Length) % Showcase.Length;
+                ProductDef p = null;
+                for (int id = 1; id < 2048 && p == null; id++)
+                {
+                    ProductDef q = db.Table.GetProduct((ushort)id);
+                    if (q != null && q.Title == Showcase[_showcase]) p = q;
+                }
+                if (p == null) continue;
+                cw.ServerClear();
+                int full = cw.Def != null ? cw.Def.Capacity : FoodUnits.Bucket;
+                int n = Mathf.Clamp(Mathf.Max(FoodUnits.Bucket, Mathf.RoundToInt(full * 0.6f)), 1, full);
+                int put = cw.ServerAddContent(p.Id, p.StartState, n, 0, false);
+                cw.ServerAgitate(0.3f);
+                Flash($"Shift+N: «{p.Title}» {FoodUnits.Describe(put, FoodUnits.NaturalUnit(p, p.StartState))} → «{where}» ({_showcase + 1}/{Showcase.Length})");
+                Debug.Log($"[Отладка Shift+N] «{cw.name}»: содержимое заменено на «{p.Title}» ×{put} порц.", cw);
+                _t = 0f;
+                return;
+            }
+            Flash("Shift+N: ни одного продукта из списка новинок нет в базе");
+        }
+
         /// <summary>Панель теста кухни сейчас на экране.</summary>
         private static bool PanelShown => Time.frameCount - Tools.BonfireTestKeys.ReservedFrame <= 2;
 
@@ -269,7 +350,8 @@ namespace CatCooks.Food
             string title = cw.Def != null ? cw.Def.Title : cw.name;
             float buckets = FoodUnits.BucketsIn(cw);
             if (!PanelShown) sb.AppendLine("<size=11>J +1 ведро воды · Shift+J до полной · K опустошить</size>");
-            sb.AppendLine($"<size=11>N — положить всё для «{TestRecipeTitle}» · X — сразу готовое · Shift+N / Ctrl+N — другой рецепт</size>");
+            sb.AppendLine($"<size=11>N — положить всё для «{TestRecipeTitle}» · X — сразу готовое · Ctrl+N / Ctrl+Shift+N — другой рецепт</size>");
+            sb.AppendLine(ShowcaseHint(cw));
             sb.AppendLine($"<b>{title}</b>  (вмещает {FoodUnits.Describe(Mathf.RoundToInt(buckets * FoodUnits.Bucket), CookUnit.Bucket)}, налито {FoodUnits.Describe(cw.TotalCount, CookUnit.Bucket)})   [F4]");
             CookwareHeat heat = cw.GetComponent<CookwareHeat>();
             if (heat != null)

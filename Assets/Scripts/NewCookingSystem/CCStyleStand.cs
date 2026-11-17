@@ -138,9 +138,26 @@ namespace CatCooks.Food
             var steel = new Material(sh) { name = "StandSteel (auto)", hideFlags = HideFlags.DontSave };
             Color sc = new Color(0.72f, 0.74f, 0.78f);
             if (steel.HasProperty("_BaseColor")) steel.SetColor("_BaseColor", sc); else steel.color = sc;
-            for (int i = 0; i < list.Count; i++) Plate(list[i], i, steel);
-            Debug.Log($"[Стенд] «мастерков»: {list.Count}", this);
-            BuildBuckets(db, steel.shader);
+            // v23.41: СНАЧАЛА вёдра, и каждый шаг отдельно — ошибка в одном мастерке больше не оставляет стенд без вёдер
+            try { BuildBuckets(db, steel.shader); }
+            catch (System.Exception e) { Debug.LogError("[Стенд] вёдра не построились: " + e, this); }
+            // v23.40: мороженое шариком — всегда в ряду мастерков (его профиль создаётся кодом)
+            ProductDef iceP = CCStyleStandSlot.FindByTitle(db, "Мороженое");
+            if (iceP != null && !list.Contains(iceP)) list.Add(iceP);
+            // v23.56: превью макарон — свои мастерки (не профилем вещества), из общего ряда убираем
+            list.RemoveAll(x => x == null || x.Title == null || IsPreviewAlmond(x.Title.Trim().ToLowerInvariant()) || IsPreviewBatter(x.Title.Trim().ToLowerInvariant()));
+            for (int i = 0; i < list.Count; i++)
+            {
+                try { Plate(list[i], i, steel); }
+                catch (System.Exception e) { Debug.LogError($"[Стенд] мастерок «{list[i].Title}» не построился: {e}", this); }
+            }
+            try { PlateSponge(list.Count, steel); }                           // v23.40: кусок бисквита на мастерке
+            catch (System.Exception e) { Debug.LogError("[Стенд] мастерок с бисквитом не построился: " + e, this); }
+            try { PlatePreviewAlmond(db, list.Count + 1, steel); }            // v23.56: превью — миндальная смесь
+            catch (System.Exception e) { Debug.LogError("[Стенд] превью «Миндальная смесь» не построилось: " + e, this); }
+            try { PlatePreviewBatter(list.Count + 2, steel); }                 // v23.58: превью — тесто для макарон, мазками
+            catch (System.Exception e) { Debug.LogError("[Стенд] превью «Тесто для макарон» не построилось: " + e, this); }
+            Debug.Log($"[Стенд] «мастерков»: {list.Count + 3} (из них 2 превью макарон)", this);
         }
 
         // ───────────────────────── ВЁДРА ТОЛЬКО ДЛЯ ВИДА ─────────────────────────
@@ -153,7 +170,13 @@ namespace CatCooks.Food
         /// </summary>
         private void BuildBuckets(FoodDatabase db, Shader propShader)
         {
-            if (BucketModel == null) { Debug.LogWarning("[Стенд] не задано ведро-образец (Bucket Model) — вёдер не будет. Пересоздай стенд меню, выделив ведро", this); return; }
+            if (BucketModel == null) BucketModel = FindAnyBucket();                 // v23.41: образец потерялся — берём любое ведро сцены
+            if (BucketModel == null) { Debug.LogWarning("[Стенд] не задано ведро-образец (Bucket Model) и в сцене нет ведра — вёдер не будет. Пересоздай стенд меню, выделив ведро", this); return; }
+            if (Liquids == null || Liquids.Count == 0)                               // v23.41: список в сцене пустой — берём стандартный
+                Liquids = new List<string> { "Яичный белок+Яичный желток", "Яичный желток", "Яичный белок", "Яичная масса", "Шоколадная масса",
+                                             "Бисквитное тесто", "Молоко", "Сливки", "Мороженое", "Меренга", "Вода", "Сметана", "Мёд", "Карамель" };
+            EnsurePreviewLiquids();                                                 // v23.56: превью макарон — всегда в конце ряда
+            Debug.Log($"[Стенд] вёдра: образец «{BucketModel.name}», жидкостей {Liquids.Count}", this);
             Shader liq = Shader.Find("CatCooks/Liquid Surface");
             if (liq == null) { Debug.LogWarning("[Стенд] нет шейдера CatCooks/Liquid Surface", this); return; }
             Transform mt = BucketModel.transform;
@@ -213,9 +236,21 @@ namespace CatCooks.Food
                 bool yolkOnly = t.Contains("яичный желток") && parts.Length == 1;
                 bool eggClear = t.Contains("яичный белок") || yolkOnly;                  // v23.20: сырой белок прозрачный
                 bool water = kind == 6;
+                bool macBatter = IsPreviewBatter(t);                                     // v23.56: превью — тесто для макарон
+                if (macBatter) kind = 0;                                                 // v23.58: гладкое глянцевое, без пузырей-пор шейдера
+                if (IsPreviewAlmond(t))                                                  // v23.56: превью — миндальная смесь (сыпучая горка, не жидкость)
+                {
+                    var ad = new FoodSubstanceMesh.Dims();
+                    ad.Rx = ad.Rz = ir * 0.97f; ad.H = ir * 0.32f; ad.Edge = 0.55f; ad.RectN = 2f;
+                    AlmondHeap(root, new Vector3(cOff.x, surfY - ad.H * ad.Edge, cOff.z), db, ad, i * 53 + 7, 160);
+                    if (Labels) BucketLabel(root, entry + " (превью)", new Vector3(cOff.x, (any ? mb.max.y - mt.position.y : surfY) + ir * 0.6f, cOff.z), ir, true);
+                    continue;
+                }
                 Color col = d != null ? FoodColors.Of(d, FoodState.None) : new Color(0.95f, 0.93f, 0.88f);
+                if (macBatter) col = BatterCol;
                 if (eggClear) col = new Color(0.96f, 0.95f, 0.8f);
                 if (t.Contains("бисквит")) col = Color.Lerp(col, new Color(0.6f, 0.4f, 0.26f), 0.85f);
+                if (t.Contains("шоколадная масса") || t.Contains("ганаш")) col = Color.Lerp(col, new Color(0.5f, 0.31f, 0.19f), 0.8f);   // v23.43: молочный шоколад   // v23.40: как в таре
                 if (t.Contains("мёд") || t.Contains("мед") || t.Contains("карамел")) col = Color.Lerp(col, new Color(1f, 0.85f, 0.45f), 0.25f);
                 if (kind == 5) col = Color.Lerp(col, new Color(0.99f, 0.97f, 0.92f), 0.45f);       // мороженое — белое (крапинки ванили рисует шейдер)
                 col.a = 1f;
@@ -225,7 +260,8 @@ namespace CatCooks.Food
                 lg.transform.localPosition = new Vector3(cOff.x, sy0, cOff.z);
                 bool thick = kind == 1 || kind == 2;
                 Mesh dm;
-                if (!_discs.TryGetValue(kind, out dm)) { dm = Disc(ir, thick ? 1f : 0f, kind == 5 ? 1f : 0f, kind); _discs[kind] = dm; }   // v23.14: с рельефом вещества
+                if (macBatter) { if (_batterDisc == null) _batterDisc = BatterDisc(ir); dm = _batterDisc; }           // v23.56: пышные складки
+                else if (!_discs.TryGetValue(kind, out dm)) { dm = Disc(ir, thick ? 1f : 0f, kind == 5 ? 1f : 0f, kind); _discs[kind] = dm; }   // v23.14: с рельефом вещества
                 lg.AddComponent<MeshFilter>().sharedMesh = dm;
                 MeshRenderer lr = lg.AddComponent<MeshRenderer>();
                 var lm = new Material(liq) { name = "StandLiquid " + title, hideFlags = HideFlags.DontSave };
@@ -245,13 +281,36 @@ namespace CatCooks.Food
                 bool syrup = t.Contains("мёд") || t.Contains("мед") || t.Contains("карамел") || t.Contains("сироп");
                 lm.SetFloat("_AnimeGlow", syrup ? 0.4f : 0f);
                 lm.SetFloat("_AnimeBubbles", 0f);
-                lm.SetFloat("_AnimeShine", kind == 4 || kind == 7 ? 0.85f : kind == 0 ? 0.4f : (kind == 3 || kind == 5) ? 0f : 0.45f);
+                lm.SetFloat("_AnimeShine", kind == 4 || kind == 7 || kind == 9 ? 0.85f : kind == 0 ? 0.4f : (kind == 3 || kind == 5) ? 0f : 0.45f);
                 lm.SetFloat("_AnimePores", 0f);
                 // v23.15: блеска меньше, без «искр»: матовым — почти нет, глянцевым — умеренно
                 if (kind == 3 || kind == 5) { lm.SetFloat("_GlintStrength", 0.2f); lm.SetFloat("_SheenStrength", 0.04f); lm.SetFloat("_FresnelStrength", 0.08f); lm.SetFloat("_AnimeRim", 0.25f); }
-                else if (kind == 4 || kind == 7) { lm.SetFloat("_GlintStrength", 0.9f); lm.SetFloat("_GlintSize", 0.982f); lm.SetFloat("_SheenStrength", 0.3f); }
+                else if (kind == 4 || kind == 7 || kind == 9) { lm.SetFloat("_GlintStrength", 0.9f); lm.SetFloat("_GlintSize", 0.982f); lm.SetFloat("_SheenStrength", 0.3f); }
                 else { lm.SetFloat("_GlintStrength", 0.5f); lm.SetFloat("_SheenStrength", 0.12f); }
                 lm.SetFloat("_AnimeBreath", CookwareLiquidVisual.BreathFor(kind) * ir);
+                if (kind == 9 && !t.Contains("солён") && !t.Contains("солен"))
+                {
+                    // v23.63: карамель — чуть прозрачная (как в игре), сквозь неё видно дно ведра
+                    lm.SetFloat("_SrcBlend", 5f); lm.SetFloat("_DstBlend", 10f); lm.SetFloat("_ZWrite", 0f); lm.renderQueue = 2990;
+                    lm.SetOverrideTag("RenderType", "Transparent");
+                    lm.SetFloat("_Opacity", 0.78f);
+                    lm.SetFloat("_Density", 0f);
+                }
+                if (macBatter)
+                {
+                    // v23.58: мазки лопаткой, глянец как у взбитого теста, без пор; микрокрупинки — тем же материалом (тот же цвет)
+                    lm.SetFloat("_AnimePores", 0f);
+                    lm.SetFloat("_AnimeShine", 0.45f);
+                    lm.SetFloat("_AnimeInk", 0.5f);
+                    lm.SetFloat("_GlintStrength", 0.6f); lm.SetFloat("_GlintSize", 0.97f);
+                    lm.SetFloat("_SheenStrength", 0.18f); lm.SetFloat("_FresnelStrength", 0.12f);
+                    var dg = new GameObject("Dots (preview)") { hideFlags = HideFlags.DontSave };
+                    dg.transform.SetParent(lg.transform, false);
+                    dg.AddComponent<MeshFilter>().sharedMesh = BatterDots(ir, 500, i * 31 + 3);
+                    MeshRenderer dr = dg.AddComponent<MeshRenderer>();
+                    dr.sharedMaterial = lm;
+                    dr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                }
                 lr.sharedMaterial = lm;
                 _standLiquids.Add(lg.transform); _standMats.Add(lm);
                 if (parts.Length > 1 && parts[1].ToLowerInvariant().Contains("желток")) Yolks(lg.transform, ir, propShader, 2);
@@ -268,7 +327,7 @@ namespace CatCooks.Food
                     tg.transform.SetParent(root, false);
                     tg.transform.localPosition = new Vector3(cOff.x, (any ? mb.max.y - mt.position.y : surfY) + ir * 0.6f, cOff.z);
                     TextMesh tm = tg.AddComponent<TextMesh>();
-                    tm.text = entry.Replace("+", " + ");
+                    tm.text = entry.Replace("+", " + ") + (macBatter ? " (превью)" : "");
                     tm.anchor = TextAnchor.MiddleCenter;
                     tm.characterSize = ir * 0.05f;
                     tm.fontSize = 48;
@@ -336,7 +395,8 @@ namespace CatCooks.Food
             if (t.Contains("меренг")) return 2;
             if (t.Contains("яичная масса")) return 8;                                         // v23.20: своя (разводы + пена)
             if (t.Contains("тесто") || t.Contains("смесь для морож")) return 3;
-            if (t.Contains("карамел") || t.Contains("мёд") || t.Contains("мед") || t.Contains("сироп")) return 7;     // v23.16: свои ленты
+            if (t.Contains("карамел")) return 9;                                                                        // v23.63: карамель — хвосты-стёки, чуть прозрачная
+            if (t.Contains("мёд") || t.Contains("мед") || t.Contains("сироп")) return 7;     // v23.16: свои ленты
             if (t.Contains("шоколад") || t.Contains("ганаш") || t.Contains("глазур")) return 4;
             if (t.Contains("сметан") || t.Contains("крем")) return 1;
             return 0;
@@ -451,6 +511,448 @@ namespace CatCooks.Food
             }
         }
 
+        /// <summary>v23.40: «мастерок» с куском бисквита — тот же кубик, что падает из пласта под пилой (корочка с двух сторон, купол сверху).</summary>
+        private void PlateSponge(int i, Material steel)
+        {
+            Transform root = new GameObject("Trowel_Бисквит").transform;
+            root.SetParent(transform, false);
+            root.localPosition = new Vector3(i * PlateStep, 0f, PlateRowZ);
+            GameObject p = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            p.name = "Blade";
+            p.transform.SetParent(root, false);
+            p.transform.localScale = new Vector3(PlateSize.x, 0.012f, PlateSize.y);
+            p.transform.localPosition = new Vector3(0f, 0.006f, 0f);
+            p.GetComponent<MeshRenderer>().sharedMaterial = steel;
+            Object.Destroy(p.GetComponent<Collider>());
+            GameObject hd = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            hd.name = "Handle";
+            hd.transform.SetParent(root, false);
+            hd.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            hd.transform.localScale = new Vector3(PlateSize.x * 0.12f, PlateSize.y * 0.45f, PlateSize.x * 0.12f);
+            hd.transform.localPosition = new Vector3(0f, PlateSize.x * 0.08f, -PlateSize.y * 0.5f - PlateSize.y * 0.4f);
+            hd.GetComponent<MeshRenderer>().sharedMaterial = steel;
+            Object.Destroy(hd.GetComponent<Collider>());
+
+            // v23.44: ОДИН КУБИК бисквита (один сегмент): корочка сверху и снизу, мякиш с порами посередине
+            float side = Mathf.Min(PlateSize.x, PlateSize.y) * 0.55f;
+            Vector3 cell = new Vector3(side * 1.25f, side * 0.55f, side * 1.2f);   // v23.45: тоньше, шире и длиннее — как кусок
+            var go = new GameObject("SpongeSlab") { hideFlags = HideFlags.DontSave };
+            go.transform.SetParent(root, false);
+            go.transform.localPosition = new Vector3(0f, 0.012f + cell.y * 0.5f, 0f);
+            go.transform.localRotation = Quaternion.Euler(0f, 18f, 0f);
+            go.AddComponent<MeshFilter>().sharedMesh = SpongeMesh.BuildPiece(null, cell, SpongeMesh.AllCrust);
+            go.AddComponent<MeshRenderer>().sharedMaterial = SpongeMaterial();
+            go.AddComponent<SpongeJiggle>().Strength = 0.014f;
+            if (Labels)
+            {
+                var lg = new GameObject("Label");
+                lg.transform.SetParent(root, false);
+                lg.transform.localPosition = new Vector3(0f, PlateSize.x * (0.8f + 0.25f * (i % 2)), 0f);
+                TextMesh tm = lg.AddComponent<TextMesh>();
+                tm.text = "Бисквит";
+                tm.anchor = TextAnchor.MiddleCenter;
+                tm.characterSize = PlateSize.x * 0.035f;
+                tm.fontSize = 48;
+                tm.color = Color.white;
+                CCStyleStandBillboard.SetFont(tm);
+                lg.AddComponent<CCStyleStandBillboard>();
+            }
+        }
+
+        /// <summary>Материал бисквита: как у пласта в сцене (Mat_SpongeChoc), а нет — «CatCooks/Food Heap» (цвет из вершин).</summary>
+        private static Material SpongeMaterial()
+        {
+            foreach (FoodGridSlab sl in Object.FindObjectsByType<FoodGridSlab>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                MeshRenderer r = sl.GetComponent<MeshRenderer>();
+                if (IsSpongeShader(r)) return r.sharedMaterial;
+            }
+            foreach (SpongePiece sp in Object.FindObjectsByType<SpongePiece>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                MeshRenderer r = sp.GetComponent<MeshRenderer>();
+                if (IsSpongeShader(r)) return r.sharedMaterial;
+            }
+            // v23.43: только шейдер с цветом в вершинах и порами — иначе бисквит рисуется плоским цветом без пор
+            Shader sh = Shader.Find("CatCooks/Food Heap");
+            if (sh == null) sh = Shader.Find("Universal Render Pipeline/Simple Lit");
+            var m = new Material(sh) { name = "StandSponge (auto)", hideFlags = HideFlags.DontSave };
+            if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", Color.white);
+            if (m.HasProperty("_OutlineWidth")) m.SetFloat("_OutlineWidth", 0.003f);
+            if (m.HasProperty("_Flat")) m.SetFloat("_Flat", 0.4f);
+            if (m.HasProperty("_GlintStrength")) m.SetFloat("_GlintStrength", 0.06f);
+            return m;
+        }
+
+        private static bool IsSpongeShader(Renderer r)
+            => r != null && r.sharedMaterial != null && r.sharedMaterial.shader != null && r.sharedMaterial.shader.name == "CatCooks/Food Heap";
+
+        /// <summary>v23.41: любое ведро сцены (тара с жидкостью, в названии «ведр»/«bucket»/«vedro»), не из стенда.</summary>
+        private GameObject FindAnyBucket()
+        {
+            GameObject best = null;
+            foreach (CookwareLiquidVisual lv in Object.FindObjectsByType<CookwareLiquidVisual>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+            {
+                if (lv == null || lv.transform.IsChildOf(transform)) continue;
+                Cookware cw = lv.GetComponentInParent<Cookware>();
+                if (cw == null) continue;
+                string n = (cw.name + " " + (cw.Def != null ? cw.Def.Title : "")).ToLowerInvariant();
+                if (n.Contains("ведр") || n.Contains("bucket") || n.Contains("vedro")) return cw.gameObject;
+                if (best == null) best = cw.gameObject;
+            }
+            return best;
+        }
+
+        // ───────────────────────── v23.56: ПРЕВЬЮ МАКАРОН (только стенд) ─────────────────────────
+        // «Миндальная смесь» — мука миндальная + сахар: бежевая рыхлая горка с белыми крупинками сахара и редкими искрами.
+        // «Тесто для макарон» — шоколадное, воздушное, пористое: в ведре — пышные складки с порами, на мастерке — густая
+        // вытянутый мазок (v23.59; v23.58: мазки лопаткой, лёгкий рельеф, микрокрупинки того же цвета, без пор). В игру пока НЕ перенесено.
+
+        public const string PreviewAlmond = "Миндальная смесь";
+        public const string PreviewBatter = "Тесто для макарон";
+        private static readonly Color BatterCol = new Color(0.62f, 0.45f, 0.31f, 1f);   // v23.57: светлое, бежево-шоколадное
+
+        private static bool IsPreviewAlmond(string lowerTitle) { return lowerTitle == "миндальная смесь"; }
+        private static bool IsPreviewBatter(string lowerTitle) { return lowerTitle == "тесто для макарон"; }
+
+        private void EnsurePreviewLiquids()
+        {
+            if (Liquids == null) return;
+            bool a = false, b = false;
+            foreach (string s in Liquids)
+            {
+                if (string.IsNullOrEmpty(s)) continue;
+                string l = s.Split('+')[0].Trim().ToLowerInvariant();
+                if (IsPreviewAlmond(l)) a = true;
+                if (IsPreviewBatter(l)) b = true;
+            }
+            if (!a) Liquids.Add(PreviewAlmond);
+            if (!b) Liquids.Add(PreviewBatter);
+        }
+
+
+        private static Material _previewBatterMat;
+
+        private static Material PreviewBatterMat()
+        {
+            if (_previewBatterMat != null) return _previewBatterMat;
+            Shader sh = Shader.Find("CatCooks/Food Heap");
+            if (sh == null) sh = Shader.Find("Universal Render Pipeline/Simple Lit");
+            _previewBatterMat = new Material(sh) { name = "PreviewMacaronBatter (auto)", hideFlags = HideFlags.DontSave };
+            if (_previewBatterMat.HasProperty("_BaseColor")) _previewBatterMat.SetColor("_BaseColor", Color.white);
+            if (_previewBatterMat.HasProperty("_TexDetail")) _previewBatterMat.SetFloat("_TexDetail", 0f);
+            if (_previewBatterMat.HasProperty("_GlintStrength")) _previewBatterMat.SetFloat("_GlintStrength", 0.75f);   // тесто блестит мягко
+            if (_previewBatterMat.HasProperty("_GlintSize")) _previewBatterMat.SetFloat("_GlintSize", 0.955f);
+            if (_previewBatterMat.HasProperty("_Flat")) _previewBatterMat.SetFloat("_Flat", 0.35f);
+            if (_previewBatterMat.HasProperty("_OutlineWidth")) _previewBatterMat.SetFloat("_OutlineWidth", 0.003f);
+            return _previewBatterMat;
+        }
+
+
+        // ── Миндальная смесь ──
+
+        /// <summary>
+        /// v23.62: горка миндальной смеси — ТЕМ ЖЕ профилем, что в игре (FoodSubstanceTable.AlmondMixProfile):
+        /// порошок миндальной муки + крошечные блестящие кубики сахара. На мастерке — горкой, в ведре — по стенкам.
+        /// </summary>
+        private void AlmondHeap(Transform parent, Vector3 localPos, FoodDatabase db, FoodSubstanceMesh.Dims dims, int seed, int sparks)
+        {
+            ProductDef mixP = CCStyleStandSlot.FindByTitle(db, PreviewAlmond);
+            FoodSubstance sub = mixP != null ? FoodSubstance.Of(mixP, FoodState.None) : null;
+            if (sub == null || sub.Look != SubstanceLook.Powder) sub = FoodSubstanceTable.AlmondMixProfile(mixP);
+            Color col = sub.ColorFor(mixP != null ? FoodColors.Of(mixP, FoodState.None) : sub.Color);
+            var go = new GameObject("AlmondMix (preview)") { hideFlags = HideFlags.DontSave };
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = localPos;
+            var mesh = new Mesh { name = "Preview AlmondMix", hideFlags = HideFlags.DontSave };
+            mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            FoodSubstanceMesh.Powder(mesh, dims, sub.Wonky, col, seed, Mathf.Max(0.5f, sub.Sugar));
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            MeshRenderer mr = go.AddComponent<MeshRenderer>();
+            Material m = sub.GetMaterial();
+            if (m != null) mr.sharedMaterial = m;
+        }
+
+
+
+        // ── Тесто для макарон (v23.58): мазки лопаткой, лёгкий рельеф, микрокрупинки того же цвета ──
+
+        private Mesh _batterDisc;
+
+        /// <summary>
+        /// Рельеф мазков: тесто размазано лопаткой по спирали — каждый мазок плавно поднимается и кончается мягким
+        /// бортиком-«губой», в центре — поднятый лопаткой хохолок. Рельеф лёгкий. rel — сила рельефа, peakK — высота хохолка.
+        /// </summary>
+        private static float SmearRelief(float x, float z, float R, float dome, float rel, float peakK, float seedK)
+        {
+            float rho = Mathf.Sqrt(x * x + z * z) / Mathf.Max(1e-5f, R);
+            float a = Mathf.Atan2(z, x);
+            float body = Mathf.Pow(Mathf.Max(0f, 1f - rho * rho), 0.65f) * dome;
+            // спираль мазков с неровным шагом
+            float ph = (a + rho * 7.2f + Mathf.Sin(a * 2f + seedK) * 0.55f + Mathf.Sin(rho * 5f + seedK * 1.7f) * 0.35f) / (Mathf.PI * 2f) * 3f;
+            float saw = ph - Mathf.Floor(ph);
+            float stroke = Mathf.Pow(saw, 1.4f) * (1f - Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((saw - 0.82f) / 0.18f)));
+            float band = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((rho - 0.12f) / 0.2f)) * (1f - Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((rho - 0.82f) / 0.18f)));
+            float strokeH = stroke * rel * (0.7f + 0.3f * Mathf.Sin(a * 3f + seedK * 2.3f)) * band;
+            // мягкий хохолок в центре (чуть наклонён), как от поднятой лопатки
+            float px = x - R * 0.06f, pz = z + R * 0.04f;
+            float pr = Mathf.Sqrt(px * px + pz * pz) / (R * 0.22f);
+            float peak = Mathf.Exp(-pr * pr * 1.6f) * peakK;
+            float puff = (Mathf.PerlinNoise(x / (R * 0.4f) + 7.3f + seedK, z / (R * 0.4f) + 2.1f) - 0.5f) * rel * 0.35f * band;
+            return body + strokeH + peak + puff;
+        }
+
+        private static float BatterRelief(float x, float z, float R)
+        {
+            return SmearRelief(x, z, R, R * 0.07f, R * 0.045f, R * 0.03f, 1.3f);       // v23.59: хохолок ниже
+        }
+
+        private static Mesh BatterDisc(float r)
+        {
+            const int RG = 72, SG = 200;
+            var v = new List<Vector3>(); var n = new List<Vector3>(); var c = new List<Color>();
+            var u0 = new List<Vector2>(); var u1 = new List<Vector2>(); var u2 = new List<Vector2>(); var u3 = new List<Vector2>();
+            var tr = new List<int>();
+            v.Add(new Vector3(0f, BatterRelief(0f, 0f, r), 0f)); n.Add(Vector3.up); c.Add(Color.white);
+            u0.Add(Vector2.zero); u1.Add(Vector2.zero); u2.Add(new Vector2(0f, 1f)); u3.Add(Vector2.zero);
+            for (int i = 1; i <= RG; i++)
+                for (int j = 0; j < SG; j++)
+                {
+                    float f = i / (float)RG, a = j / (float)SG * Mathf.PI * 2f;
+                    Vector3 p = new Vector3(Mathf.Cos(a) * r * f, 0f, Mathf.Sin(a) * r * f);
+                    p.y = BatterRelief(p.x, p.z, r);
+                    v.Add(p); n.Add(Vector3.up); c.Add(Color.white);
+                    u0.Add(new Vector2(f, 0f)); u1.Add(new Vector2(p.x, p.z)); u2.Add(new Vector2(0f, 1f)); u3.Add(Vector2.zero);
+                }
+            for (int j = 0; j < SG; j++) { tr.Add(0); tr.Add(1 + (j + 1) % SG); tr.Add(1 + j); }
+            for (int i = 1; i < RG; i++)
+                for (int j = 0; j < SG; j++)
+                {
+                    int a = 1 + (i - 1) * SG + j, b = 1 + (i - 1) * SG + (j + 1) % SG, a2 = a + SG, b2 = b + SG;
+                    tr.Add(a); tr.Add(b); tr.Add(a2);
+                    tr.Add(b); tr.Add(b2); tr.Add(a2);
+                }
+            var m = new Mesh { name = "StandBatterDisc (preview)", hideFlags = HideFlags.DontSave };
+            m.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            m.SetVertices(v); m.SetNormals(n); m.SetColors(c);
+            m.SetUVs(0, u0); m.SetUVs(1, u1); m.SetUVs(2, u2); m.SetUVs(3, u3);
+            m.SetTriangles(tr, 0);
+            m.RecalculateNormals();
+            m.RecalculateBounds();
+            return m;
+        }
+
+        /// <summary>
+        /// Крупинка теста: приплюснутый бугорок с тёмным ободком-контуром у основания (как обводка у остальной еды).
+        /// col — цвет теста, ink — цвет контура.
+        /// </summary>
+        private static void AddDot(List<Vector3> v, List<Color> c, List<Vector2> u0, List<Vector2> u1, List<int> t,
+                                   Vector3 at, float size, Color col, Color ink, float rhoUv, float rot)
+        {
+            int b = v.Count;
+            v.Add(at + Vector3.up * (size * 0.5f)); c.Add(col);
+            if (u0 != null) { u0.Add(new Vector2(rhoUv, 0f)); u1.Add(new Vector2(at.x, at.z)); }
+            for (int ring = 0; ring < 2; ring++)
+                for (int k = 0; k < 7; k++)
+                {
+                    float a = rot + k / 7f * Mathf.PI * 2f;
+                    float wob = 0.85f + 0.3f * ((k * 37) % 5) / 4f;
+                    float rr = size * wob * (ring == 0 ? 0.72f : 1f);
+                    float yy = ring == 0 ? size * 0.3f : -size * 0.08f;
+                    Vector3 p = at + new Vector3(Mathf.Cos(a) * rr, yy, Mathf.Sin(a) * rr);
+                    v.Add(p); c.Add(ring == 0 ? col : ink);
+                    if (u0 != null) { u0.Add(new Vector2(rhoUv, 0f)); u1.Add(new Vector2(p.x, p.z)); }
+                }
+            for (int k = 0; k < 7; k++)
+            {
+                int i0 = b + 1 + k, i1 = b + 1 + (k + 1) % 7, o0 = i0 + 7, o1 = i1 + 7;
+                t.Add(b); t.Add(i1); t.Add(i0);
+                t.Add(i0); t.Add(i1); t.Add(o0);
+                t.Add(i1); t.Add(o1); t.Add(o0);
+            }
+        }
+
+        /// <summary>Микрокрупинки по тесту в ведре: тот же материал (цвет теста), с тёмным контуром у основания.</summary>
+        private static Mesh BatterDots(float r, int count, int seed)
+        {
+            var rnd = new System.Random(seed);
+            var v = new List<Vector3>(); var c = new List<Color>(); var u0 = new List<Vector2>(); var u1 = new List<Vector2>(); var t = new List<int>();
+            float sz = r * 0.01f;                                                   // v23.60: мельче
+            Color dc = new Color(1.07f, 1.055f, 1.035f, 1f);                       // v23.60: чуть светлее теста, без контура
+            for (int i = 0; i < count; i++)
+            {
+                float rr = Mathf.Sqrt((float)rnd.NextDouble()) * 0.92f, a = (float)rnd.NextDouble() * Mathf.PI * 2f;
+                float x = Mathf.Cos(a) * rr * r, z = Mathf.Sin(a) * rr * r;
+                Vector3 p = new Vector3(x, BatterRelief(x, z, r), z);
+                AddDot(v, c, u0, u1, t, p, sz * (0.6f + (float)rnd.NextDouble() * 0.9f), dc, dc, rr, (float)rnd.NextDouble() * 6.28f);
+            }
+            var m = new Mesh { name = "StandBatterDots (preview)", hideFlags = HideFlags.DontSave };
+            m.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            var u2 = new List<Vector2>(); var u3 = new List<Vector2>();
+            for (int i = 0; i < v.Count; i++) { u2.Add(new Vector2(0f, 1f)); u3.Add(Vector2.zero); }
+            m.SetVertices(v); m.SetColors(c); m.SetUVs(0, u0); m.SetUVs(1, u1); m.SetUVs(2, u2); m.SetUVs(3, u3);
+            m.SetTriangles(t, 0);
+            m.RecalculateNormals();
+            m.RecalculateBounds();
+            return m;
+        }
+
+        /// <summary>
+        /// v23.59: тесто на мастерке — ВЫТЯНУТЫЙ МАЗОК (как лопаткой провели по полотну), а не кучка:
+        /// толстый скруглённый «носик» спереди, к хвосту тоньше и уже, мазок слегка изогнут; вдоль — бороздки от лопатки,
+        /// у носика — мягкий бортик. Поверх — крупинки того же цвета с тёмным контуром.
+        /// </summary>
+        private static void BatterSmear(Mesh m, float rb, float hgt, Color col, int seed)
+        {
+            const int RG = 64, SG = 200;
+            var rnd = new System.Random(seed);
+            float sk = (float)rnd.NextDouble() * 6.28f;
+            var v = new List<Vector3>(); var c = new List<Color>(); var t = new List<int>();
+            v.Add(SmearPos(0f, 0f, rb, hgt, sk)); c.Add(col);
+            for (int i = 1; i <= RG; i++)
+                for (int j = 0; j < SG; j++)
+                {
+                    float f = i / (float)RG, a = j / (float)SG * Mathf.PI * 2f;
+                    v.Add(SmearPos(a, f, rb, hgt, sk));
+                    c.Add(col);
+                }
+            for (int j = 0; j < SG; j++) { t.Add(0); t.Add(1 + j); t.Add(1 + (j + 1) % SG); }   // обход обратный: угол идёт от оси мазка к ширине
+            for (int i = 1; i < RG; i++)
+                for (int j = 0; j < SG; j++)
+                {
+                    int a = 1 + (i - 1) * SG + j, b = 1 + (i - 1) * SG + (j + 1) % SG, a2 = a + SG, b2 = b + SG;
+                    t.Add(a); t.Add(a2); t.Add(b);
+                    t.Add(b); t.Add(a2); t.Add(b2);
+                }
+            // крупинки того же цвета, с контуром
+            float dsz = rb * 0.014f;                                                // v23.60: мельче, без контура
+            for (int k = 0; k < 300; k++)
+            {
+                float rr = Mathf.Sqrt((float)rnd.NextDouble()) * 0.86f, a = (float)rnd.NextDouble() * Mathf.PI * 2f;
+                Vector3 p = SmearPos(a, rr, rb, hgt, sk);
+                float tone = 1.06f + (float)rnd.NextDouble() * 0.04f;                 // чуть светлее теста — заметно, но в тон
+                Color cc = new Color(Mathf.Clamp01(col.r * tone), Mathf.Clamp01(col.g * tone), Mathf.Clamp01(col.b * tone * 0.99f), 1f);
+                AddDot(v, c, null, null, t, p, dsz * (0.6f + (float)rnd.NextDouble() * 0.9f), cc, cc, 0f, (float)rnd.NextDouble() * 6.28f);
+            }
+            m.Clear();
+            m.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            m.SetVertices(v); m.SetColors(c); m.SetTriangles(t, 0);
+            m.RecalculateNormals();
+            m.RecalculateBounds();
+        }
+
+        /// <summary>Точка мазка по (угол, доля радиуса) единичного круга: вдоль — ось мазка (повёрнута), поперёк — ширина.</summary>
+        private static Vector3 SmearPos(float a, float rho, float rb, float hgt, float sk)
+        {
+            float u = Mathf.Cos(a) * rho;                    // −1 хвост … +1 носик
+            float w = Mathf.Sin(a) * rho;                    // −1 … +1 поперёк
+            float L = rb * 1.3f;
+            float t01 = (u + 1f) * 0.5f;
+            float width = rb * (0.58f + 0.3f * Mathf.Pow(t01, 0.7f));            // к носику шире
+            float along = u * L;
+            float bend = (u * u - 0.35f) * rb * 0.28f + Mathf.Sin(u * 2.3f + sk) * rb * 0.05f;   // мазок изогнут
+            float across = w * width + bend;
+            // высота: носик толстый, хвост тонкий; поперёк — скруглено; у самого края — мягко к полотну
+            float thick = hgt * (0.45f + 0.55f * Mathf.Pow(t01, 1.1f));            // v23.60: хвост тоже пышный
+            float edge = Mathf.Pow(Mathf.Max(0f, 1f - rho * rho), 0.3f);             // v23.60: бока круглее, объёмнее
+            float y = thick * edge;
+            // бороздки от лопатки вдоль мазка (к носику гаснут — там тесто собралось валиком)
+            float groove = Mathf.Sin(w * Mathf.PI * 3.2f + Mathf.Sin(u * 3f + sk) * 0.6f + sk);
+            y += groove * hgt * 0.045f * (1f - t01 * 0.6f) * edge;
+            // валик-бортик у носика
+            float lip = Mathf.Exp(-((rho - 0.78f) / 0.12f) * ((rho - 0.78f) / 0.12f)) * Mathf.Max(0f, Mathf.Cos(a));
+            y += lip * hgt * 0.12f;
+            y += (Mathf.PerlinNoise(along / (rb * 0.5f) + sk, across / (rb * 0.5f) + 3.7f) - 0.5f) * hgt * 0.08f * edge;
+            // v23.60: пушистые воздушные клубы по верху (мягкие бугры)
+            float puff = Mathf.PerlinNoise(along / (rb * 0.32f) + 11.3f + sk, across / (rb * 0.32f) + 5.1f);
+            y += Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((puff - 0.35f) / 0.4f)) * hgt * 0.16f * edge * (0.6f + 0.4f * t01);
+            if (rho >= 0.999f) y = 0.0004f;
+            // ось мазка повёрнута на ~25° к ручке — смотрится живее
+            const float cs = 0.906f, sn = 0.423f;
+            float x = across * cs + along * sn, z = -across * sn + along * cs;
+            return new Vector3(x, Mathf.Max(0.0004f, y), z);
+        }
+
+        private static void BucketLabel(Transform root, string text, Vector3 localPos, float ir, bool ok)
+        {
+            var tg = new GameObject("Label");
+            tg.transform.SetParent(root, false);
+            tg.transform.localPosition = localPos;
+            TextMesh tm = tg.AddComponent<TextMesh>();
+            tm.text = text.Replace("+", " + ");
+            tm.anchor = TextAnchor.MiddleCenter;
+            tm.characterSize = ir * 0.05f;
+            tm.fontSize = 48;
+            tm.color = ok ? new Color(1f, 0.92f, 0.6f) : new Color(1f, 0.6f, 0.5f);
+            CCStyleStandBillboard.SetFont(tm);
+            tg.AddComponent<CCStyleStandBillboard>();
+        }
+
+        private Transform PreviewTrowel(string title, int i, Material steel)
+        {
+            Transform root = new GameObject("Trowel_" + title + " (preview)").transform;
+            root.SetParent(transform, false);
+            root.localPosition = new Vector3(i * PlateStep, 0f, PlateRowZ);
+            GameObject p = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            p.name = "Blade";
+            p.transform.SetParent(root, false);
+            p.transform.localScale = new Vector3(PlateSize.x, 0.012f, PlateSize.y);
+            p.transform.localPosition = new Vector3(0f, 0.006f, 0f);
+            p.GetComponent<MeshRenderer>().sharedMaterial = steel;
+            Object.Destroy(p.GetComponent<Collider>());
+            GameObject hd = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            hd.name = "Handle";
+            hd.transform.SetParent(root, false);
+            hd.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            hd.transform.localScale = new Vector3(PlateSize.x * 0.12f, PlateSize.y * 0.45f, PlateSize.x * 0.12f);
+            hd.transform.localPosition = new Vector3(0f, PlateSize.x * 0.08f, -PlateSize.y * 0.5f - PlateSize.y * 0.4f);
+            hd.GetComponent<MeshRenderer>().sharedMaterial = steel;
+            Object.Destroy(hd.GetComponent<Collider>());
+            if (Labels)
+            {
+                var lg = new GameObject("Label");
+                lg.transform.SetParent(root, false);
+                lg.transform.localPosition = new Vector3(0f, PlateSize.x * (0.8f + 0.25f * (i % 2)), 0f);
+                TextMesh tm = lg.AddComponent<TextMesh>();
+                tm.text = title + " (превью)";
+                tm.anchor = TextAnchor.MiddleCenter;
+                tm.characterSize = PlateSize.x * 0.035f;
+                tm.fontSize = 48;
+                tm.color = new Color(1f, 0.92f, 0.6f);
+                CCStyleStandBillboard.SetFont(tm);
+                lg.AddComponent<CCStyleStandBillboard>();
+            }
+            return root;
+        }
+
+        private void PlatePreviewAlmond(FoodDatabase db, int i, Material steel)
+        {
+            Transform root = PreviewTrowel(PreviewAlmond, i, steel);
+            float k = PlateSize.x / 0.11f;
+            ProductDef flour = CCStyleStandSlot.FindByTitle(db, "Мука миндальная");
+            FoodSubstance sub = flour != null ? FoodSubstance.Of(flour, FoodState.None) : null;
+            FoodSubstanceMesh.Dims dims;
+            if (sub != null) dims = ScoopSubstanceView.Dims(sub, PlateSize * 0.72f, PlatePortions * 0.004f * k * k * k);
+            else
+            {
+                dims = new FoodSubstanceMesh.Dims();
+                dims.Rx = PlateSize.x * 0.3f; dims.Rz = PlateSize.y * 0.3f; dims.H = dims.Rx * 0.55f; dims.Edge = 0f; dims.RectN = 2f;
+            }
+            AlmondHeap(root, new Vector3(0f, 0.012f, 0f), db, dims, i * 37 + 11, 70);
+        }
+
+        private void PlatePreviewBatter(int i, Material steel)
+        {
+            Transform root = PreviewTrowel(PreviewBatter, i, steel);
+            float rb = Mathf.Min(PlateSize.x, PlateSize.y) * 0.3f;
+            var go = new GameObject("MacaronBatter (preview)") { hideFlags = HideFlags.DontSave };
+            go.transform.SetParent(root, false);
+            go.transform.localPosition = new Vector3(0f, 0.012f, 0f);
+            var mesh = new Mesh { name = "Preview MacaronBatter", hideFlags = HideFlags.DontSave };
+            BatterSmear(mesh, rb, rb * 1.0f, BatterCol, i * 37 + 5);          // v23.60: пышный мазок
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            go.AddComponent<MeshRenderer>().sharedMaterial = PreviewBatterMat();
+        }
+
         private void Plate(ProductDef d, int i, Material steel)
         {
             Transform root = new GameObject("Trowel_" + d.Title).transform;
@@ -485,7 +987,7 @@ namespace CatCooks.Food
                 FoodSubstanceMesh.Dims dims = ScoopSubstanceView.Dims(sub, PlateSize * 0.72f, PlatePortions * 0.004f * k * k * k);
                 Color col = sub.ColorFor(FoodColors.Of(d, FoodState.None));
                 int seed = i * 37 + 11;
-                if (sub.Look == SubstanceLook.Powder) FoodSubstanceMesh.Powder(mesh, dims, sub.Wonky, col, seed);
+                if (sub.Look == SubstanceLook.Powder) FoodSubstanceMesh.Powder(mesh, dims, sub.Wonky, col, seed, sub.Sugar);
                 else if (sub.Look == SubstanceLook.Crystals) FoodSubstanceMesh.Crystals(mesh, dims, sub.CrystalSize, sub.CrystalDensity, col, seed);
                 else if (sub.Look == SubstanceLook.Spread)
                 {
@@ -496,6 +998,8 @@ namespace CatCooks.Food
                     FoodSubstanceMesh.Spread(mesh, dims, sub.Curl * 0.8f, col, seed);
                     FoodSubstanceMesh.SpreadDrips = 0;
                 }
+                else if (sub.Look == SubstanceLook.IceCream) FoodSubstanceMesh.IceCream(mesh, dims, col, seed);
+                else if (sub.Look == SubstanceLook.Meringue) FoodSubstanceMesh.MeringueKiss(mesh, dims, col, seed);
                 else FoodSubstanceMesh.ButterSmear(mesh, dims, sub.Curl, col, seed);
                 go.AddComponent<MeshFilter>().sharedMesh = mesh;
                 MeshRenderer mr = go.AddComponent<MeshRenderer>();
@@ -700,7 +1204,10 @@ namespace CatCooks.Food
                 if (!b.T.gameObject.activeSelf) b.T.gameObject.SetActive(true);
                 b.T.position = w;
                 b.T.rotation = Quaternion.identity;
-                b.T.localScale = new Vector3(sz, sz * 0.8f, sz);
+                // v23.38: размер — в МЕТРАХ мира. Тара может быть увеличена (корыто, банка — масштаб 200): делим на масштаб родителя,
+                // иначе пузырь выходил в сотни раз больше и «взрывался» на всю сцену
+                Vector3 ps = transform.lossyScale;
+                b.T.localScale = new Vector3(sz / Mathf.Max(1e-5f, Mathf.Abs(ps.x)), sz * 0.8f / Mathf.Max(1e-5f, Mathf.Abs(ps.y)), sz / Mathf.Max(1e-5f, Mathf.Abs(ps.z)));
                 _mpb.SetColor(ColId, Color);
                 _mpb.SetFloat(PopId, pop);
                 b.Mr.SetPropertyBlock(_mpb);
@@ -715,7 +1222,7 @@ namespace CatCooks.Food
                 bool free = Random.value < 0.15f;                                   // немного одиночных по всей поверхности
                 Vector2 p = free ? Random.insideUnitCircle * 0.8f : _cl[c] + Random.insideUnitCircle * 0.16f;
                 if (p.magnitude > 0.85f) continue;
-                float size = Radius * (0.05f + 0.11f * Mathf.Pow(Random.value, 2.2f));
+                float size = Mathf.Min(Radius, 0.45f) * (0.05f + 0.11f * Mathf.Pow(Random.value, 2.2f));   // v23.38: в огромной таре пузыри не больше ~7 см
                 Vector2 pw = p * Radius;
                 bool ok = true;
                 foreach (B o in _b)

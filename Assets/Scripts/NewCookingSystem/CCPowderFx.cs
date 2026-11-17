@@ -170,6 +170,42 @@ namespace CatCooks.Food
             Clouds(at, up, color, size * 0.3f, n, sp * 0.6f);
         }
 
+        // ───────── v23.53: ГРОХОТ — просеивание мультяшными тучками ─────────
+
+        /// <summary>Завеса пыли под ситом: мелкий клубок в случайной точке между сеткой (top) и тарой (bottom).
+        /// radius — радиус сетки, size — масштаб (м). Зовут каждый кадр, пока трясут.</summary>
+        public static void SiftCurtain(Vector3 top, Vector3 bottom, float radius, Color color, float size)
+        {
+            if (!Application.isPlaying) return;
+            size = Mathf.Clamp(size, 0.03f, 1f);
+            float t = Random.value;
+            t = t * t;                                                     // гуще у сетки
+            Vector2 d = Random.insideUnitCircle * radius * Mathf.Lerp(0.9f, 0.55f, t);
+            Vector3 p = Vector3.Lerp(top, bottom, t) + new Vector3(d.x, 0f, d.y);
+            Color dust = DustOf(color);
+            Dust(p, Vector3.down * Random.Range(0.25f, 0.6f) + Random.insideUnitSphere * 0.05f,
+                 size * Random.Range(0.1f, 0.2f) * (1f + 0.6f * t), Color.Lerp(dust, color, Random.value * 0.4f), Random.Range(0.3f, 0.55f));
+        }
+
+        /// <summary>Мука подпрыгивает на сетке, когда трясут: маленькие клубки над ситом.</summary>
+        public static void SiftTop(Vector3 at, float radius, Color color, float size)
+        {
+            if (!Application.isPlaying) return;
+            size = Mathf.Clamp(size, 0.03f, 1f);
+            Vector2 d = Random.insideUnitCircle * radius * 0.7f;
+            Clouds(at + new Vector3(d.x, 0f, d.y), Vector3.up, color, size * 0.12f, 1, Mathf.Sqrt(size / 0.3f) * 0.35f);
+        }
+
+        /// <summary>Порция долетела до тары: «пых» тучками из горловины и лёгкая дымка.</summary>
+        public static void SiftLand(Vector3 at, Color color, float size)
+        {
+            if (!Application.isPlaying) return;
+            size = Mathf.Clamp(size, 0.05f, 1f);
+            float sp = Mathf.Sqrt(size / 0.3f);
+            Clouds(at + Vector3.up * size * 0.05f, Vector3.up, color, size * 0.24f, Random.Range(2, 4), sp * 0.7f);
+            if (Random.value < 0.55f) Haze(at + Vector3.up * size * 0.2f, Vector3.up, color, size * 1.1f);
+        }
+
         /// <summary>v18: одна крошка/комочек падает с края (мастерок дёрнули). clump — круглый комочек.</summary>
         public static void Crumb(Vector3 at, Vector3 vel, Color color, float size, bool clump)
         {
@@ -263,7 +299,11 @@ namespace CatCooks.Food
         private static Color DustOf(Color c)
         {
             // пыль — того же цвета, чуть светлее и мягче (без ухода в серый)
-            Color d = Color.Lerp(c, c * 1.25f, 0.6f);
+            // v23.51: тёмное (какао, кофе) почти не светлим и делаем насыщеннее — иначе облачко выходило серым
+            float l = c.r * 0.299f + c.g * 0.587f + c.b * 0.114f;
+            Color sat = new Color(l + (c.r - l) * 1.4f, l + (c.g - l) * 1.4f, l + (c.b - l) * 1.4f, 1f);
+            Color d = Color.Lerp(sat, sat * 1.25f, Mathf.Lerp(0.15f, 0.6f, Mathf.Clamp01((l - 0.25f) / 0.4f)));
+            d.r = Mathf.Clamp01(d.r); d.g = Mathf.Clamp01(d.g); d.b = Mathf.Clamp01(d.b);
             d.a = 1f;
             return d;
         }

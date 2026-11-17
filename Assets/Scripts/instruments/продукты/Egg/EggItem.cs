@@ -92,8 +92,11 @@ namespace CatCooks.Food.Tools
             _canPickup = true;
         }
 
+        private bool _sizeNoted;
+
         private void Update()
         {
+            if (!_sizeNoted) { _sizeNoted = true; EggSplat.NoteEggSize(EggSize * _contentScale); }   // v23.28: размер яйца — один раз, для желтков везде
             if (!base.IsOwner || _cracked.Value || _sent) return;
             if (!_reaching) _aimCw = AimCookware();
             bool rmb = Input.GetMouseButton(1);
@@ -636,7 +639,8 @@ namespace CatCooks.Food.Tools
                     else
                     {
                         _yolkT.position = _land + Vector3.up * _size * 0.08f;
-                        _yolkT.localScale = new Vector3(_size * EggSplat.YolkK, _size * EggSplat.YolkK * 0.33f, _size * EggSplat.YolkK);   // v23.25: один размер
+                        float yw = EggSplat.YolkWorld;                                                     // v23.28: один размер везде
+                        _yolkT.localScale = new Vector3(yw, yw * 0.33f, yw);
                     }
                 }
             }
@@ -670,6 +674,12 @@ namespace CatCooks.Food.Tools
         public static float LastSize = 0.3f;
         /// <summary>v23.25: ОДИН размер желтка везде — на полу, в ведре, в банке, в ковше (доля длины яйца).</summary>
         public static float YolkK = 0.45f;
+        /// <summary>v23.28: размер яйца, запомненный ОДИН раз (с первого яйца в игре) — желток от него, а не от «последнего шлепка».
+        /// Раньше желток в банке рос, когда рядом разбивали другое яйцо (LastSize менялся).</summary>
+        public static float RefSize;
+        /// <summary>v23.28: ОДИН размер желтка в мире (м) — пол, ведро, банка, ковш.</summary>
+        public static float YolkWorld => (RefSize > 0f ? RefSize : LastSize) * YolkK;
+        public static void NoteEggSize(float size) { if (RefSize <= 0f && size > 0.001f) RefSize = size; }
         private int _id;
 
         /// <summary>Сервер: запомнить шлепок с желтком. Возвращает номер для клиентов.</summary>
@@ -677,6 +687,7 @@ namespace CatCooks.Food.Tools
         {
             int id = _nextId++;
             LastSize = size;
+            NoteEggSize(size);
             _server[id] = new Rec { Pos = at, Size = size, Yolk = true, Born = Time.time };
             return id;
         }
@@ -745,7 +756,8 @@ namespace CatCooks.Food.Tools
             var y = new GameObject("Yolk");
             y.transform.SetParent(go.transform, false);
             y.transform.localPosition = new Vector3(Random.Range(-0.15f, 0.15f) * size, size * 0.07f, Random.Range(-0.15f, 0.15f) * size);
-            y.transform.localScale = new Vector3(size * YolkK, size * YolkK * 0.38f, size * YolkK);   // v23.25: тот же размер, что в таре
+            float yw = YolkWorld;                                                                  // v23.28: один размер везде
+            y.transform.localScale = new Vector3(yw, yw * 0.38f, yw);
             y.AddComponent<MeshFilter>().sharedMesh = sphere;
             var yr = y.AddComponent<MeshRenderer>();
             yr.sharedMaterial = yolkMat;

@@ -985,13 +985,19 @@ namespace CatCooks.Food
                 item.transform.SetParent(root.transform, false);
                 item.transform.localPosition = new Vector3((i - 1.5f) * cell.x * 2.6f, 0f, 0f);
                 Part(item.transform, "Sponge", SpongeMesh.BuildPiece(null, cell, SpongeMesh.XNeg | SpongeMesh.ZPos), sm, new Vector3(0f, cell.y * 0.5f, 0f), Vector3.one);
-                Part(item.transform, "IceCream", SpongeMesh.IceScoop(), im, new Vector3(0f, cell.y, 0f), new Vector3(iceR, iceH, iceR));
+                // v23.46: шарик мороженого — как на мастерке и на тарелке
+                ProductDef iceP = Find("Мороженое");
+                Color iceC = iceP != null ? new Color(iceP.BaseColor.r, iceP.BaseColor.g, iceP.BaseColor.b, 1f) : new Color(0.97f, 0.94f, 0.86f, 1f);
+                Mesh ball = DessertPlate.IceBall(iceC, i + 5);
+                Material ballM = FoodSubstance.AnimeMaterial(SubstanceLook.IceCream);
+                if (ball != null && ballM != null) Part(item.transform, "IceBall", ball, ballM, new Vector3(0f, cell.y, 0f), new Vector3(iceR, iceH, iceR));
+                else Part(item.transform, "IceCream", SpongeMesh.IceScoop(), im, new Vector3(0f, cell.y, 0f), new Vector3(iceR, iceH, iceR));
                 var mg = new GameObject("Meringue");
                 mg.transform.SetParent(item.transform, false);
                 mg.AddComponent<MeshFilter>();
                 mg.AddComponent<MeshRenderer>().sharedMaterial = mm;
                 MeringueCap cap = mg.AddComponent<MeringueCap>();
-                DessertPlate.ConfigureCap(cap, cell, true, iceR, iceH);
+                DessertPlate.ConfigureCap(cap, cell, true, iceR, iceH, 1.38f, 0.25f, true);   // v23.47: «ёжики»
                 cap.Spread = spread[i];
                 cap.Seed = i + 3;
                 cap.Toast = toast[i];
@@ -1337,7 +1343,7 @@ namespace CatCooks.Food
 
         private static Material SpongeChocMat(StringBuilder log)
         {
-            return FoodHeapMat("Mat_SpongeChoc", SpongeCrumbTexture(log), 2.2f, 0.06f, 0.97f, 0.12f, 0.008f, log);
+            return FoodHeapMat("Mat_SpongeChoc", SpongeCrumbTexture(log), 2.2f, 0.06f, 0.97f, 0.12f, 0.003f, log);   // v23.46: тонкая обводка (поры рисует шейдер)
         }
 
         private static Material MeringueMat(StringBuilder log)

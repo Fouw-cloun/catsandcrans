@@ -64,6 +64,19 @@ namespace CatCooks.Food
         {
             _food = GetComponent<FoodPiece>();
             Refresh(_size, _crust);
+            if (!Application.isBatchMode)
+            {
+                // v23.50: чуть дрожит (свой меш, не общий) и парит, пока свежий
+                if (GetComponent<SpongeJiggle>() == null) gameObject.AddComponent<SpongeJiggle>().Strength = 0.02f;
+                if (GetComponent<SpongeSteam>() == null) gameObject.AddComponent<SpongeSteam>();
+            }
+        }
+
+        private Mesh _own;
+
+        private void OnDestroy()
+        {
+            if (_own != null) Destroy(_own);
         }
 
         /// <summary>До Spawn: размер клетки и стороны с корочкой.</summary>
@@ -103,7 +116,13 @@ namespace CatCooks.Food
         {
             if (size.sqrMagnitude < 1e-8f) return;
             MeshFilter mf = GetComponent<MeshFilter>();
-            if (mf != null) mf.sharedMesh = SpongeMesh.SharedPiece(size, crust);
+            if (mf != null)
+            {
+                // v23.50: свой меш (дрожь двигает вершины — общий меш дрожал бы у всех кубиков разом)
+                _own = SpongeMesh.BuildPiece(_own, size, crust);
+                _own.hideFlags = HideFlags.DontSave;
+                mf.sharedMesh = _own;
+            }
             BoxCollider bc = GetComponent<BoxCollider>();
             if (bc != null) { bc.size = size * 0.98f; bc.center = Vector3.zero; }
         }

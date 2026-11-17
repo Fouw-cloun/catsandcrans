@@ -85,10 +85,17 @@ namespace CatCooks.Food
             ushort mainProduct = 0;
             FoodState mainState = FoodState.None;
             float r = 0f, g = 0f, b = 0f;
+            bool wet = false;                                                    // v23.28: есть жидкость — сыпучее (ваниль, сахар) в ней растворено
+            for (int i = 0; i < _cookware.ViewCount && !wet; i++)
+            {
+                BagView w = _cookware.GetView(i);
+                if (w.Count > 0 && Cookware.IsSolvent(db != null ? db.Get(w.Product) : null, w.State)) wet = true;
+            }
             for (int i = 0; i < _cookware.ViewCount; i++)
             {
                 BagView v = _cookware.GetView(i);
                 if (IsIgnored(v.Product)) { liquid += v.Count; continue; }
+                if (wet && Cookware.DissolvesIn(db != null ? db.Get(v.Product) : null, v.State)) { liquid += v.Count; continue; }
                 // Жидкость горкой не рисуем никогда (даже если у тары нет LiquidAnchor).
                 if (FoodHeapLook.IsLiquid(db != null ? db.Get(v.Product) : null, v.State)) { liquid += v.Count; continue; }
                 total += v.Count;

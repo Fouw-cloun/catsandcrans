@@ -1081,10 +1081,29 @@ namespace CatCooks.Food
         public static CookRecipeDef IceCream(CookRecipeDef r, ProductDef cream, ProductDef sugar, ProductDef yolk, ProductDef egg,
                                              ProductDef ice, ProductDef mix)
         {
-            Plain(r, "Мороженое", cream, 0.5f, CookUnit.Bucket, 0.3f);
+            FoodDatabase db = Db();
+            ProductDef whiteI = db != null && db.Table != null ? FindExact(db, "яичный белок") : null;
+            ProductDef milkI = db != null && db.Table != null ? FindExact(db, "молоко") : null;
+            ProductDef vanI = db != null && db.Table != null ? FindExact(db, "ваниль") : null;
+            return IceCream(r, cream, sugar, yolk, egg, ice, mix, whiteI, milkI, vanI);
+        }
+
+        /// <summary>v23.28: то же, продукты переданы явно (меню редактора). vanilla — стручок ванили, 1 шт. (если есть продукт).</summary>
+        public static CookRecipeDef IceCream(CookRecipeDef r, ProductDef cream, ProductDef sugar, ProductDef yolk, ProductDef egg,
+                                             ProductDef ice, ProductDef mix, ProductDef whiteI, ProductDef milkI, ProductDef vanilla)
+        {
+            // v23.27: ЛЮБОЕ количество сливок от четверти ведра (рецепт «на тару»), сахар 1–2 мастерка, 1–3 желтка/яйца;
+            // белок от разбитого яйца и молоко — можно, они тоже уходят в мороженое
+            Plain(r, "Мороженое", cream, 0.25f, CookUnit.Bucket, 0.5f);
+            r.PerContainer = true;
             r.OnlyThese = false;                                     // молоко, ваниль — можно
-            r.Ingredients.Add(new CookRecipeDef.Ingredient { Product = sugar, Amount = 1f, Unit = CookUnit.Trowel });
-            r.Ingredients.Add(new CookRecipeDef.Ingredient { Product = yolk != null ? yolk : egg, Alt = yolk != null ? egg : null, Amount = 1f, Unit = CookUnit.Piece });   // v23.5: хватит одного желтка
+            r.Ingredients.Add(new CookRecipeDef.Ingredient { Product = sugar, Amount = 1.5f, Unit = CookUnit.Trowel });
+            r.Ingredients.Add(new CookRecipeDef.Ingredient { Product = yolk != null ? yolk : egg, Alt = yolk != null ? egg : null, Amount = 2f, Unit = CookUnit.Piece });
+            if (vanilla != null)                                     // v23.28: стручок ванили — кинуть в смесь и перемешать
+                r.Ingredients.Add(new CookRecipeDef.Ingredient { Product = vanilla, Amount = 1f, Unit = CookUnit.Piece });
+            if (milkI == cream) milkI = null;                        // «на молоке»: молоко уже основа
+            if (whiteI != null || milkI != null)
+                r.Ingredients.Add(new CookRecipeDef.Ingredient { Product = whiteI != null ? whiteI : milkI, Alt = whiteI != null ? milkI : null, Amount = 0f, Unit = CookUnit.Piece, Reduces = true });
             r.Steps.Add(new CookRecipeDef.Step { Kind = CookStepKind.Mix, Seconds = 6f, Intermediate = mix });
             r.Steps.Add(new CookRecipeDef.Step { Kind = CookStepKind.Freeze, Seconds = 2.5f });
             r.Result = ice;

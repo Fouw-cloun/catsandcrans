@@ -30,6 +30,8 @@ namespace CatCooks.Food
         [SerializeField] private Material _mat;
         [SerializeField] private Color _shellColor = new Color(0.78f, 0.58f, 0.40f);
         [SerializeField] private Color _burntColor = new Color(0.42f, 0.27f, 0.16f);
+        [Tooltip("v23.61: шоколадные скорлупки — цвет из кода (как у противня). Выключи — берутся цвета выше")]
+        [SerializeField] private bool _chocColors = true;
         [Tooltip("Дальность «накрыть» второй скорлупкой, м")]
         [SerializeField] private float _assembleReach = 3f;
         [SerializeField] private float _maxFilling = 1.5f;
@@ -62,6 +64,9 @@ namespace CatCooks.Food
         private float _pRadius, _pSize;
         private byte _pFlags, _pQuality;
 
+        private Color ShellCol => _chocColors ? MacaronTray.BakedChoc : _shellColor;
+        private Color BurntCol => _chocColors ? MacaronTray.BurntChoc : _burntColor;
+
         private Transform _bottom, _fill, _top;
         private MeshRenderer _bottomR, _fillR, _topR;
         private MaterialPropertyBlock _mpb;
@@ -83,6 +88,8 @@ namespace CatCooks.Food
             _fill = Part("Filling", out _fillR);
             _top = Part("Top", out _topR);
             _fill.GetComponent<MeshFilter>().sharedMesh = MacaronMesh.Puck();
+            // v23.61: свежая скорлупка из духовки парит, пока не остынет (~минута после выпечки)
+            if (!Application.isBatchMode && _bottom.GetComponent<SpongeSteam>() == null) _bottom.gameObject.AddComponent<SpongeSteam>().Rate = 10f;
             ApplyLook();
         }
 
@@ -301,7 +308,7 @@ namespace CatCooks.Food
                 _bottom.localPosition = Vector3.zero;
             }
             _bottom.localScale = new Vector3(r, r * hK, r);
-            Tint(_bottomR, (flags & MacaronTray.Burnt) != 0 ? _burntColor : _shellColor, 0.12f);
+            Tint(_bottomR, (flags & MacaronTray.Burnt) != 0 ? BurntCol : ShellCol, 0.12f);
 
             float fh = 0f;
             _fillR.enabled = fill > 0.01f;
@@ -327,7 +334,7 @@ namespace CatCooks.Food
                 _top.localRotation = Quaternion.identity;
                 _top.localPosition = new Vector3(0f, shellH + fh * 0.8f, 0f);
                 _top.localScale = new Vector3(tr, tr * tk, tr);
-                Tint(_topR, (topFlags & MacaronTray.Burnt) != 0 ? _burntColor : _shellColor, 0.12f);
+                Tint(_topR, (topFlags & MacaronTray.Burnt) != 0 ? BurntCol : ShellCol, 0.12f);
                 total = shellH + fh * 0.8f + 0.62f * tr * tk;
             }
             BoxCollider bc = GetComponent<BoxCollider>();

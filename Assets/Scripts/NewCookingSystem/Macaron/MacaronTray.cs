@@ -61,6 +61,10 @@ namespace CatCooks.Food
         [SerializeField] private Color _bakedColor = new Color(0.78f, 0.58f, 0.40f);
         [SerializeField] private Color _burntColor = new Color(0.42f, 0.27f, 0.16f);
         [SerializeField] private bool _showFillHint = true;
+        [Tooltip("v23.61: шоколадные цвета теста и скорлупок из кода (как тесто на стенде). Выключи — берутся цвета выше")]
+        [SerializeField] private bool _chocColors = true;
+        [Tooltip("v23.61: пар из колец, пока печётся, и от свежих скорлупок")]
+        [SerializeField] private bool _steamFx = true;
 
         [Header("Постановка (ЛКМ в руке)")]
         [SerializeField] private float _placeReach = 3f;
@@ -71,6 +75,14 @@ namespace CatCooks.Food
         [SerializeField] private bool _log = true;
 
         public enum TrayState : byte { Raw = 0, Baking = 1, Baked = 2 }
+
+        // v23.61: шоколадное тесто (светлое, бежево-шоколадное — как на стенде) и скорлупки из него
+        public static readonly Color RawChoc = new Color(0.62f, 0.45f, 0.31f);
+        public static readonly Color BakedChoc = new Color(0.50f, 0.34f, 0.23f);
+        public static readonly Color BurntChoc = new Color(0.27f, 0.17f, 0.11f);
+        private Color RawCol => _chocColors ? RawChoc : _rawColor;
+        private Color BakedCol => _chocColors ? BakedChoc : _bakedColor;
+        private Color BurntCol => _chocColors ? BurntChoc : _burntColor;
         // флаги результата кольца
         public const byte Cracked = 1, Spread = 2, Small = 4, Burnt = 8, Feet = 16;
 
@@ -90,6 +102,10 @@ namespace CatCooks.Food
         private Transform[] _pucks;
         private MeshRenderer[] _puckR;
         private MaterialPropertyBlock _mpb;
+        // v23.61: анимация отсадки (у каждого игрока своя): когда кольцо последний раз подросло
+        private float[] _grewAt;
+        private float _steamAt;
+        private int _animUntilFrame;
 
         public TrayState State => (TrayState)_state.Value;
         public bool IsBakingNow => base.IsServerInitialized && _heating;
@@ -127,9 +143,9 @@ namespace CatCooks.Food
         public override void OnStartNetwork()
         {
             base.OnStartNetwork();
-            _fill.OnChange += OnListChanged;
+            _fill.OnChange += OnFillChanged;
             _result.OnChange += OnListChanged;
-            _state.OnChange += OnByte;
+            _state.OnChange += OnState;
             _skin.OnChange += OnByte;
             ApplyLook();
         }
@@ -137,9 +153,9 @@ namespace CatCooks.Food
         public override void OnStopNetwork()
         {
             base.OnStopNetwork();
-            _fill.OnChange -= OnListChanged;
+            _fill.OnChange -= OnFillChanged;
             _result.OnChange -= OnListChanged;
-            _state.OnChange -= OnByte;
+            _state.OnChange -= OnState;
             _skin.OnChange -= OnByte;
         }
 
@@ -155,6 +171,26 @@ namespace CatCooks.Food
             ApplyLook();
         }
 
+        /// <summary>v23.61: кольцо подросло — капля вздрагивает, в центре хвостик от носика, потом оседает.</summary>
+        private void OnFillChanged(SyncListOperation op, int index, byte a, byte b, bool asServer)
+        {
+            if (asServer && base.IsClientInitialized) return;
+            if (op == SyncListOperation.Set && index >= 0 && b > a && State == TrayState.Raw)
+            {
+                if (_grewAt == null || _grewAt.Length != RingCount) _grewAt = new float[RingCount];
+                if (index < _grewAt.Length) _grewAt[index] = Time.time;
+            }
+            ApplyLook();
+        }
+
+        /// <summary>v23.61: испеклось — пар и запах готового; достали — крошки и скорлупки подпрыгивают.</summary>
+        private void OnState(byte a, byte b, bool asServer)
+        {
+            if (asServer && base.IsClientInitialized) return;
+            if (a == (byte)TrayState.Baking && b == (byte)TrayState.Baked) FxBaked();
+            if (a == (byte)TrayState.Baked && b == (byte)TrayState.Raw) FxPop();
+            ApplyLook();
+        }
         private void Resolve()
         {
             FoodDatabase db = FoodDatabase.Instance;
@@ -450,7 +486,7 @@ namespace CatCooks.Food
                 go.layer = gameObject.layer;
                 go.transform.SetParent(holder, false);
                 go.transform.localPosition = _rings[i];
-                go.AddComponent<MeshFilter>().sharedMesh = MacaronMesh.Puck();
+                go.AddComponent<MeshFilter>().sharedMesh = MacaronMesh.Dollop(0);
                 _puckR[i] = go.AddComponent<MeshRenderer>();
                 _puckR[i].sharedMaterial = _batterMat;
                 _puckR[i].enabled = false;
@@ -464,49 +500,134 @@ namespace CatCooks.Food
             if (_mpb == null) _mpb = new MaterialPropertyBlock();
             TrayState st = State;
             float skin = Skin01;
-            for (int i = 0; i < _pucks.Length; i++)
+            for (int i = 0; i < _pucks.Length; i++) LookRing(i, st, skin);
+        }
+
+        /// <summary>Вид одного кольца: капля теста (отсадка, хвостик оседает) → поднимается в духовке → скорлупка.</summary>
+        private void LookRing(int i, TrayState st, float skin)
+        {
+            if (_pucks[i] == null) return;
+            float f = FillOf(i);
+            bool show = f > 0.02f;
+            _puckR[i].enabled = show;
+            if (!show) return;
+            byte fl = i < _result.Count ? _result[i] : (byte)0;
+            float r = _ringRadius;
+            MeshFilter mf = _pucks[i].GetComponent<MeshFilter>();
+            Color col;
+            float glint;
+            // размер скорлупки по наливу (как у выпавшей)
+            float k = f <= 1f ? Mathf.Lerp(0.7f, 1f, Mathf.Sqrt(f)) : 1f + (f - 1f) * 0.6f;
+            // капля теста
+            float rad, h;
+            if (f <= 1f) { rad = r * 0.97f * Mathf.Lerp(0.35f, 1f, Mathf.Sqrt(f)); h = r * 0.42f * Mathf.Lerp(0.35f, 1f, f); }
+            else { rad = r * (0.97f + (f - 1f) * 1.1f); h = r * 0.42f * Mathf.Max(0.45f, 1f - (f - 1f) * 0.9f); }   // перелил — растеклось за кольцо
+            if (st == TrayState.Baked)
             {
-                if (_pucks[i] == null) continue;
-                float f = FillOf(i);
-                bool show = f > 0.02f;
-                _puckR[i].enabled = show;
-                if (!show) continue;
-                byte fl = i < _result.Count ? _result[i] : (byte)0;
-                float r = _ringRadius;
-                MeshFilter mf = _pucks[i].GetComponent<MeshFilter>();
-                Color col;
-                float glint;
-                if (st == TrayState.Baked)
-                {
-                    mf.sharedMesh = MacaronMesh.Shell((fl & Cracked) != 0);
-                    float k = f <= 1f ? Mathf.Lerp(0.7f, 1f, Mathf.Sqrt(f)) : 1f + (f - 1f) * 0.6f;
-                    bool spread = (fl & Spread) != 0;
-                    _pucks[i].localScale = new Vector3(r * k * (spread ? 1.08f : 1f), r * (spread ? 0.45f : 0.78f), r * k * (spread ? 1.08f : 1f));
-                    col = (fl & Burnt) != 0 ? _burntColor : _bakedColor;
-                    glint = 0.12f;
-                }
-                else
-                {
-                    mf.sharedMesh = MacaronMesh.Puck();
-                    float rad, h;
-                    if (f <= 1f) { rad = r * 0.97f * Mathf.Lerp(0.35f, 1f, Mathf.Sqrt(f)); h = r * 0.42f * Mathf.Lerp(0.35f, 1f, f); }
-                    else { rad = r * (0.97f + (f - 1f) * 1.1f); h = r * 0.42f * Mathf.Max(0.45f, 1f - (f - 1f) * 0.9f); }   // перелил — растеклось за кольцо
-                    _pucks[i].localScale = new Vector3(rad, h, rad);
-                    col = Color.Lerp(_rawColor, _bakedColor, st == TrayState.Baking ? _bake.Value / 255f : 0f);
-                    glint = Mathf.Lerp(0.7f, 0.06f, skin);                 // мокрое блестит, подсохшее — матовое
-                }
-                _puckR[i].GetPropertyBlock(_mpb);
-                col.a = 1f;
-                _mpb.SetColor("_BaseColor", col);
-                _mpb.SetFloat("_GlintStrength", glint);
-                _puckR[i].SetPropertyBlock(_mpb);
+                mf.sharedMesh = MacaronMesh.Shell((fl & Cracked) != 0);
+                bool spread = (fl & Spread) != 0;
+                _pucks[i].localScale = new Vector3(r * k * (spread ? 1.08f : 1f), r * (spread ? 0.45f : 0.78f), r * k * (spread ? 1.08f : 1f));
+                col = (fl & Burnt) != 0 ? BurntCol : BakedCol;
+                glint = 0.12f;
             }
+            else if (st == TrayState.Baking)
+            {
+                // v23.61: поднимается — купол растёт вверх, снизу вылезает кружевная юбочка, цвет темнеет до шоколадного
+                float b = _bake.Value / 255f;
+                float rise = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(b / 0.8f));
+                mf.sharedMesh = MacaronMesh.ShellRise(Mathf.RoundToInt(rise * MacaronMesh.RiseSteps));
+                bool spread = f > _perfectMax;
+                float hy0 = h / 0.47f, hy1 = r * (spread ? 0.45f : 0.78f);
+                float rr0 = rad, rr1 = r * k * (spread ? 1.08f : 1f);
+                float rr = Mathf.Lerp(rr0, rr1, rise);
+                _pucks[i].localScale = new Vector3(rr, Mathf.Lerp(hy0, hy1, rise), rr);
+                col = Color.Lerp(Color.Lerp(RawCol, RawCol * 1.06f, skin), BakedCol, b);
+                glint = Mathf.Lerp(0.08f, 0.12f, b);
+            }
+            else
+            {
+                // отсадка: пока давят — хвостик от носика и капля вздрагивает; отпустил — хвостик подгибается и остаётся
+                float since = _grewAt != null && i < _grewAt.Length && _grewAt[i] > 0f ? Time.time - _grewAt[i] : 99f;
+                // v23.62: хвостик НЕ пропадает — чуть оседает и подгибается набок, у каждого кольца в свою сторону
+                float pk = since < 0.3f ? 1f : Mathf.Clamp01(1f - (since - 0.3f) / 1.6f);
+                int rest = MacaronMesh.DollopRest;
+                mf.sharedMesh = MacaronMesh.Dollop(rest + Mathf.RoundToInt(pk * (MacaronMesh.DollopLevels - rest)));
+                _pucks[i].localRotation = Quaternion.Euler(0f, i * 137.5f + 20f, 0f);
+                float wob = since < 0.9f ? 0.07f * Mathf.Sin(since * 34f) * Mathf.Exp(-since * 5f) : 0f;
+                _pucks[i].localScale = new Vector3(rad * (1f + wob), h * (1f - wob * 1.5f), rad * (1f + wob));
+                if (since < 3f) _animUntilFrame = Mathf.Max(_animUntilFrame, Time.frameCount + 2);
+                col = Color.Lerp(RawCol, RawCol * 1.06f, skin);                     // подсохло — чуть светлее и матовое
+                glint = Mathf.Lerp(0.7f, 0.06f, skin);                               // мокрое блестит, подсохшее — матовое
+            }
+            _puckR[i].GetPropertyBlock(_mpb);
+            col.a = 1f;
+            _mpb.SetColor("_BaseColor", col);
+            _mpb.SetFloat("_GlintStrength", glint);
+            _puckR[i].SetPropertyBlock(_mpb);
         }
 
         private void LateUpdate()
         {
-            // выпечка меняет цвет плавно (байт приходит часто — без колбэка)
-            if (State == TrayState.Baking && _pucks != null && Time.frameCount % 10 == 0) ApplyLook();
+            if (_pucks == null) return;
+            TrayState st = State;
+            // выпечка меняет вид плавно (байт приходит часто — без колбэка)
+            if (st == TrayState.Baking && Time.frameCount % 6 == 0) ApplyLook();
+            // отсадка: анимация хвостика и вздрагивания — только пока она идёт
+            else if (st == TrayState.Raw && Time.frameCount <= _animUntilFrame && _grewAt != null)
+            {
+                if (_mpb == null) _mpb = new MaterialPropertyBlock();
+                float skin = Skin01;
+                for (int i = 0; i < _pucks.Length && i < _grewAt.Length; i++)
+                    if (_grewAt[i] > 0f && Time.time - _grewAt[i] < 3f) LookRing(i, st, skin);
+            }
+            if (st == TrayState.Baking) SteamTick();
+        }
+
+        private float WorldR => _ringRadius * MaxScaleXZ();
+
+        /// <summary>v23.61: пока печётся — из колец поднимается редкий пар (тесто отдаёт влагу).</summary>
+        private void SteamTick()
+        {
+            if (!_steamFx || Application.isBatchMode || Time.time < _steamAt) return;
+            float b = _bake.Value / 255f;
+            if (b > 0.9f || b <= 0.001f) return;
+            _steamAt = Time.time + Random.Range(0.3f, 0.7f);
+            int n = RingCount;
+            if (n == 0) return;
+            int i = Random.Range(0, n);
+            for (int tries = 0; tries < n && FillOf(i) < 0.1f; tries++) i = (i + 1) % n;
+            if (FillOf(i) < 0.1f) return;
+            float wr = WorldR;
+            CCPowderFx.Puff(RingWorld(i) + transform.up * (wr * 0.55f), Vector3.up, new Color(0.97f, 0.96f, 0.94f), wr * 1.4f, 0.5f);
+        }
+
+        private void FxBaked()
+        {
+            if (Application.isBatchMode) return;
+            float wr = WorldR;
+            for (int i = 0; i < RingCount; i++)
+            {
+                if (FillOf(i) < 0.1f) continue;
+                if (_steamFx) CCPowderFx.Puff(RingWorld(i) + transform.up * (wr * 0.6f), Vector3.up, new Color(0.97f, 0.96f, 0.94f), wr * 1.6f, 0.6f);
+                if (_steamFx && _puckR != null && i < _puckR.Length && _puckR[i] != null && _puckR[i].GetComponent<SpongeSteam>() == null)
+                    _puckR[i].gameObject.AddComponent<SpongeSteam>().Rate = 10f;
+            }
+            if (_steamFx) SpongeSteam.MarkBaked();                                  // свежие — парят ~минуту
+        }
+
+        private void FxPop()
+        {
+            if (Application.isBatchMode) return;
+            float wr = WorldR;
+            for (int i = 0; i < RingCount; i++)
+            {
+                Vector3 c = RingWorld(i) + transform.up * (wr * 0.4f);
+                for (int k = 0; k < 3; k++)
+                {
+                    Vector3 vel = Vector3.up * Random.Range(0.6f, 1.2f) + Random.insideUnitSphere * 0.5f;
+                    CCPowderFx.Crumb(c + Random.insideUnitSphere * wr * 0.4f, vel, BakedCol, wr * Random.Range(0.08f, 0.16f), Random.value < 0.6f);
+                }
+            }
         }
 
         /// <summary>Подсказка над кольцом, в которое смотрит игрок со шприцем.</summary>

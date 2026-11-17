@@ -10,6 +10,8 @@ namespace CatCooks.Food.Tools.EditorTools
     /// v22: СТРОЙКА — настройка в сцене. Префабов не создаёт: только объекты сцены.
     ///   1. Менеджер стройки в сцену — объект BuildManager (сеть + меню построек на C), сам находит префаб опалубки.
     ///   2. Коробка гвоздей в сцену — предмет «Коробка гвоздей» рядом с камерой сцены.
+    ///   4. v23.52: Труба для колец макарон в сцену — режется пилой/бензопилой на кольца.
+    ///   5. v23.52: Кольцо из трубы — объект для префаба (сохрани префабом, в Spawnable Prefabs, в трубу → Ring Prefab).
     /// </summary>
     public static class CatCooksBuildSetup
     {
@@ -59,6 +61,36 @@ namespace CatCooks.Food.Tools.EditorTools
             }
             else if (pf != null) log.AppendLine($"  • префаб опалубки уже задан: «{pf.objectReferenceValue.name}»");
 
+            // v23.52: противень для макарон
+            SerializedProperty tp = so.FindProperty("_macaronTrayPrefab");
+            SerializedProperty tl = so.FindProperty("_macaronTrayLook");
+            if (tp != null && tp.objectReferenceValue == null)
+            {
+                NetworkObject found = null;
+                foreach (string g in AssetDatabase.FindAssets("t:Prefab"))
+                {
+                    GameObject p = AssetDatabase.LoadAssetAtPath<GameObject>(AssetDatabase.GUIDToAssetPath(g));
+                    if (p == null || p.GetComponent<MacaronTray>() == null) continue;
+                    found = p.GetComponent<NetworkObject>();
+                    if (found != null) break;
+                }
+                if (found != null)
+                {
+                    tp.objectReferenceValue = found;
+                    log.AppendLine($"  ✔ префаб противня для макарон: «{found.name}» ({AssetDatabase.GetAssetPath(found)})");
+                }
+                else
+                {
+                    MacaronTray inScene = Object.FindAnyObjectByType<MacaronTray>(FindObjectsInactive.Include);
+                    if (tl != null && inScene != null) tl.objectReferenceValue = inScene.gameObject;
+                    log.AppendLine("  ✖ ПРЕФАБА ПРОТИВНЯ ДЛЯ МАКАРОН НЕТ — противень достроится, но настоящий не появится.");
+                    log.AppendLine("    Перетащи MacaronTray из Hierarchy в папку Project (станет префабом), добавь в Spawnable Prefabs и нажми это меню ещё раз.");
+                    if (inScene != null) log.AppendLine($"    Пока вид шаблона беру с противня в сцене: «{inScene.name}»");
+                }
+                so.ApplyModifiedProperties();
+            }
+            else if (tp != null) log.AppendLine($"  • префаб противня уже задан: «{tp.objectReferenceValue.name}»");
+
             EditorUtility.SetDirty(bm);
             EditorSceneManager.MarkSceneDirty(bm.gameObject.scene);
             Selection.activeGameObject = bm.gameObject;
@@ -95,6 +127,124 @@ namespace CatCooks.Food.Tools.EditorTools
             Debug.Log("[Стройка] коробка гвоздей поставлена у камеры сцены. Модель рисуется сама при запуске (картонная коробка с гвоздями). " +
                       "Размер — Box Collider Size (или Scale объекта, если мир крупный). " +
                       (nt == null ? "! NetworkTransform не найден — добавь руками (Client Authoritative)." : ""), go);
+        }
+
+        // ───────── v23.52: труба и кольца для противня макарон ─────────
+
+        /// <summary>Размер кольца — как у противня (префаб у менеджера, иначе в сцене), иначе 0.18 м.</summary>
+        private static void RingDims(out float ri, out float ro, out float h, out int count, StringBuilder log)
+        {
+            MacaronTray tray = null;
+            BuildManager bm = Object.FindAnyObjectByType<BuildManager>(FindObjectsInactive.Include);
+            if (bm != null)
+            {
+                Object pf = new SerializedObject(bm).FindProperty("_macaronTrayPrefab").objectReferenceValue;
+                if (pf is NetworkObject nob) tray = nob.GetComponent<MacaronTray>();
+            }
+            if (tray == null) tray = Object.FindAnyObjectByType<MacaronTray>(FindObjectsInactive.Include);
+            if (tray != null && tray.RingCount > 0)
+            {
+                ri = tray.RingRadius * Mathf.Abs(tray.transform.lossyScale.x);
+                count = tray.RingCount;
+                log.AppendLine($"  размер — по противню «{tray.name}»: колец {count}, Ø{ri * 2f:0.000} м");
+            }
+            else
+            {
+                ri = 0.09f; count = 12;
+                log.AppendLine("  ⚠ противня для макарон нет — кольцо Ø0.18 м, 12 шт. (Макарон → 5 сделает противень)");
+            }
+            ro = ri * 1.14f; h = ri * 0.32f;
+        }
+
+        private static GameObject FindPrefabWith<T>() where T : Component
+        {
+            foreach (string g in AssetDatabase.FindAssets("t:Prefab"))
+            {
+                GameObject p = AssetDatabase.LoadAssetAtPath<GameObject>(AssetDatabase.GUIDToAssetPath(g));
+                if (p != null && p.GetComponent<T>() != null) return p;
+            }
+            return null;
+        }
+
+        private static void AddNet(GameObject go, StringBuilder log)
+        {
+            int layer = LayerMask.NameToLayer("Interactable");
+            if (layer >= 0) go.layer = layer;
+            if (go.GetComponent<NetworkObject>() == null) go.AddComponent<NetworkObject>();
+            System.Type nt = System.Type.GetType("FishNet.Component.Transforming.NetworkTransform, FishNet.Runtime");
+            if (nt != null)
+            {
+                Component c = go.GetComponent(nt) ?? go.AddComponent(nt);
+                var so = new SerializedObject(c);
+                SerializedProperty ca = so.FindProperty("_clientAuthoritative");
+                if (ca != null) { ca.boolValue = true; so.ApplyModifiedPropertiesWithoutUndo(); }
+            }
+            else log.AppendLine("  ! NetworkTransform не найден — добавь руками (Client Authoritative)");
+        }
+
+        [MenuItem("CatCooks/Стройка/4. Труба для колец макарон в сцену (резать пилой)")]
+        public static void MakePipe()
+        {
+            var log = new StringBuilder("[Стройка] труба для колец:\n");
+            RingDims(out float ri, out float ro, out float h, out int count, log);
+            GameObject ringPrefab = FindPrefabWith<PipeRing>();
+            Material mat = CatCooksDessertSetup.PlateMat(log);
+            int rings = count + 1;                                               // одно — про запас (криво отпилил)
+            var go = new GameObject("PipeForRings (Труба для колец)");
+            Undo.RegisterCreatedObjectUndo(go, "Труба для колец");
+            SceneView sv = SceneView.lastActiveSceneView;
+            go.transform.position = (sv != null ? sv.pivot : Vector3.zero) + Vector3.up * (ro + 0.05f);
+            AddNet(go, log);
+            Rigidbody rb = go.AddComponent<Rigidbody>();
+            rb.mass = Mathf.Clamp(rings * h * ro * 60f, 1f, 12f);
+            rb.interpolation = RigidbodyInterpolation.Interpolate;
+            rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+            BoxCollider bc = go.AddComponent<BoxCollider>();
+            float L = rings * h + h * 0.4f;
+            bc.size = new Vector3(ro * 2f, ro * 2f, L);
+            PipeItem pipe = go.AddComponent<PipeItem>();
+            pipe.EditorSetup(ri, ro, h, rings, ringPrefab, mat);
+            // уже стоящие трубы — подставить кольцо-префаб
+            int fixedN = 0;
+            if (ringPrefab != null)
+                foreach (PipeItem other in Object.FindObjectsByType<PipeItem>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                {
+                    var so = new SerializedObject(other);
+                    SerializedProperty rp = so.FindProperty("_ringPrefab");
+                    if (rp != null && rp.objectReferenceValue == null) { rp.objectReferenceValue = ringPrefab; so.ApplyModifiedProperties(); fixedN++; }
+                }
+            Selection.activeGameObject = go;
+            EditorSceneManager.MarkSceneDirty(go.scene);
+            log.AppendLine($"  ✔ труба: {rings} колец (Ø{ro * 2f:0.000} м, высота кольца {h:0.000} м, длина {L:0.00} м), стальная, торцы жёлтые");
+            log.AppendLine(ringPrefab != null ? $"  ✔ Ring Prefab = «{ringPrefab.name}»" + (fixedN > 1 ? $" (и ещё у {fixedN - 1} труб)" : "")
+                                              : "  ✖ префаба кольца нет: меню «Стройка → 5», сохрани объект префабом, добавь в Spawnable Prefabs и нажми это меню ещё раз (или перетащи в Pipe Item → Ring Prefab)");
+            log.AppendLine("  Пилой или бензопилой целься в конец трубы — каждый распил отваливает кольцо. Сохрани сцену.");
+            Debug.Log(log.ToString(), go);
+        }
+
+        [MenuItem("CatCooks/Стройка/5. Кольцо из трубы (объект для префаба)")]
+        public static void MakeRing()
+        {
+            var log = new StringBuilder("[Стройка] кольцо из трубы:\n");
+            RingDims(out float ri, out float ro, out float h, out _, log);
+            var go = new GameObject("PipeRing");
+            Undo.RegisterCreatedObjectUndo(go, "Кольцо из трубы");
+            SceneView sv = SceneView.lastActiveSceneView;
+            go.transform.position = (sv != null ? sv.pivot : Vector3.zero) + Vector3.up * 0.2f;
+            AddNet(go, log);
+            Rigidbody rb = go.AddComponent<Rigidbody>();
+            rb.mass = 0.5f;
+            rb.interpolation = RigidbodyInterpolation.Interpolate;
+            rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+            BoxCollider bc = go.AddComponent<BoxCollider>();
+            bc.size = new Vector3(ro * 2f, h, ro * 2f);
+            go.AddComponent<PipeRing>().EditorSetup(ri, ro, h, CatCooksDessertSetup.PlateMat(log));
+            Selection.activeGameObject = go;
+            EditorSceneManager.MarkSceneDirty(go.scene);
+            log.AppendLine($"  ✔ «PipeRing» Ø{ro * 2f:0.000} м, высота {h:0.000} м (модель строится при запуске)");
+            log.AppendLine("  ДАЛЬШЕ: перетащи PipeRing из Hierarchy в папку Project (префаб), удали из сцены, добавь префаб в Spawnable Prefabs " +
+                           "(DefaultPrefabObjects) и нажми «Стройка → 4» — труба подхватит его сама.");
+            Debug.Log(log.ToString(), go);
         }
 
         // ───────── v23.2: опалубка — в руках устойчиво, перевернул — всё вылилось ─────────

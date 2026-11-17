@@ -117,7 +117,7 @@ Shader "CatCooks/Liquid Surface"
         _AnimeLayers ("Аниме v23.10: многослойность — озерцо, ступени к стенке, складки, мениск, блик-окно (скрипт)", Range(0, 1)) = 0
         _AnimeBreath ("Аниме v23.15: поверхность «дышит» — сдвиг по нормали, м (скрипт)", Float) = 0
         _AnimeRadius ("Аниме v23.24: радиус тары в осях меша (скрипт; 0 — не масштабировать узор)", Float) = 0
-        _AnimeKind ("Аниме v23.10: вид 0 гладкое, 1 сметана, 2 меренга, 3 тесто, 4 шоколад, 5 мороженое, 6 вода, 7 мёд/карамель, 8 яичная масса (скрипт)", Range(0, 8)) = 0
+        _AnimeKind ("Аниме v23.10: вид 0 гладкое, 1 сметана, 2 меренга, 3 тесто, 4 шоколад, 5 мороженое, 6 вода, 7 мёд, 8 яичная масса, 9 карамель (скрипт)", Range(0, 9)) = 0
 
         // Режим рисования (плотное молоко ставит скрипт: One/Zero/ZWrite 1, очередь 2450).
         [HideInInspector] _SrcBlend ("", Float) = 5
@@ -340,11 +340,11 @@ Shader "CatCooks/Liquid Surface"
                 {
                     float2 ip = i.uv.zw * 55.0;
                     float c0 = cells(ip), cx = cells(ip + float2(0.08, 0)), cz = cells(ip + float2(0, 0.08));
-                    icePit = smoothstep(0.2, 0.05, c0) * ik;                      // дырочки (крупнее и глубже — рыхлее)
+                    icePit = 0;                                                   // v23.34: дырочки-«кубики» убраны (рисует аниме-слой)
                     float2 gp = i.uv.zw * 210.0;
                     float g0 = vnoise(gp), gx = vnoise(gp + float2(0.4, 0)), gz = vnoise(gp + float2(0, 0.4));
                     float3 bump = float3(-(cx - c0) * 2.2 - (gx - g0) * 0.7, 0, -(cz - c0) * 2.2 - (gz - g0) * 0.7);
-                    nWS = normalize(nWS + bump * ik * 1.35);
+                    nWS = normalize(nWS + bump * ik * 0.25);                      // v23.34: шершавость еле-еле
                 }
                 if (fk > 0.001)
                 {
@@ -550,7 +550,7 @@ Shader "CatCooks/Liquid Surface"
                 {
                     col *= 1.0h - icePit * 0.24h;
                     float2 sc = floor(i.uv.zw * 240.0);
-                    half speck = step(0.992, hash21(sc + 7.3)) * ik;
+                    half speck = 0.0h;                                            // v23.34: квадратные крапинки убраны (ваниль — круглыми точками)
                     col = lerp(col, col * half3(0.45h, 0.36h, 0.3h), speck * 0.6h);
                 }
                 // ── иней: холодный отлив и искры ──
@@ -574,7 +574,8 @@ Shader "CatCooks/Liquid Surface"
                 // ── v23.4: аниме-слои: живописные пятна, каустика (вода), свечение изнутри (соки), пузырьки (мёд) ──
                 if (_Anime > 0.001h)
                 {
-                    half calm = (1.0h - pk) * (1.0h - ik) * (1.0h - fk);
+                    // v23.34: у мороженого (вид 5) аниме-слой РАБОТАЕТ (раньше гасился — шарики и следы ложки не рисовались)
+                    half calm = (1.0h - pk) * (1.0h - fk) * ((int)round(_AnimeKind) == 5 ? 1.0h : (1.0h - ik));
                     // v23.5: плоские ступени тона вместо плавного «реалистичного» света
                     col = lerp(col, CCA_Celize(col, animeBase, 0.04h), _AnimeCelize * _Anime * calm);
                     half3 lightC = saturate(animeBase * 1.18h + 0.06h);
@@ -665,77 +666,71 @@ Shader "CatCooks/Liquid Surface"
                             flt = smoothstep(0.9 - aw, 0.9 + aw, s1) * inr * 0.4h;
                             if (kd == 3)
                             {
-                                // пузырьки теста: дырочки двух размеров — темнее внутри, светлый нижний серп, контур, белая точка
-                                [unroll] for (int bl = 0; bl < 2; bl++)
+                                // v23.39: тесто как на фото — гладкое, складки еле видны, мелкие РАВНОМЕРНЫЕ пузырьки по всей поверхности
+                                inkL = 0.0h; flt *= 0.55h;                                          // v23.51: без тёмных завихрений — только лёгкие светлые следы миксера
+                                float2 pb = qN * 30.0 + float2(3.1, 7.7);
+                                float2 ib = floor(pb), fb = frac(pb);
+                                float bd = 9.0; float2 bv = float2(0, 0);
+                                [unroll] for (int yb = -1; yb <= 1; yb++)
+                                [unroll] for (int xb = -1; xb <= 1; xb++)
                                 {
-                                    float2 pb = i.uv.zw * (bl == 0 ? 12.0 : 22.0) + (bl == 0 ? float2(3.1, 7.7) : float2(9.4, 1.2));
-                                    float2 ib = floor(pb), fb = frac(pb);
-                                    float bd = 9.0; float2 bv = float2(0, 0); float brad = 0.2;
-                                    [unroll] for (int yb = -1; yb <= 1; yb++)
-                                    [unroll] for (int xb = -1; xb <= 1; xb++)
-                                    {
-                                        float2 ob = float2(xb, yb);
-                                        float2 hb = hash22(ib + ob);
-                                        float2 vb = ob + 0.25 + hb * 0.5 - fb;
-                                        float rb = 0.15 + 0.17 * hb.y;
-                                        float db = length(vb) / rb + (hash21(ib + ob + 2.7) > 0.45 ? 9.0 : 0.0);
-                                        if (db < bd) { bd = db; bv = vb; brad = rb; }
-                                    }
-                                    half inB = (1.0h - smoothstep(0.9, 1.0, bd)) * inr;
-                                    float2 dB = -bv / max(1e-4, length(bv));
-                                    col = lerp(col, lerp(col, shC, 0.55h), inB * Lk * 0.75h);
-                                    col = lerp(col, hiC, inB * smoothstep(0.3h, 0.7h, -dot(dB, ldir)) * smoothstep(0.55, 0.85, bd) * Lk * 0.6h);
-                                    half rimB = (1.0h - smoothstep(0.0, 0.07 + fwidth(bd), abs(bd - 0.97))) * inr;
-                                    col = lerp(col, shC * 0.5h, rimB * Lk * 0.7h);
-                                    half dotB = (1.0h - smoothstep(0.12, 0.2, length(dB * bd - ldir * 0.45))) * inB;
-                                    col = lerp(col, half3(1, 1, 1), dotB * Lk * 0.8h);
+                                    float2 ob = float2(xb, yb);
+                                    float2 hb = hash22(ib + ob);
+                                    float2 vb = ob + 0.2 + hb * 0.6 - fb;
+                                    float rb = 0.13 + 0.06 * hb.y;
+                                    float db = length(vb) / rb + (hash21(ib + ob + 2.7) > 0.5 ? 9.0 : 0.0);
+                                    if (db < bd) { bd = db; bv = vb; }
                                 }
+                                half farB = saturate(1.6 - fwidth(pb.x) * 2.5);
+                                half inB = (1.0h - smoothstep(0.85, 1.0, bd)) * inr * farB;
+                                float2 dB = -bv / max(1e-4, length(bv));
+                                col = lerp(col, lerp(col, shC, 0.45h), inB * Lk * 0.6h);
+                                half rimB = (1.0h - smoothstep(0.0, 0.1 + fwidth(bd), abs(bd - 0.95))) * inr * farB;
+                                col = lerp(col, shC * 0.6h, rimB * Lk * 0.45h);
+                                half dotB = (1.0h - smoothstep(0.15, 0.3, length(dB * bd - ldir * 0.45))) * inB;
+                                col = lerp(col, half3(1, 1, 1), dotB * Lk * 0.7h);
                             }
                         }
                         else if (kd == 2)
                         {
-                            // меренга: волнистость от взбивания, одна большая пика, тонкие следы венчика
-                            float sw = sin(angL * 2.0 + rL * 9.0 + 1.3 * sin(angL * 3.0));
-                            float aw = fwidth(sw) + 0.02;
-                            half inr = smoothstep(0.1, 0.3, rL) * (1.0h - smoothstep(0.9, 0.97, rL));
-                            inkL = (1.0h - smoothstep(0.0, aw * 1.6, abs(sw + 0.85))) * inr * 0.6h;
-                            flt = smoothstep(0.85 - aw, 0.85 + aw, sw) * inr * 0.5h;
-                            float2 pcM = float2(0.08, -0.05);
-                            float dpM = length(qN - pcM);
-                            inkL = max(inkL, (1.0h - smoothstep(0.0, 0.02 + fwidth(dpM), abs(dpM - 0.3))) * 0.7h);
-                            float wt = sin(rL * 48.0 + angL * 3.0);
-                            inkL = max(inkL, (1.0h - smoothstep(0.0, fwidth(wt) * 1.5 + 0.02, abs(wt - 0.95))) * 0.25h * smoothstep(0.35, 0.5, dpM) * inr);
-                            half tip = 1.0h - smoothstep(0.03, 0.05, length(qN - pcM - float2(0.05, 0.03)));
-                            col = lerp(col, half3(1, 1, 1), tip * Lk * 0.8h);
+                            // v23.51: МЕРЕНГА — нежная: без спиральных складок и тёмных кромок. Мягкие клубы (рельеф модели, обводка по рельефу ниже),
+                            // атласный свет на вершинах клубов, лёгкая сиреневая тень во впадинах, белый кончик пики
+                            float c1 = fbm(qN * 2.1 + float2(4.17, 0.93));
+                            half bill = smoothstep(0.42h, 0.75h, (half)c1);
+                            half inrM = (1.0h - smoothstep(0.85, 0.95, rL));
+                            flt = bill * inrM * 0.35h;                                             // светлые вершины клубов
+                            fsh = (1.0h - smoothstep(0.25h, 0.45h, (half)c1)) * inrM * 0.25h;     // мягкие впадины
+                            float2 pcM = float2(0.1, -0.06);
+                            half tip = 1.0h - smoothstep(0.02, 0.05, length(qN - pcM - float2(0.04, 0.02)));
+                            col = lerp(col, half3(1, 1, 1), tip * Lk * 0.6h);
                         }
                         else if (kd == 5)
                         {
-                            // мороженое: шарики после ложки — дуги-бороздки и губа по краю (как рельеф модели), крапинки ванили
-                            [unroll] for (int kq = 0; kq < 4; kq++)
+                            // v23.36: МОРОЖЕНОЕ — без круглых шариков: рыхлый рельеф (обводка по рельефу ниже), следы ложки — пятнами
+                            // параллельных изогнутых бороздок, мелкие частые чёрные точки ванили
+                            float sA = qN.x * 0.8 + qN.y * 0.6 + 0.35 * sin(qN.y * 3.1 + qN.x * 1.7);
+                            float rib = sin(sA * 26.0);
+                            float awr = fwidth(rib) + 0.05;
+                            half patch = smoothstep(0.48, 0.62, fbm(qN * 2.2 + float2(3.1, 1.7))) * (1.0h - smoothstep(0.85h, 0.95h, rL));
+                            patch *= saturate(1.4 - fwidth(sA * 26.0) * 0.8);
+                            inkL = max(inkL, (1.0h - smoothstep(0.0, awr * 1.6, abs(rib + 0.75))) * patch * 0.3h);
+                            flt = max(flt, smoothstep(0.6 - awr, 0.75 + awr, rib) * patch * 0.25h);
+                            float2 vp = qN * 42.0;
+                            float2 iv = floor(vp), fv = frac(vp);
+                            half dot5 = 0.0h;
+                            [unroll] for (int y5 = -1; y5 <= 1; y5++)
+                            [unroll] for (int x5 = -1; x5 <= 1; x5++)
                             {
-                                float aq = kq * 2.09 + 0.6;
-                                float2 cq = kq == 0 ? float2(0, 0) : float2(cos(aq), sin(aq)) * 0.48;
-                                float rq = kq == 0 ? 0.55 : 0.42;
-                                float2 dq = qN - cq;
-                                float ddq = length(dq) / rq;
-                                if (ddq < 1.25)
-                                {
-                                    float a5 = atan2(dq.y, dq.x) + kq * 1.3;
-                                    float arc = sin(ddq * 15.0 + a5 * ((kq % 2) == 0 ? 1.5 : -1.5));
-                                    float aw = fwidth(arc) + 0.02;
-                                    inkL = max(inkL, (1.0h - smoothstep(0.0, aw * 1.6, abs(arc - 0.7))) * smoothstep(0.15, 0.7, ddq) * (1.0h - smoothstep(1.0, 1.1, ddq)) * 0.5h);
-                                    inkL = max(inkL, (1.0h - smoothstep(0.0, 0.03 + fwidth(ddq), abs(ddq - 1.0))) * 0.6h);
-                                    flt = max(flt, smoothstep(0.85 - aw, 0.85 + aw, arc) * smoothstep(0.15, 0.7, ddq) * (1.0h - smoothstep(0.95, 1.05, ddq)) * 0.4h);
-                                }
+                                float2 o5 = float2(x5, y5);
+                                float2 h5 = hash22(iv + o5 + 5.5);
+                                half m5 = step(hash21(iv + o5 + 8.8), 0.35);
+                                float r5 = 0.05 + 0.04 * h5.y;
+                                float d5 = length(o5 + 0.15 + 0.7 * h5 - fv);
+                                float aw5 = fwidth(d5) + 0.01;
+                                dot5 = max(dot5, (1.0h - smoothstep(r5 - aw5, r5 + aw5, d5)) * m5);
                             }
-                            float2 vp = i.uv.zw * 70.0;
-                            float2 iv = floor(vp), fv = frac(vp) - 0.5;
-                            float2 hv = hash22(iv + 5.5);
-                            float av = hv.x * 6.2831;
-                            float2 rv = float2(fv.x * cos(av) + fv.y * sin(av), -fv.x * sin(av) + fv.y * cos(av)) - (hv - 0.5) * 0.3;
-                            half spk = step(hash21(iv + 8.8), 0.16) * (1.0h - smoothstep(0.85, 1.0, (rv.x * rv.x) / 0.03 + (rv.y * rv.y) / 0.004));
-                            spk *= saturate(1.5 - fwidth(vp.x) * 2.0);
-                            col = lerp(col, half3(0.24h, 0.16h, 0.1h), spk * Lk * 0.85h);                 // крапинки ванили
+                            dot5 *= saturate(1.6 - fwidth(vp.x) * 3.0) * (1.0h - smoothstep(0.9h, 0.97h, rL));
+                            col = lerp(col, half3(0.07h, 0.05h, 0.04h), dot5 * Lk * 0.9h);
                         }
                         else if (kd == 8)
                         {
@@ -768,43 +763,88 @@ Shader "CatCooks/Liquid Surface"
                             inkL = ek * 0.5h * inr;
                             col = lerp(col, half3(1, 1, 1), cr * smoothstep(-0.2h, 0.5h, toward) * Lk * 0.55h * inr);
                         }
+                        else if (kd == 9)
+                        {
+                            // v23.63: КАРАМЕЛЬ — 7 лёгких хвостов-стёков от стенки к центру (та же формула, что CaramelTails в C#):
+                            // по гребню хвоста — тёплый глянцевый блик к свету, по краю — тонкая мягкая тень; в центре глубже
+                            // и насыщеннее (толще слой), у стенки светлее (тонкий слой, просвечивает)
+                            half tlC = 0.0h, crC = 0.0h, edC = 0.0h;
+                            [unroll] for (int ck = 0; ck < 7; ck++)
+                            {
+                                float fk9 = ck * 0.618;
+                                float e9 = 0.25 + 0.25 * (fk9 - floor(fk9));
+                                float sAl = saturate((1.0 - rL) / (1.0 - e9));
+                                float ac9 = ck * 0.8976 + 0.35 * sin(ck * 2.1) + 0.35 * (1.0 - rL) * (1.0 + 0.3 * sin((float)ck));
+                                float da9 = angL - ac9;
+                                da9 -= 6.2831853 * round(da9 / 6.2831853);
+                                float d9 = da9 * rL;
+                                float w9 = 0.09 * (1.0 - 0.7 * sAl) + 0.012;
+                                float acr9 = exp(-(d9 / w9) * (d9 / w9));
+                                float on9 = step(e9 - 0.03, rL) * step(rL, 0.985);
+                                float m9 = (1.0 - smoothstep(0.8, 1.0, sAl)) * (1.0 - smoothstep(0.95, 0.985, rL)) * on9;
+                                half a9 = (half)(acr9 * m9);
+                                tlC = max(tlC, a9);
+                                crC = max(crC, (half)(pow(acr9, 6.0) * m9));
+                                edC = max(edC, (half)(smoothstep(0.18, 0.32, acr9) * (1.0 - smoothstep(0.32, 0.48, acr9)) * m9));
+                            }
+                            half3 deepC = saturate(col * half3(0.86h, 0.7h, 0.5h));
+                            col = lerp(col, deepC, (half)((1.0 - rL) * 0.35) * Lk);                  // толще — темнее и насыщеннее
+                            col = lerp(col, saturate(col * 1.12h + half3(0.04h, 0.02h, 0.0h)), (half)smoothstep(0.75, 0.95, rL) * 0.35h * Lk);   // у стенки тоньше — светлее
+                            flt = tlC * 0.35h;
+                            inkL = edC * 0.22h;
+                            col = lerp(col, half3(1.0h, 0.96h, 0.85h), crC * smoothstep(-0.3h, 0.6h, toward) * Lk * 0.5h);
+                        }
+                        if (kd == 1 || kd == 2 || kd == 5)
+                        {
+                            // v23.28: ОБВОДКА ПО РЕЛЬЕФУ — где склон отвернулся от камеры сильнее ровной поверхности (как контур в аниме)
+                            float3 Vv = normalize(_WorldSpaceCameraPos - i.positionWS);
+                            half nvF = max(0.08h, (half)Vv.y);
+                            half nv = (half)dot(normalize(i.normalWS), Vv);
+                            half cont = 1.0h - smoothstep(0.45h, 0.7h, nv / nvF);
+                            inkL = max(inkL, cont * (kd == 1 ? 0.45h : (kd == 2 ? 0.3h : 0.6h)) * (1.0h - smoothstep(0.88h, 0.96h, rL)));   // v23.51: у меренги контур мягче
+                        }
                         col = lerp(col, lerp(col, shC, 0.7h), fsh * Lk * 0.6h);
                         col = lerp(col, hiC, flt * Lk * 0.55h);
                         col = lerp(col, shC * 0.5h, saturate(inkL) * Lk * 0.75h);                   // v23.15: обводка слоя
                         if (kd == 4)
                         {
-                            // v23.12: МНОГОСЛОЙНЫЕ КАПЛИ (шоколад, мёд, карамель): круглые наплывы двух размеров лежат друг на друге —
-                            // каждый светлее под собой, под краем со стороны от света твёрдая тень, у края к свету — белый серп-блик
-                            [unroll] for (int lay = 0; lay < 1; lay++)
+                            // v23.43: МНОГОСЛОЙНЫЙ МОЛОЧНЫЙ ШОКОЛАД — 5 гладких налитых «языков», лежат друг на друге
+                            // (те же формулы, что рельеф модели в C#: KindRelief case 4). У каждого слоя чуть свой тон,
+                            // скруглённая кромка: со стороны света — тёплый блик, с другой — мягкая тень и тень на нижний слой,
+                            // тонкий мягкий контур. Белых пятен, пор и капель больше нет.
+                            float4 chl[5] = { float4(0.0, 0.0, 0.8, 0.0), float4(-0.13, 0.08, 0.6, 1.7), float4(0.15, -0.07, 0.47, 3.4),
+                                              float4(-0.05, -0.13, 0.33, 5.1), float4(0.07, 0.1, 0.19, 6.8) };
+                            half inrC = (1.0h - smoothstep(0.9, 0.97, rL)) * Lk;
+                            half3 baseC = col;
+                            half hlC = 0.0h, shSl = 0.0h, castC = 0.0h, inkC = 0.0h;
+                            [unroll] for (int lc = 0; lc < 5; lc++)
                             {
-                                float sc4 = 5.5;                                            // крупные редкие капли
-                                float lfS = max(1.0, _AnimeRadius / 0.18);                  // v23.24: как рельеф модели — в большой таре капли крупнее
-                                float2 pc4 = i.uv.zw / lfS * sc4 + (lay == 0 ? float2(1.7, 4.1) : float2(7.3, 2.9));
-                                float2 ip4 = floor(pc4), fp4 = frac(pc4);
-                                float bestD = 9.0; float2 bv4 = float2(0, 0); float brad = 0.4;
-                                [unroll] for (int y4 = -1; y4 <= 1; y4++)
-                                [unroll] for (int x4 = -1; x4 <= 1; x4++)
-                                {
-                                    float2 o4 = float2(x4, y4);
-                                    float2 h4 = hash22(ip4 + o4);
-                                    float2 v4 = o4 + 0.25 + h4 * 0.5 - fp4;
-                                    float rad4 = 0.32 + 0.16 * h4.y;
-                                    rad4 *= 1.0 + 0.04 * sin(_Time.y * 1.3 + h4.x * 6.2831);      // v23.15: капли чуть «дышат»
-                                    float d4 = length(v4) / rad4 + (hash21(ip4 + o4 + float2(4.4, 1.7)) > 0.65 ? 9.0 : 0.0);   // часть клеток без капли
-                                    if (d4 < bestD) { bestD = d4; bv4 = v4; brad = rad4; }
-                                }
-                                half inD = 1.0h - smoothstep(0.96, 1.0, bestD);
-                                float2 dir4 = -bv4 / max(1e-4, length(bv4));          // от центра капли к точке
-                                half side4 = dot(dir4, ldir);
-                                half rimD = smoothstep(0.72, 0.8, bestD) * inD;
-                                half k4 = Lk * (lay == 0 ? 0.8h : 0.55h) * smoothstep(0.12, 0.3, rL) * (1.0h - smoothstep(0.86, 0.92, rL));
-                                col = lerp(col, hiC, inD * 0.28h * k4);                                       // капля — слой светлее
-                                col = lerp(col, lerp(col, shC, 0.8h), rimD * smoothstep(0.1h, 0.4h, -side4) * k4);   // тень под краем
-                                half cres = smoothstep(0.7, 0.76, bestD) * (1.0h - smoothstep(0.84, 0.89, bestD)) * smoothstep(0.7h, 0.9h, side4);
-                                col = lerp(col, half3(1, 1, 1), cres * k4 * 0.6h);                            // белый серп-блик (v23.15: тише)
-                                half dInk = (1.0h - smoothstep(0.0, 0.035 + fwidth(bestD), abs(bestD - 0.985))) * k4;
-                                col = lerp(col, shC * 0.5h, dInk * 0.8h);                                     // v23.15: контур капли
+                                float2 dq = qN - chl[lc].xy;
+                                float aq = atan2(dq.y, dq.x);
+                                float wk = min(1.0, chl[lc].z * 1.8);   // у маленьких слоёв край ровнее
+                                float e = length(dq) - chl[lc].z - wk * (0.035 * sin(aq * 3.0 + chl[lc].w) + 0.02 * sin(aq * 5.0 + chl[lc].w * 1.3));
+                                float awc = fwidth(e) + 0.002;
+                                half inside = 1.0h - smoothstep(-awc, awc, e);
+                                float2 nq = dot(dq, dq) > 1e-8 ? normalize(dq) : float2(0, 0);
+                                half lit = dot(nq, ldir);
+                                // тон слоя: чётные чуть светлее, нечётные чуть темнее (как налитые друг на друга порции)
+                                half3 toneC = baseC * (lc % 2 == 0 ? 1.04h : 0.95h);
+                                // новый слой сверху закрывает тени нижних
+                                hlC *= 1.0h - inside; shSl *= 1.0h - inside; castC *= 1.0h - inside; inkC *= 1.0h - inside;
+                                col = lerp(col, toneC, inside);
+                                half rimIn = (1.0h - smoothstep(0.0, 0.06, -e)) * inside;            // скруглённая кромка слоя
+                                hlC = max(hlC, rimIn * saturate(lit) * smoothstep(0.012, 0.035, -e));
+                                shSl = max(shSl, rimIn * saturate(-lit + 0.15));
+                                castC = max(castC, (1.0h - smoothstep(0.0, 0.07, e)) * step(0.0, e) * saturate(-lit + 0.3));
+                                inkC = max(inkC, (1.0h - smoothstep(0.0, awc * 1.5 + 0.004, abs(e))) * 0.5h);
                             }
+                            col = lerp(baseC, col, inrC);
+                            col = lerp(col, lerp(col, shC, 0.55h), max(shSl, castC) * inrC * 0.55h);
+                            col = lerp(col, saturate(col * 1.22h + half3(0.06h, 0.04h, 0.02h)), hlC * inrC * 0.75h);
+                            col = lerp(col, shC * 0.7h, inkC * inrC * 0.35h);
+                            // мягкий широкий глянец по верхнему слою (тёплый, не белый)
+                            half glossC = (1.0h - smoothstep(0.08, 0.2, length(qN - ldir * 0.3 - float2(0.05, 0.05)))) * inrC;
+                            col = lerp(col, saturate(col * 1.35h + half3(0.08h, 0.06h, 0.04h)), glossC * 0.35h);
                         }
                         if (kd == 6)
                         {
@@ -842,7 +882,7 @@ Shader "CatCooks/Liquid Surface"
                         float2 c1 = ldir * 0.45, c2 = ldir * 0.62 + perp * 0.12;
                         float alg = dot(qd - c1, perp), acr = dot(qd - c1, ldir);
                         // v23.14: блик-окно только там, где вещество блестит по природе (тесто и мороженое — матовые)
-                        half hk = (kd == 4 || kd == 7) ? 0.95h : (kd == 0 ? 0.5h : (kd == 2 ? 0.4h : (kd == 1 ? 0.35h : (kd == 6 ? 0.7h : (kd == 8 ? 0.45h : 0.0h)))));
+                        half hk = kd == 4 ? 0.3h : (kd == 7 || kd == 9) ? 0.95h : (kd == 0 ? 0.5h : (kd == 2 ? 0.4h : (kd == 1 ? 0.35h : (kd == 6 ? 0.7h : (kd == 8 ? 0.45h : 0.0h)))));
                         half sz = kd == 0 ? 1.3h : 1.0h;
                         float e1 = (alg * alg) / (0.0256 * sz * sz) + (acr * acr) / (0.0036 * sz * sz);
                         half win = 1.0h - smoothstep(0.85, 1.0, e1);
@@ -866,7 +906,7 @@ Shader "CatCooks/Liquid Surface"
                 if (ik > 0.001)
                 {
                     float2 sgi = floor(i.uv.zw * 220.0);
-                    half sp = step(0.988, hash21(sgi + 3.1 + floor(dot(Vd, float3(9.7, 4.3, 6.1)) * 3.0)));
+                    half sp = 0.0h;                                               // v23.34: квадратные искры убраны (снежинки — частицами)
                     col += half3(0.55h, 0.75h, 1.0h) * sp * ik * 0.55h * saturate(ndl + 0.4h);
                 }
                 // иней: россыпь искр, которые мерцают при повороте камеры

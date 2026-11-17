@@ -53,6 +53,17 @@ namespace CatCooks.Food
         [Min(1)][SerializeField] private int _iceFull = 2;
         [Min(1)][SerializeField] private int _meringueFull = 2;
 
+        [Header("v23.47: вид меренги")]
+        [Tooltip("Ёжики — купол из отсаженных острых пиков (как на фото Аляски). Выкл — улей со спиральным жгутом")]
+        [SerializeField] private bool _spikyCap = false;
+        [Tooltip("v23.48: меренга стекает ГЛАДКИМ куполом, потом хвостики отсаживаешь шприцем (кондитерским мешком) с меренгой — ЛКМ по куполу. " +
+                 "Важнее «Ёжиков». Выкл — как раньше (улей или ёжики сразу)")]
+        [SerializeField] private bool _pipeTails = true;
+        [Tooltip("Какая доля купола должна быть в хвостиках, чтобы десерт засчитался")]
+        [Range(0.2f, 1f)][SerializeField] private float _pipeNeed = 0.6f;
+        [Tooltip("На сколько вырастает хвостик за одно «выдавливание» рукава (соседние — меньше)")]
+        [Range(0.1f, 1f)][SerializeField] private float _pipeStep = 0.55f;
+
         [Header("Меренга стекает")]
         [Tooltip("За сколько секунд меренга стекает до тарелки")]
         [SerializeField] private float _spreadSeconds = 9f;
@@ -87,6 +98,8 @@ namespace CatCooks.Food
         // ── сеть ──
         private readonly SyncVar<byte> _spread = new SyncVar<byte>(0);
         private readonly SyncVar<byte> _ready = new SyncVar<byte>(0);      // готовность подпала 0..100 (считает сервер)
+        private readonly SyncVar<byte> _pipedPct = new SyncVar<byte>(0);   // v23.48: хвостики рукавом 0..100 (от нужной доли)
+        private readonly SyncList<byte> _peaks = new SyncList<byte>();     // v23.48: рост каждого хвостика 0..255
 
         private Cookware _cw;
         private Transform _root, _spongeT, _iceT;
@@ -94,6 +107,7 @@ namespace CatCooks.Food
         private MeringueCap _cap;
         private MaterialPropertyBlock _mpb;
         private int _shownSponge = -1, _shownIce = -1, _shownMer = -1;
+        private bool _iceBuilt, _iceAnime;
         private float _spongeDrop, _iceDrop;          // 0..1 анимация падения
         private float _spreadShown, _spreadServer, _sendAt;
         private int _toastLog;
@@ -108,7 +122,12 @@ namespace CatCooks.Food
         public float ToastedShare => _cap != null ? _cap.ToastedShare : 0f;
         /// <summary>Готовность подпала 0..1 (с сервера): 1 — ГОТОВО.</summary>
         public float Ready01 => _ready.Value / 100f;
-        public bool IsDone => _ready.Value >= 100;
+        public bool IsDone => _ready.Value >= 100 && (!_pipeTails || _pipedPct.Value >= 100);
+        /// <summary>v23.48: хвостики отсажены (0..1 от нужного).</summary>
+        public float Piped01 => _pipedPct.Value / 100f;
+        public bool PipeMode => _pipeTails;
+        /// <summary>v23.48: купол готов принимать хвостики (меренга стекла).</summary>
+        public bool CanPipe => _pipeTails && HasMeringue && Spread01 >= 0.98f;
         public bool HasSponge => Count(_sponge) > 0;
         public bool HasIceCream => Count(_iceCream) > 0;
         public bool HasMeringue => Count(_meringue) > 0;
@@ -126,13 +145,103 @@ namespace CatCooks.Food
             base.OnStartNetwork();
             ResolveProducts();
             _cw.ContentsChanged += OnContents;
+            _peaks.OnChange += OnPeaks;
             OnContents();
+            ApplyPeaks();
         }
 
         public override void OnStopNetwork()
         {
             base.OnStopNetwork();
             if (_cw != null) _cw.ContentsChanged -= OnContents;
+            _peaks.OnChange -= OnPeaks;
+        }
+
+        // ───────────────────────── v23.48: ХВОСТИКИ РУКАВОМ ─────────────────────────
+
+        private void OnPeaks(SyncListOperation op, int index, byte a, byte b, bool asServer) => ApplyPeaks();
+
+        private void ApplyPeaks()
+        {
+            if (_cap == null) return;
+            if (_peaks.Count == 0) { _cap.ClearGrow(); return; }
+            for (int i = 0; i < _peaks.Count; i++) _cap.SetGrow(i, _peaks[i] / 255f);
+        }
+
+        /// <summary>Рукав (клиент-владелец): куда на куполе он целится. false — мимо купола.</summary>
+        public bool PickPipePoint(Ray ray, out Vector3 world)
+        {
+            world = Vector3.zero;
+            if (_cap == null || !CanPipe) return false;
+            Transform ct = _cap.transform;
+            float sc = Mathf.Max(1e-4f, Mathf.Abs(ct.lossyScale.x));
+            float pick = _cap.PeakSpacing * sc * 0.9f;
+            float bestAlong = float.MaxValue, bestDist = float.MaxValue;
+            bool any = false;
+            int n = _cap.PeakCount;
+            for (int i = 0; i < n; i++)
+            {
+                if (!_cap.PeakLocal(i, out Vector3 lp, out Vector3 ln)) continue;
+                Vector3 wp = ct.TransformPoint(lp);
+                Vector3 wn = ct.TransformDirection(ln);
+                if (Vector3.Dot(wn, ray.direction) > 0.25f) continue;                 // задняя сторона купола
+                Vector3 d = wp - ray.origin;
+                float along = Vector3.Dot(d, ray.direction);
+                if (along <= 0f) continue;
+                float dist = (d - ray.direction * along).magnitude;
+                if (dist > pick * 1.6f) continue;
+                // ближе к лучу — важнее, но из подходящих берём переднее
+                bool better = dist < pick ? (bestDist >= pick || along < bestAlong) : (bestDist >= pick && dist < bestDist);
+                if (!any || better) { any = true; bestAlong = along; bestDist = dist; world = wp; }
+            }
+            return any;
+        }
+
+        /// <summary>Сервер: рукав выдавил меренгу в точку купола — растёт ближайший хвостик (соседние чуть-чуть). true — что-то выросло.</summary>
+        public bool ServerPipe(Vector3 world)
+        {
+            if (!base.IsServerInitialized || _cap == null || !CanPipe) return false;
+            int n = _cap.PeakCount;
+            if (n <= 0) return false;
+            while (_peaks.Count < n) _peaks.Add(0);
+            Vector3 lp = _cap.transform.InverseTransformPoint(world);
+            float sp = Mathf.Max(1e-4f, _cap.PeakSpacing);
+            int best = -1; float bd = float.MaxValue;
+            for (int i = 0; i < n; i++)
+            {
+                if (!_cap.PeakLocal(i, out Vector3 p, out _)) continue;
+                float d = (p - lp).magnitude;
+                if (d < bd) { bd = d; best = i; }
+            }
+            if (best < 0 || bd > sp * 2f) return false;
+            bool grew = false;
+            _cap.PeakLocal(best, out Vector3 bp, out _);
+            for (int i = 0; i < n; i++)
+            {
+                if (!_cap.PeakLocal(i, out Vector3 p, out _)) continue;
+                float d = (p - bp).magnitude / sp;
+                float step = Mathf.Max(_pipeStep, 1f);                   // v23.50: одно касание — целый хвостик, соседи — наполовину
+                float add = i == best ? step : (d < 1.3f ? step * 0.55f * (1.3f - d) / 1.3f : 0f);
+                if (add <= 0f) continue;
+                int v = Mathf.Min(255, _peaks[i] + Mathf.RoundToInt(add * 255f));
+                if (v != _peaks[i]) { _peaks[i] = (byte)v; _cap.SetGrow(i, v / 255f); grew = true; }
+            }
+            if (grew) UpdatePipedPct();
+            return grew;
+        }
+
+        private void UpdatePipedPct()
+        {
+            int n = _peaks.Count, done = 0;
+            for (int i = 0; i < n; i++) if (_peaks[i] >= 128) done++;
+            float share = n > 0 ? done / (float)n : 0f;
+            int pct = Mathf.Clamp(Mathf.FloorToInt(share / Mathf.Max(0.05f, _pipeNeed) * 100f), 0, 100);
+            if (pct != _pipedPct.Value)
+            {
+                int was = _pipedPct.Value;
+                _pipedPct.Value = (byte)pct;
+                if (_log && pct / 25 > was / 25) Debug.Log($"[Аляска] «{name}»: хвостики {pct}% (отсажено {share * 100f:0}% купола из {_pipeNeed * 100f:0}%)", this);
+            }
         }
 
         private void ResolveProducts()
@@ -173,8 +282,10 @@ namespace CatCooks.Food
             Vector3 ps = _anchor.lossyScale;
             _root.localScale = new Vector3(1f / Mathf.Max(1e-4f, Mathf.Abs(ps.x)), 1f / Mathf.Max(1e-4f, Mathf.Abs(ps.y)), 1f / Mathf.Max(1e-4f, Mathf.Abs(ps.z)));
 
-            _spongeT = Part("Sponge", _spongeMat, out _spongeR);
+            // v23.46: кусок бисквита — та же модель, что у кубика после пилы (корочка снизу и сверху, мякиш с порами, скруглённые края)
+            _spongeT = Part("Sponge", SpongeMesh.PickMaterial(_spongeMat), out _spongeR);
             _spongeT.GetComponent<MeshFilter>().sharedMesh = SpongeMesh.SharedPiece(_spongeSize, SpongeMesh.XNeg | SpongeMesh.ZPos);
+            // v23.46: мороженое — тот же шарик, что на мастерке (бороздки ложки, точки ванили, аниме-материал); строится, когда пришёл цвет
             _iceT = Part("IceCream", _iceMat, out _iceR);
             _iceT.GetComponent<MeshFilter>().sharedMesh = SpongeMesh.IceScoop();
 
@@ -187,10 +298,82 @@ namespace CatCooks.Food
             _cap = mg.AddComponent<MeringueCap>();
             _cap.Spread = 0f;
             _cap.Seed = Random.Range(1, 999);
-            _cap.ToastRate = _toastRate * _toastBoost;
+            _cap.ToastRate = _toastRate * _toastBoost * 3f;              // v23.50: обжиг ~5 с
+            _cap.ToastSpot = 1.8f;                                       // v23.50: пятно пламени шире
             ShapeMeringue();
             mr.enabled = false;
             _spongeR.enabled = false; _iceR.enabled = false;
+            _rootScale = _root.localScale;
+            _rootRot = _root.localRotation;
+        }
+
+        // ───────────────────────── v23.50: чужие «рисовальщики» содержимого ─────────────────────────
+
+        /// <summary>
+        /// На тарелке всё рисует Аляска. Если на тарелке есть Cookware Liquid Visual / Cookware Heap Visual — они рисовали бы
+        /// мороженое лужей (серой, с точками) и бисквит кучкой кубиков. Выключаем их и то, что они уже построили.
+        /// </summary>
+        private void MuteContentVisuals()
+        {
+            foreach (CookwareLiquidVisual lv in GetComponentsInChildren<CookwareLiquidVisual>(true))
+            {
+                if (lv.enabled) lv.enabled = false;
+                HideAuto(lv.transform);
+            }
+            foreach (CookwareHeapVisual hv in GetComponentsInChildren<CookwareHeapVisual>(true))
+            {
+                if (hv.enabled) hv.enabled = false;
+                FoodHeapRenderer fh = hv.GetComponent<FoodHeapRenderer>();
+                if (fh != null && fh.enabled) fh.enabled = false;
+                if (hv.gameObject != gameObject && (_root == null || !_root.IsChildOf(hv.transform)))
+                    foreach (Renderer r in hv.GetComponentsInChildren<Renderer>(true)) r.enabled = false;
+                else HideAuto(hv.transform);
+            }
+        }
+
+        private void HideAuto(Transform t)
+        {
+            for (int i = 0; i < t.childCount; i++)
+            {
+                Transform c = t.GetChild(i);
+                if (c == _root || c.name == "Alaska (auto)" || c.name.Contains("Star")) continue;
+                if (c.name.EndsWith("(auto)") && c.gameObject.activeSelf) c.gameObject.SetActive(false);
+            }
+        }
+
+        // ───────────────────────── v23.50: всё блюдо чуть дрожит ─────────────────────────
+
+        private Vector3 _rootScale = Vector3.one;
+        private Quaternion _rootRot = Quaternion.identity;
+        private Vector3 _jPrevPos, _jPrevVel, _jS, _jSV;
+        private bool _jHas;
+
+        /// <summary>Готовая Аляска (меренга легла куполом) от толчка тарелки слегка качается, как желе. Только вид.</summary>
+        private void JiggleDish(float dt)
+        {
+            if (_root == null || dt <= 1e-5f) return;
+            bool on = HasMeringue && Spread01 >= 0.999f;
+            Vector3 pos = _anchor.position;
+            Vector3 vel = _jHas ? (pos - _jPrevPos) / dt : Vector3.zero;
+            Vector3 dv = _jHas ? Vector3.ClampMagnitude(vel - _jPrevVel, 3f) : Vector3.zero;
+            _jPrevPos = pos; _jPrevVel = vel; _jHas = true;
+            if (!on) { _jS = Vector3.zero; _jSV = Vector3.zero; }
+            else
+            {
+                _jSV -= _anchor.InverseTransformDirection(dv) * 0.35f;
+                float w = 2.3f * 6.2832f;
+                _jSV += (-_jS * (w * w) - _jSV * (2f * 0.16f * w)) * dt;
+                _jS = Vector3.ClampMagnitude(_jS + _jSV * dt, 0.07f);
+            }
+            if (_jS.sqrMagnitude < 1e-8f && _jSV.sqrMagnitude < 1e-7f)
+            {
+                if (_root.localRotation != _rootRot) { _root.localRotation = _rootRot; _root.localScale = _rootScale; }
+                return;
+            }
+            _root.localRotation = _rootRot * Quaternion.Euler(_jS.z * Mathf.Rad2Deg, 0f, -_jS.x * Mathf.Rad2Deg);
+            float sq = Mathf.Clamp(1f - _jS.y * 0.6f, 0.9f, 1.1f);
+            float side = 1f / Mathf.Sqrt(sq);
+            _root.localScale = new Vector3(_rootScale.x * side, _rootScale.y * sq, _rootScale.z * side);
         }
 
         private Transform Part(string n, Material m, out MeshRenderer mr)
@@ -212,7 +395,7 @@ namespace CatCooks.Food
         private void ShapeMeringue()
         {
             int ice = Count(_iceCream);
-            ConfigureCap(_cap, _spongeSize, HasSponge, ice > 0 ? IceR(ice) : 0f, IceH(ice), _meringueWide, _meringueTop);
+            ConfigureCap(_cap, _spongeSize, HasSponge, ice > 0 ? IceR(ice) : 0f, IceH(ice), _meringueWide, _meringueTop, _spikyCap, _pipeTails);
             _cap.MarkShapeDirty();
         }
 
@@ -221,7 +404,7 @@ namespace CatCooks.Food
         /// Основание чуть квадратное и шире кубика (wide × половина кубика) — закрывает углы толстым слоем;
         /// низкие стенки, дальше круглый купол-улей; макушка — top × ширина кубика над мороженым.
         /// </summary>
-        public static void ConfigureCap(MeringueCap cap, Vector3 sponge, bool hasSponge, float iceR, float iceH, float wide = 1.38f, float top = 0.25f)
+        public static void ConfigureCap(MeringueCap cap, Vector3 sponge, bool hasSponge, float iceR, float iceH, float wide = 1.38f, float top = 0.25f, bool spiky = false, bool piped = false)
         {
             float half = Mathf.Min(sponge.x, sponge.z) * 0.5f;
             float h0 = hasSponge ? sponge.y : 0f;
@@ -237,6 +420,9 @@ namespace CatCooks.Food
             cap.SupportBox = hasSponge ? new Vector3(sponge.x * 0.5f, sponge.y, sponge.z * 0.5f) : Vector3.zero;
             cap.SupportIce = iceR > 0f && iceH > 0f ? new Vector2(iceR, iceH) : Vector2.zero;
             cap.Rings = 64; cap.Segments = 120;
+            cap.Style = piped ? MeringueCap.CapStyle.Piped : spiky ? MeringueCap.CapStyle.Spiky : MeringueCap.CapStyle.Hive;
+            if (piped) { cap.Rings = 80; cap.Segments = 176; cap.PeakRows = 6; cap.PeakHeight = 0.34f; cap.PeakLean = 0.24f; cap.PeakGrooves = 0.12f; }   // v23.50: легче
+            if (spiky) { cap.Rings = 96; cap.Segments = 192; cap.PeakRows = 5; cap.PeakHeight = 0.36f; cap.PeakLean = 0.2f; cap.PeakGrooves = 0.12f; }
         }
 
         private void OnContents()
@@ -255,16 +441,57 @@ namespace CatCooks.Food
             if (_log && mer > 0 && _shownMer <= 0 && base.IsServerInitialized) Debug.Log($"[Аляска] «{name}»: меренга легла — стекает ~{_spreadSeconds:0} с, потом горелка", this);
             if (mer <= 0 && _shownMer > 0) ResetToast();     // меренгу убрали (K, тест) — подпал и готовность заново
             _shownSponge = s; _shownIce = ice; _shownMer = mer;
+            MuteContentVisuals();                                       // v23.50
             _spongeR.enabled = s > 0;
             _iceR.enabled = ice > 0;
             _cap.GetComponent<MeshRenderer>().enabled = mer > 0;
             ShapeMeringue();
+            if (ice > 0 && !_iceBuilt) BuildIce();
             if (_iceMat != null || _iceR != null) TintIce();
+        }
+
+        /// <summary>v23.46: шарик мороженого как на мастерке. Меш нормирован: радиус 1, высота 1, низ на y = 0.</summary>
+        private void BuildIce()
+        {
+            if (_iceCream == null || _iceR == null) return;
+            _iceBuilt = true;
+            Color c = _iceCream.BaseColor; c.a = 1f;
+            Mesh m = IceBall(c, Mathf.Abs(GetInstanceID()) % 997 + 3);
+            if (m == null) return;
+            _iceT.GetComponent<MeshFilter>().sharedMesh = m;
+            Material am = FoodSubstance.AnimeHeaps ? FoodSubstance.AnimeMaterial(SubstanceLook.IceCream) : null;
+            _iceAnime = am != null;
+            if (am != null) _iceR.sharedMaterial = am;
+            else if (_iceR.sharedMaterial == null) _iceR.sharedMaterial = FoodSubstance.AutoMaterial(SubstanceLook.IceCream);
+        }
+
+        /// <summary>
+        /// v23.46: шарик мороженого (FoodSubstanceMesh.IceCream — как на мастерке), нормированный под тарелку и витрину:
+        /// радиус 1, высота 1, низ на y = 0. Цвет — в вершинах.
+        /// </summary>
+        public static Mesh IceBall(Color col, int seed)
+        {
+            var m = new Mesh { name = "AlaskaIceBall (auto)", hideFlags = HideFlags.DontSave };
+            try { FoodSubstanceMesh.IceCream(m, new FoodSubstanceMesh.Dims { Rx = 1.25f, Rz = 1.25f, H = 1f, Edge = 0.5f, RectN = 2f }, col, seed); }
+            catch (System.Exception e) { Debug.LogWarning("[Аляска] шарик мороженого не построился: " + e.Message); return null; }
+            m.RecalculateBounds();
+            Bounds b = m.bounds;
+            float sx = 1f / Mathf.Max(1e-4f, Mathf.Max(b.extents.x, b.extents.z)), sy = 1f / Mathf.Max(1e-4f, b.size.y);
+            Vector3[] v = m.vertices;
+            Vector3[] n = m.normals;
+            for (int i = 0; i < v.Length; i++)
+                v[i] = new Vector3((v[i].x - b.center.x) * sx, (v[i].y - b.min.y) * sy, (v[i].z - b.center.z) * sx);
+            if (n != null && n.Length == v.Length)
+                for (int i = 0; i < n.Length; i++) n[i] = new Vector3(n[i].x / sx, n[i].y / sy, n[i].z / sx).normalized;
+            m.vertices = v;
+            if (n != null && n.Length == v.Length) m.normals = n;
+            m.RecalculateBounds();
+            return m;
         }
 
         private void TintIce()
         {
-            if (_iceCream == null) return;
+            if (_iceCream == null || _iceAnime) return;                      // v23.46: у аниме-шарика цвет уже в вершинах
             if (_mpb == null) _mpb = new MaterialPropertyBlock();
             _iceR.GetPropertyBlock(_mpb);
             Color c = _iceCream.BaseColor; c.a = 1f;
@@ -280,7 +507,7 @@ namespace CatCooks.Food
             if (base.IsServerInitialized && HasMeringue && _spread.Value < 255)
             {
                 _spreadServer = Mathf.Max(_spreadServer, Spread01);
-                _spreadServer = Mathf.Min(1f, _spreadServer + dt / Mathf.Max(0.5f, _spreadSeconds));
+                _spreadServer = Mathf.Min(1f, _spreadServer + dt / Mathf.Clamp(_spreadSeconds, 0.5f, 3.5f));   // v23.50: падает сразу, не дольше 3,5 с
                 if (Time.time >= _sendAt || _spreadServer >= 1f)
                 {
                     _sendAt = Time.time + 0.1f;
@@ -288,6 +515,8 @@ namespace CatCooks.Food
                     if (_spread.Value == 255 && _log) Debug.Log($"[Аляска] «{name}»: меренга закрыла бисквит куполом — румянь горелкой", this);
                 }
             }
+
+            JiggleDish(dt);                                              // v23.50
 
             // ── вид: падение кусков и растекание ──
             float sh = SpongeH;
@@ -309,12 +538,14 @@ namespace CatCooks.Food
                 float fall = Mathf.Clamp01((k - 0.35f) / 0.65f);
                 float squash = 1f - 0.22f * Squash(k);                               // мягкое — приседает сильнее
                 _iceT.localPosition = new Vector3(0f, sh + fall * fall * h * 3f, 0f);
-                _iceT.localScale = new Vector3(r / Mathf.Sqrt(squash), h * squash, r / Mathf.Sqrt(squash));
+                // v23.46: шарик (шире всего посередине) чуть уже опоры меренги (полуэллипсоид r×h) — меренга закрывает его целиком, не протыкается боками
+                float rw = r * (_iceAnime ? 0.9f : 1f);
+                _iceT.localScale = new Vector3(rw / Mathf.Sqrt(squash), h * squash, rw / Mathf.Sqrt(squash));
             }
             if (_cap != null)
             {
                 float target = Spread01;
-                _spreadShown = Mathf.MoveTowards(_spreadShown, target, dt * 0.6f);
+                _spreadShown = Mathf.MoveTowards(_spreadShown, target, dt * 1.2f);
                 if (target < _spreadShown) _spreadShown = target;
                 _cap.Spread = _spreadShown;
             }
@@ -332,7 +563,7 @@ namespace CatCooks.Food
                     _toastLog = step;
                     Debug.Log($"[Аляска] «{name}»: готовность {_ready.Value}% (золотистого {share * 100f:0}% купола из {_doneShare * 100f:0}%)", this);
                 }
-                if (_ready.Value >= 100)
+                if (_ready.Value >= 100 && (!_pipeTails || _pipedPct.Value >= 100))
                 {
                     _doneLogged = true;
                     if (_log) Debug.Log($"[Аляска] «{name}»: ГОТОВО — Запечённая Аляска, неси тарелку ★", this);
@@ -343,12 +574,14 @@ namespace CatCooks.Food
 
         private void ResetToast()
         {
-            if (_cap != null) _cap.Toast = 0f;
+            if (_cap != null) { _cap.Toast = 0f; _cap.ClearGrow(); }
             _toastLog = 0; _doneLogged = false; _spreadServer = 0f; _spreadShown = 0f;
             if (base.IsServerInitialized)
             {
                 if (_ready.Value != 0) _ready.Value = 0;
                 if (_spread.Value != 0) _spread.Value = 0;
+                if (_peaks.Count > 0) _peaks.Clear();
+                if (_pipedPct.Value != 0) _pipedPct.Value = 0;
             }
         }
 
@@ -469,6 +702,7 @@ namespace CatCooks.Food
             if (!HasMeringue) return "Аляска: меренга — 1 мастерок";
             if (IsDone) { col = new Color(1f, 0.85f, 0.25f); bar = 1f; return "★ ГОТОВО — Запечённая Аляска"; }
             if (Spread01 < 0.999f && Ready01 <= 0f) { bar = Spread01; col = new Color(0.85f, 0.92f, 1f); return $"меренга оплывает {Spread01 * 100f:0}%"; }
+            if (_pipeTails && _pipedPct.Value < 100) { bar = Piped01; col = new Color(1f, 0.97f, 0.9f); return $"шприц с меренгой: отсади хвостики (ЛКМ по куполу) {_pipedPct.Value}%"; }
             bar = Ready01; col = Color.Lerp(new Color(1f, 0.95f, 0.85f), new Color(1f, 0.7f, 0.3f), Ready01);
             return $"румянь горелкой — готовность {_ready.Value}%";
         }
@@ -518,6 +752,32 @@ namespace CatCooks.Food
             if (_sponge != null && !HasSponge) _cw.ServerAddPinch(_sponge.Id, FoodState.Pieces, 1, 0);
             if (_iceCream != null && !HasIceCream) _cw.ServerAddPinch(_iceCream.Id, _iceCream.StartState, _iceFull, 0);
             if (_meringue != null && !HasMeringue) _cw.ServerAddPinch(_meringue.Id, _meringue.StartState, _meringueFull, 0);
+        }
+
+        /// <summary>v23.49: Shift+N (аналитик тары) — следующий этап для теста: собрать → (меренга стекла) хвостики. Строка — подсказка.</summary>
+        public string DebugNextStage()
+        {
+            if (!base.IsServerInitialized) return "работает у хоста";
+            ResolveProducts();
+            if (!HasSponge || !HasIceCream || !HasMeringue)
+            {
+                TestAssemble();
+                return _pipeTails ? "Аляска собрана — меренга стекает ~" + _spreadSeconds.ToString("0") + " с, потом Shift+N — хвостики (или шприцем)"
+                                  : "Аляска собрана — меренга стекает, потом горелка";
+            }
+            if (_pipeTails && !CanPipe) return $"меренга ещё стекает ({Spread01 * 100f:0}%) — подожди и нажми ещё раз";
+            if (_pipeTails && _pipedPct.Value < 100) { TestPipeAll(); return "все хвостики отсажены — румянь горелкой"; }
+            return IsDone ? "Аляска уже готова ★" : "осталось подрумянить горелкой (или ПКМ по Dessert Plate → «Тест: подрумянить всё»)";
+        }
+
+        [ContextMenu("Тест: отсадить все хвостики (Play, хост)")]
+        private void TestPipeAll()
+        {
+            if (!NetTest.ServerReady(this, "Аляска") || _cap == null) return;
+            int n = _cap.PeakCount;
+            while (_peaks.Count < n) _peaks.Add(0);
+            for (int i = 0; i < n; i++) { _peaks[i] = 255; _cap.SetGrow(i, 1f); }
+            UpdatePipedPct();
         }
 
         [ContextMenu("Тест: очистить тарелку")]
