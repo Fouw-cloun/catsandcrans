@@ -180,6 +180,31 @@ public class MixerItem : InteractableItem, ISpinningTool
         }
     }
 
+    /// <summary>v23.64: темп эффектов взбивания миксера (1 — как у вибратора; было 0.5).</summary>
+    private const float MixerFxSpeed = 1f;
+    /// <summary>v23.65: сила эффектов миксера — число и размер тучек, капель, пыли (было 1.3 — вдвое слабее; густые массы — ещё ×0.6 в самой таре).</summary>
+    private const float MixerFxAmount = 0.65f;
+    private float _dryDustAcc;
+
+    /// <summary>v23.64: мешают сухое (кучки сахара, соли, муки без жидкости) — облачка пыли цвета верхнего продукта у венчика.</summary>
+    private void DryMixFx(Cookware cw, Vector3 at, float dt)
+    {
+        _dryDustAcc += dt * 6f * MixerFxAmount;
+        if (_dryDustAcc < 1f) return;
+        _dryDustAcc -= 1f;
+        FoodDatabase db = FoodDatabase.Instance;
+        Color c = new Color(0.95f, 0.93f, 0.88f);
+        for (int i = cw.ViewCount - 1; i >= 0; i--)
+        {
+            BagView v = cw.GetView(i);
+            if (v.Count <= 0) continue;
+            ProductDef d = db != null ? db.Get(v.Product) : null;
+            if (d != null) c = FoodColors.Of(d, v.State);
+            break;
+        }
+        CCPowderFx.Puff(at, Vector3.up, c, 0.1f, 0.6f);
+    }
+
     /// <summary>Насадка крутится в обычном режиме; при закрутке игрока насадка
     /// замирает, а вместо неё крутятся ручки. Считается локально у всех клиентов
     /// по синхронизированным флагам.</summary>
@@ -211,7 +236,12 @@ public class MixerItem : InteractableItem, ISpinningTool
         {
             Cookware cwv = FindWhiskCookware();
             CookwareLiquidVisual lv = cwv != null ? cwv.GetComponentInChildren<CookwareLiquidVisual>() : null;
-            if (lv != null && lv.HasLiquid && WhiskT != null) lv.Stir(WhiskT.position, 1f, 0.5f);   // v19.1: большой миксер — эффекты вдвое медленнее вибратора
+            // v23.64: миксер — эффекты в полный темп и заметнее вибратора (было: вдвое медленнее — выходило слабее вибратора)
+            if (lv != null && WhiskT != null)
+            {
+                if (lv.HasLiquid) lv.Stir(WhiskT.position, 1f, MixerFxSpeed, MixerFxAmount);
+                else if (cwv.TotalCount > 0) DryMixFx(cwv, WhiskT.position, dt);   // в таре только сыпучее кучками — пылит его цветом
+            }
             // Шоколад под венчиком: брызги пасты / крошки застывшего, форма — рябь и закрутка.
             if (cwv != null && WhiskT != null) ChocolateWork.ClientStir(cwv, WhiskT.position, dt);
         }

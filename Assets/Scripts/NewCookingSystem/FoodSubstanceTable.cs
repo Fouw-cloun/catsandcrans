@@ -159,6 +159,65 @@ namespace CatCooks.Food
             return _almondMix;
         }
 
+        private static FoodSubstance _saltProfile;
+
+        /// <summary>
+        /// v23.64: профиль «Соль» кодом (ассет не нужен) — кристаллы, как у сахара (горка с кубиками везде: в таре,
+        /// на мастерке, на полу), но видно, что это соль: кубики мельче и гуще, ровные, «сидят» на гранях, холодный белый,
+        /// горка острее. Если у сахара есть профиль — берутся его настройки поведения (сыплется, капли с края).
+        /// </summary>
+        public static FoodSubstance SaltProfile
+        {
+            get
+            {
+                if (_saltProfile != null) return _saltProfile;
+                FoodDatabase db = FoodDatabase.Instance;
+                ProductDef sugar = db != null ? MacaronTitles.Find(db, "Сахар") : null;
+                FoodSubstance src = sugar != null ? Resolve(sugar, FoodState.None) : null;
+                if (src != null && src.Look == SubstanceLook.Crystals) _saltProfile = UnityEngine.Object.Instantiate(src);
+                else
+                {
+                    _saltProfile = ScriptableObject.CreateInstance<FoodSubstance>();
+                    _saltProfile.Look = SubstanceLook.Crystals;
+                    _saltProfile.Flow = SubstanceFlow.Spills;
+                    _saltProfile.EdgeDrips = true;
+                    _saltProfile.DripShake = 20f;
+                    _saltProfile.DripSize = 0.08f;
+                    _saltProfile.InCookware = true;
+                    _saltProfile.BladeCover = 0.6f;
+                    _saltProfile.BladeVolume = 4f;
+                    _saltProfile.SmearNotPiece = true;
+                }
+                _saltProfile.name = "Substance_Salt (auto)";
+                _saltProfile.hideFlags = HideFlags.DontSave;
+                _saltProfile.Title = "Соль (мелкие кубики)";
+                _saltProfile.Look = SubstanceLook.Crystals;
+                _saltProfile.Salt = true;
+                _saltProfile.FallbackPreset = FoodHeapRenderer.HeapPreset.Powder;
+                _saltProfile.Material = null;                               // свой материал — FoodSubstance.SaltMaterial
+                _saltProfile.UseProductColor = false;
+                _saltProfile.Color = new Color(0.93f, 0.95f, 0.98f, 1f);      // холодный белый (сахар — тёплый)
+                _saltProfile.Brightness = 1.02f;
+                _saltProfile.CrystalSize = 0.045f;                            // сахар 0.075
+                _saltProfile.CrystalDensity = 1.8f;
+                _saltProfile.FloorSlope = 0.62f;                              // горка острее, конусом
+                _saltProfile.Wonky = 0.2f;
+                _saltProfile.BladeHeight = 1.05f;
+                _saltProfile.Jiggle = 0f;
+                _saltProfile.DustOnScoop = false;
+                _saltProfile.StickToCookware = false;
+                _saltProfile.Sugar = 0f;
+                return _saltProfile;
+            }
+        }
+
+        /// <summary>v23.64: «соль», «соль морская», «морская соль» — но не «солёная карамель», «фасоль», «подсолнечное».</summary>
+        public static bool IsSaltTitle(string lowerTitle)
+        {
+            if (string.IsNullOrEmpty(lowerTitle)) return false;
+            return lowerTitle == "соль" || lowerTitle.StartsWith("соль ") || lowerTitle.EndsWith(" соль") || lowerTitle.Contains(" соль ");
+        }
+
         private static FoodSubstance _merProfile;
         /// <summary>v23.51: профиль «Меренга» кодом: на мастерке, лопате и полу — безе-розочка с пикой, белая, дрожит.</summary>
         public static FoodSubstance MeringueProfile
@@ -213,6 +272,9 @@ namespace CatCooks.Food
             // v23.62: миндальная смесь (мука миндальная + сахар из грохота) — порошок муки с крошечными блестящими кубиками сахара
             if (title.Contains("миндальная смесь") && s != FoodState.Melted && s != FoodState.Dissolved)
                 return AlmondMixProfile(p);
+            // v23.64: соль — кристаллами, как сахар, но мелкими холодными кубиками (раньше профиля не было — рисовалась пикселями)
+            if (IsSaltTitle(title) && s != FoodState.Melted && s != FoodState.Dissolved)
+                return SaltProfile;
             // v23.51: меренга (не перебитая) — безе-розочкой
             if (title.Contains("меренг") && !title.Contains("перебит") && s != FoodState.Melted && s != FoodState.Dissolved)
                 return MeringueProfile;

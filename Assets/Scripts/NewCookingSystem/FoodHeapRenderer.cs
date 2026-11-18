@@ -1952,7 +1952,7 @@ namespace CatCooks.Food
             if (_sub.Look == SubstanceLook.Powder)
                 FoodSubstanceMesh.Powder(_mesh, d, _sub.Wonky, col, seed, _sub.Sugar);   // v23.62: смесь — с крупинками сахара
             else if (_sub.Look == SubstanceLook.Crystals)
-                FoodSubstanceMesh.Crystals(_mesh, d, _sub.CrystalSize, _sub.CrystalDensity, col, seed);
+                FoodSubstanceMesh.Crystals(_mesh, d, _sub.CrystalSize, _sub.CrystalDensity, col, seed, _sub.Salt);
             else if (_sub.Look == SubstanceLook.Spread)
             {
                 if (tool)

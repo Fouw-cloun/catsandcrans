@@ -51,7 +51,7 @@ namespace CatCooks.Food
             ProductDef caramel = DS.Ensure(M.Caramel, sub, new Color(0.80f, 0.48f, 0.16f), 0.06f, true, dir, ref next, log);
             ProductDef burnt = DS.Ensure(M.CaramelBurnt, sub, new Color(0.24f, 0.13f, 0.07f), 0.06f, true, dir, ref next, log);
             ProductDef salted = DS.Ensure(M.SaltCaramel, sub, new Color(0.84f, 0.56f, 0.26f), 0.06f, true, dir, ref next, log);
-            ProductDef ganache = DS.Ensure(M.Ganache, sub, new Color(0.40f, 0.23f, 0.12f), 0.06f, true, dir, ref next, log);
+            ProductDef ganache = DS.Ensure(M.Ganache, sub, new Color(0.72f, 0.44f, 0.16f), 0.06f, true, dir, ref next, log);   // v23.64: сливочная карамель
             ProductDef shell = DS.Ensure(M.Shell, sub, new Color(0.78f, 0.58f, 0.40f), 0.08f, true, dir, ref next, log);
             ProductDef dish = DS.Ensure(M.Dish, sub, new Color(0.78f, 0.58f, 0.40f), 0.1f, true, dir, ref next, log);
             foreach (ProductDef p in new[] { almond, mix, batter, over, caramel, burnt, salted, ganache, shell, dish })

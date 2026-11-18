@@ -16,9 +16,9 @@ MonoBehaviour:
   Title: "\u041A\u0430\u0440\u0430\u043C\u0435\u043B\u044C\u043D\u044B\u0439 \u0433\u0430\u043D\u0430\u0448"
   Group: {fileID: 11400000, guid: 2d5755d3b44d6d543be8309c5ef736b3, type: 2}
   Overrides: []
-  BaseColor: {r: 0.4, g: 0.23, b: 0.12, a: 1}
+  BaseColor: {r: 0.72, g: 0.44, b: 0.16, a: 1}
   BurntColor: {r: 0.22, g: 0.16, b: 0.11, a: 1}
-  DebrisColor: {r: 0.4, g: 0.23, b: 0.12, a: 1}
+  DebrisColor: {r: 0.72, g: 0.44, b: 0.16, a: 1}
   SolidMesh: {fileID: 0}
   PieceMeshes: []
   Size: 0.06

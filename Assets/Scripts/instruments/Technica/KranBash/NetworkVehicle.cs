@@ -59,6 +59,8 @@ public abstract class NetworkVehicle : InteractableItem
     protected readonly SyncVar<NetworkObject> _driver = new(null);
 
     protected bool _isLocalDriver;
+    public bool LocalDriver => _isLocalDriver;
+    public Rigidbody VehicleBody => _body;
     public bool HasDriver => _driver.Value != null;
     public bool IsDriver(NetworkObject player) => player != null && _driver.Value == player;
 
@@ -201,7 +203,7 @@ public abstract class NetworkVehicle : InteractableItem
 
     private void OnTick()
     {
-        if (_isLocalDriver) DriverTick();
+        if (_isLocalDriver && !UiModal.AnyOpen) DriverTick();
     }
 
     protected virtual void Update()
@@ -212,6 +214,8 @@ public abstract class NetworkVehicle : InteractableItem
 
         if (_driver.Value != null && _seatPoint != null)
             _driver.Value.transform.SetPositionAndRotation(_seatPoint.position, _seatPoint.rotation);
+
+        if (UiModal.AnyOpen) return;
 
         if (Input.GetKeyDown(KeyCode.F)) { CmdExit(); return; }
 
@@ -240,7 +244,7 @@ public abstract class NetworkVehicle : InteractableItem
 
     /// <summary>Активно ли машина управляется прямо сейчас (есть локальный
     /// водитель и езда разрешена). Наследники сужают через CanDrive.</summary>
-    protected bool IsDriving => _isLocalDriver && CanDrive;
+    protected bool IsDriving => _isLocalDriver && CanDrive && !UiModal.AnyOpen;
 
     /// <summary>Разрешена ли езда (кран блокирует при опорах, экскаватор — в
     /// режиме работы рукой). База — да.</summary>

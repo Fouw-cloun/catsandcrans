@@ -110,6 +110,9 @@ namespace CatCooks.Food
         [Range(0.1f, 2f)] public float CrystalDensity = 1f;
         [Tooltip("v23.62: смесь с сахаром — по порошку крошечные блестящие кубики (0 — нет). Миндальная смесь ставит сама")]
         [Range(0f, 2f)] public float Sugar = 0f;
+        [Tooltip("v23.64: СОЛЬ — кристаллы мельче и гуще, ровные кубики «сидят» на гранях, холодный белый, матовее сахара " +
+                 "(меньше искр, голубоватая тень). Профиль соли создаётся кодом сам")]
+        public bool Salt;
 
         [Header("Пропорции (смесь по рецепту)")]
         [Tooltip("v19: результат рецепта «перемешать» считается по ПРОПОРЦИЯМ: в допуске рецепта — норма (хуже только оценка), " +
@@ -156,6 +159,11 @@ namespace CatCooks.Food
         /// <summary>Материал вещества: свой или созданный по виду.</summary>
         public Material GetMaterial()
         {
+            if (AnimeHeaps && Look == SubstanceLook.Crystals && Salt)
+            {
+                Material sm = SaltMaterial();                                       // v23.64: соль — холодная, матовее сахара
+                if (sm != null) return sm;
+            }
             if (AnimeHeaps && Look == SubstanceLook.Powder && Sugar > 0.001f)
             {
                 Material sm = SugarMixMaterial();                                   // v23.62: мука с искрами сахара
@@ -213,6 +221,30 @@ namespace CatCooks.Food
             SetF(_sugarMix, "_HSpec", 0.35f);
             SetF(_sugarMix, "_HSpecSize", 0.975f);
             return _sugarMix;
+        }
+
+        private static Material _salt;
+
+        /// <summary>
+        /// v23.64: СОЛЬ — те же аниме-кристаллы, что у сахара, но читается как соль: искр и блеска меньше (соль матовая,
+        /// сахар искрится), тень холодная голубовато-серая, без тёплой насыщенности, обводка чуть плотнее.
+        /// </summary>
+        public static Material SaltMaterial()
+        {
+            if (_salt != null) return _salt;
+            Material b = AnimeMaterial(SubstanceLook.Crystals);
+            if (b == null) return null;
+            _salt = new Material(b) { name = "CC Anime Heap Salt (auto)", hideFlags = HideFlags.DontSave };
+            SetF(_salt, "_HSparkle", 0.3f);
+            SetF(_salt, "_HSpec", 0.4f);
+            SetF(_salt, "_HSpecSize", 0.982f);
+            SetF(_salt, "_HSat", 1f);
+            SetF(_salt, "_HShadeDepth", 0.8f);
+            SetF(_salt, "_HInk", 0.3f);
+            SetF(_salt, "_HOutline", 2.4f);
+            SetF(_salt, "_HTermGlow", 0.05f);
+            if (_salt.HasProperty("_HShadeCool")) _salt.SetColor("_HShadeCool", new Color(0.7f, 0.78f, 0.95f, 1f));
+            return _salt;
         }
 
         /// <summary>v23.6: общий аниме-материал вида (создаётся один раз, настройки — <see cref="AnimePreset"/>).</summary>

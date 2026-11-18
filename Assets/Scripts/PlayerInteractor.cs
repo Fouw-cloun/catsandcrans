@@ -214,7 +214,8 @@ public class PlayerInteractor : NetworkBehaviour
             foreach (NetworkVehicle v in seats)
             {
                 if (v.SeatIndexOnObject != seatIndex) continue;
-                if (Vector3.Distance(transform.position, target.transform.position) > _reach + 4f)
+                Vector3 seatTarget = v.SeatCollider != null ? v.SeatCollider.ClosestPoint(transform.position) : v.transform.position;
+                if (Vector3.Distance(transform.position, seatTarget) > _reach + 4f)
                     return;
                 v.ServerInteract(this);
                 return;

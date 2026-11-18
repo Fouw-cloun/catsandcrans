@@ -1,0 +1,1720 @@
+{
+  "nodes": [
+    {
+      "name": "ScissorLift",
+      "parent": "",
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "empty",
+      "color": [
+        0.91,
+        0.43,
+        0.055,
+        1
+      ]
+    },
+    {
+      "name": "Chassis",
+      "parent": "ScissorLift",
+      "position": [
+        0,
+        0.31,
+        0
+      ],
+      "size": [
+        1.53,
+        0.36,
+        2.36
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.91,
+        0.43,
+        0.055,
+        1
+      ]
+    },
+    {
+      "name": "ChassisTop",
+      "parent": "ScissorLift",
+      "position": [
+        0,
+        0.486,
+        0
+      ],
+      "size": [
+        1.54,
+        0.095,
+        2.14
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.11,
+        0.15,
+        0.19,
+        1
+      ]
+    },
+    {
+      "name": "Wheel_0_0",
+      "parent": "ScissorLift",
+      "position": [
+        -0.77,
+        0.26,
+        -0.86
+      ],
+      "size": [
+        0.52,
+        0.2,
+        0.52
+      ],
+      "rotation": [
+        0,
+        0,
+        90
+      ],
+      "kind": "cylinder",
+      "color": [
+        0.045,
+        0.056,
+        0.069,
+        1
+      ]
+    },
+    {
+      "name": "Wheel_0_1",
+      "parent": "ScissorLift",
+      "position": [
+        -0.77,
+        0.26,
+        0.86
+      ],
+      "size": [
+        0.52,
+        0.2,
+        0.52
+      ],
+      "rotation": [
+        0,
+        0,
+        90
+      ],
+      "kind": "cylinder",
+      "color": [
+        0.045,
+        0.056,
+        0.069,
+        1
+      ]
+    },
+    {
+      "name": "SideInlay0",
+      "parent": "ScissorLift",
+      "position": [
+        -0.77,
+        0.325,
+        0
+      ],
+      "size": [
+        0.038,
+        0.16,
+        0.69
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.11,
+        0.15,
+        0.19,
+        1
+      ]
+    },
+    {
+      "name": "Vent0_0",
+      "parent": "ScissorLift",
+      "position": [
+        -0.78386,
+        0.331,
+        -0.24
+      ],
+      "size": [
+        0.029,
+        0.078,
+        0.036
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.37,
+        0.45,
+        0.51,
+        1
+      ]
+    },
+    {
+      "name": "Vent0_1",
+      "parent": "ScissorLift",
+      "position": [
+        -0.78386,
+        0.331,
+        -0.13999999999999999
+      ],
+      "size": [
+        0.029,
+        0.078,
+        0.036
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.37,
+        0.45,
+        0.51,
+        1
+      ]
+    },
+    {
+      "name": "Vent0_2",
+      "parent": "ScissorLift",
+      "position": [
+        -0.78386,
+        0.331,
+        -0.03999999999999998
+      ],
+      "size": [
+        0.029,
+        0.078,
+        0.036
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.37,
+        0.45,
+        0.51,
+        1
+      ]
+    },
+    {
+      "name": "Vent0_3",
+      "parent": "ScissorLift",
+      "position": [
+        -0.78386,
+        0.331,
+        0.06000000000000005
+      ],
+      "size": [
+        0.029,
+        0.078,
+        0.036
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.37,
+        0.45,
+        0.51,
+        1
+      ]
+    },
+    {
+      "name": "Vent0_4",
+      "parent": "ScissorLift",
+      "position": [
+        -0.78386,
+        0.331,
+        0.16000000000000003
+      ],
+      "size": [
+        0.029,
+        0.078,
+        0.036
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.37,
+        0.45,
+        0.51,
+        1
+      ]
+    },
+    {
+      "name": "Wheel_1_0",
+      "parent": "ScissorLift",
+      "position": [
+        0.77,
+        0.26,
+        -0.86
+      ],
+      "size": [
+        0.52,
+        0.2,
+        0.52
+      ],
+      "rotation": [
+        0,
+        0,
+        90
+      ],
+      "kind": "cylinder",
+      "color": [
+        0.045,
+        0.056,
+        0.069,
+        1
+      ]
+    },
+    {
+      "name": "Wheel_1_1",
+      "parent": "ScissorLift",
+      "position": [
+        0.77,
+        0.26,
+        0.86
+      ],
+      "size": [
+        0.52,
+        0.2,
+        0.52
+      ],
+      "rotation": [
+        0,
+        0,
+        90
+      ],
+      "kind": "cylinder",
+      "color": [
+        0.045,
+        0.056,
+        0.069,
+        1
+      ]
+    },
+    {
+      "name": "SideInlay1",
+      "parent": "ScissorLift",
+      "position": [
+        0.77,
+        0.325,
+        0
+      ],
+      "size": [
+        0.038,
+        0.16,
+        0.69
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.11,
+        0.15,
+        0.19,
+        1
+      ]
+    },
+    {
+      "name": "Vent1_0",
+      "parent": "ScissorLift",
+      "position": [
+        0.78386,
+        0.331,
+        -0.24
+      ],
+      "size": [
+        0.029,
+        0.078,
+        0.036
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.37,
+        0.45,
+        0.51,
+        1
+      ]
+    },
+    {
+      "name": "Vent1_1",
+      "parent": "ScissorLift",
+      "position": [
+        0.78386,
+        0.331,
+        -0.13999999999999999
+      ],
+      "size": [
+        0.029,
+        0.078,
+        0.036
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.37,
+        0.45,
+        0.51,
+        1
+      ]
+    },
+    {
+      "name": "Vent1_2",
+      "parent": "ScissorLift",
+      "position": [
+        0.78386,
+        0.331,
+        -0.03999999999999998
+      ],
+      "size": [
+        0.029,
+        0.078,
+        0.036
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.37,
+        0.45,
+        0.51,
+        1
+      ]
+    },
+    {
+      "name": "Vent1_3",
+      "parent": "ScissorLift",
+      "position": [
+        0.78386,
+        0.331,
+        0.06000000000000005
+      ],
+      "size": [
+        0.029,
+        0.078,
+        0.036
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.37,
+        0.45,
+        0.51,
+        1
+      ]
+    },
+    {
+      "name": "Vent1_4",
+      "parent": "ScissorLift",
+      "position": [
+        0.78386,
+        0.331,
+        0.16000000000000003
+      ],
+      "size": [
+        0.029,
+        0.078,
+        0.036
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.37,
+        0.45,
+        0.51,
+        1
+      ]
+    },
+    {
+      "name": "Step_Outer",
+      "parent": "ScissorLift",
+      "position": [
+        -0.83,
+        0.49,
+        -0.62
+      ],
+      "size": [
+        0.32,
+        0.1,
+        0.36
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.11,
+        0.15,
+        0.19,
+        1
+      ]
+    },
+    {
+      "name": "Step_Upper",
+      "parent": "ScissorLift",
+      "position": [
+        -0.7,
+        0.78,
+        -0.62
+      ],
+      "size": [
+        0.3,
+        0.1,
+        0.35
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.96,
+        0.71,
+        0.14,
+        1
+      ]
+    },
+    {
+      "name": "BaseRear",
+      "parent": "ScissorLift",
+      "position": [
+        0,
+        0.32,
+        -1.177
+      ],
+      "size": [
+        1.3,
+        0.21,
+        0.12
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.11,
+        0.15,
+        0.19,
+        1
+      ]
+    },
+    {
+      "name": "Reflector-0.55",
+      "parent": "ScissorLift",
+      "position": [
+        -0.55,
+        0.347,
+        -1.245
+      ],
+      "size": [
+        0.12,
+        0.09,
+        0.03
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.8,
+        0.065,
+        0.035,
+        1
+      ]
+    },
+    {
+      "name": "Reflector0.55",
+      "parent": "ScissorLift",
+      "position": [
+        0.55,
+        0.347,
+        -1.245
+      ],
+      "size": [
+        0.12,
+        0.09,
+        0.03
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.8,
+        0.065,
+        0.035,
+        1
+      ]
+    },
+    {
+      "name": "Platform",
+      "parent": "ScissorLift",
+      "position": [
+        0,
+        1.17,
+        0
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "empty",
+      "color": [
+        0.91,
+        0.43,
+        0.055,
+        1
+      ]
+    },
+    {
+      "name": "Deck",
+      "parent": "Platform",
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        1.64,
+        0.16,
+        2.26
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.11,
+        0.15,
+        0.19,
+        1
+      ]
+    },
+    {
+      "name": "DeckEdgeA",
+      "parent": "Platform",
+      "position": [
+        0,
+        0.021,
+        1.13
+      ],
+      "size": [
+        1.62,
+        0.18,
+        0.055
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.91,
+        0.43,
+        0.055,
+        1
+      ]
+    },
+    {
+      "name": "DeckEdgeB",
+      "parent": "Platform",
+      "position": [
+        0,
+        0.021,
+        -1.13
+      ],
+      "size": [
+        1.62,
+        0.18,
+        0.055
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.91,
+        0.43,
+        0.055,
+        1
+      ]
+    },
+    {
+      "name": "DeckGrip0",
+      "parent": "Platform",
+      "position": [
+        0,
+        0.083,
+        -0.82
+      ],
+      "size": [
+        1.42,
+        0.012,
+        0.041
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.37,
+        0.45,
+        0.51,
+        1
+      ]
+    },
+    {
+      "name": "DeckGrip1",
+      "parent": "Platform",
+      "position": [
+        0,
+        0.083,
+        -0.42999999999999994
+      ],
+      "size": [
+        1.42,
+        0.012,
+        0.041
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.37,
+        0.45,
+        0.51,
+        1
+      ]
+    },
+    {
+      "name": "DeckGrip2",
+      "parent": "Platform",
+      "position": [
+        0,
+        0.083,
+        -0.039999999999999925
+      ],
+      "size": [
+        1.42,
+        0.012,
+        0.041
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.37,
+        0.45,
+        0.51,
+        1
+      ]
+    },
+    {
+      "name": "DeckGrip3",
+      "parent": "Platform",
+      "position": [
+        0,
+        0.083,
+        0.35
+      ],
+      "size": [
+        1.42,
+        0.012,
+        0.041
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.37,
+        0.45,
+        0.51,
+        1
+      ]
+    },
+    {
+      "name": "DeckGrip4",
+      "parent": "Platform",
+      "position": [
+        0,
+        0.083,
+        0.7400000000000001
+      ],
+      "size": [
+        1.42,
+        0.012,
+        0.041
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.37,
+        0.45,
+        0.51,
+        1
+      ]
+    },
+    {
+      "name": "Rail_Post0_0",
+      "parent": "Platform",
+      "position": [
+        -0.77,
+        0.6,
+        -1.08
+      ],
+      "size": [
+        0.056,
+        1.07,
+        0.057
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.91,
+        0.43,
+        0.055,
+        1
+      ]
+    },
+    {
+      "name": "Rail_Post0_1",
+      "parent": "Platform",
+      "position": [
+        -0.77,
+        0.6,
+        -0.38
+      ],
+      "size": [
+        0.056,
+        1.07,
+        0.057
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.91,
+        0.43,
+        0.055,
+        1
+      ]
+    },
+    {
+      "name": "Rail_Post0_2",
+      "parent": "Platform",
+      "position": [
+        -0.77,
+        0.6,
+        1.08
+      ],
+      "size": [
+        0.056,
+        1.07,
+        0.057
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.91,
+        0.43,
+        0.055,
+        1
+      ]
+    },
+    {
+      "name": "Rail_Post1_0",
+      "parent": "Platform",
+      "position": [
+        0.77,
+        0.6,
+        -1.08
+      ],
+      "size": [
+        0.056,
+        1.07,
+        0.057
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.91,
+        0.43,
+        0.055,
+        1
+      ]
+    },
+    {
+      "name": "Rail_Post1_1",
+      "parent": "Platform",
+      "position": [
+        0.77,
+        0.6,
+        -0.38
+      ],
+      "size": [
+        0.056,
+        1.07,
+        0.057
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.91,
+        0.43,
+        0.055,
+        1
+      ]
+    },
+    {
+      "name": "Rail_Post1_2",
+      "parent": "Platform",
+      "position": [
+        0.77,
+        0.6,
+        1.08
+      ],
+      "size": [
+        0.056,
+        1.07,
+        0.057
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.91,
+        0.43,
+        0.055,
+        1
+      ]
+    },
+    {
+      "name": "Rail_End0_0",
+      "parent": "Platform",
+      "position": [
+        0,
+        0.58,
+        -1.08
+      ],
+      "size": [
+        1.57,
+        0.055,
+        0.055
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.91,
+        0.43,
+        0.055,
+        1
+      ]
+    },
+    {
+      "name": "Rail_End0_1",
+      "parent": "Platform",
+      "position": [
+        0,
+        1.09,
+        -1.08
+      ],
+      "size": [
+        1.57,
+        0.055,
+        0.055
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.91,
+        0.43,
+        0.055,
+        1
+      ]
+    },
+    {
+      "name": "Rail_End1_0",
+      "parent": "Platform",
+      "position": [
+        0,
+        0.58,
+        1.08
+      ],
+      "size": [
+        1.57,
+        0.055,
+        0.055
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.91,
+        0.43,
+        0.055,
+        1
+      ]
+    },
+    {
+      "name": "Rail_End1_1",
+      "parent": "Platform",
+      "position": [
+        0,
+        1.09,
+        1.08
+      ],
+      "size": [
+        1.57,
+        0.055,
+        0.055
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.91,
+        0.43,
+        0.055,
+        1
+      ]
+    },
+    {
+      "name": "Rail_Right0",
+      "parent": "Platform",
+      "position": [
+        0.77,
+        0.58,
+        0
+      ],
+      "size": [
+        0.055,
+        0.055,
+        2.18
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.91,
+        0.43,
+        0.055,
+        1
+      ]
+    },
+    {
+      "name": "Rail_Left0",
+      "parent": "Platform",
+      "position": [
+        -0.77,
+        0.58,
+        0.36
+      ],
+      "size": [
+        0.055,
+        0.055,
+        1.46
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.91,
+        0.43,
+        0.055,
+        1
+      ]
+    },
+    {
+      "name": "Rail_Right1",
+      "parent": "Platform",
+      "position": [
+        0.77,
+        1.09,
+        0
+      ],
+      "size": [
+        0.055,
+        0.055,
+        2.18
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.91,
+        0.43,
+        0.055,
+        1
+      ]
+    },
+    {
+      "name": "Rail_Left1",
+      "parent": "Platform",
+      "position": [
+        -0.77,
+        1.09,
+        0.36
+      ],
+      "size": [
+        0.055,
+        0.055,
+        1.46
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.91,
+        0.43,
+        0.055,
+        1
+      ]
+    },
+    {
+      "name": "ConsoleStem",
+      "parent": "Platform",
+      "position": [
+        0.58,
+        0.73,
+        0.71
+      ],
+      "size": [
+        0.1,
+        1.28,
+        0.11
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.11,
+        0.15,
+        0.19,
+        1
+      ]
+    },
+    {
+      "name": "ConsolePanel",
+      "parent": "Platform",
+      "position": [
+        0.53,
+        1.32,
+        0.68
+      ],
+      "size": [
+        0.37,
+        0.16,
+        0.31
+      ],
+      "rotation": [
+        -17,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.11,
+        0.15,
+        0.19,
+        1
+      ]
+    },
+    {
+      "name": "ConsoleDisplay",
+      "parent": "Platform",
+      "position": [
+        0.57,
+        1.416,
+        0.71
+      ],
+      "size": [
+        0.17,
+        0.023,
+        0.12
+      ],
+      "rotation": [
+        -17,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.12,
+        0.52,
+        0.53,
+        1
+      ]
+    },
+    {
+      "name": "EmergencyStop",
+      "parent": "Platform",
+      "position": [
+        0.41,
+        1.414,
+        0.72
+      ],
+      "size": [
+        0.067,
+        0.046,
+        0.067
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "cylinder",
+      "color": [
+        0.8,
+        0.065,
+        0.035,
+        1
+      ]
+    },
+    {
+      "name": "SeatPoint",
+      "parent": "Platform",
+      "position": [
+        0,
+        0.2,
+        0.56
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "empty",
+      "color": [
+        0.91,
+        0.43,
+        0.055,
+        1
+      ]
+    },
+    {
+      "name": "CameraPoint",
+      "parent": "Platform",
+      "position": [
+        0,
+        1.64,
+        0.5
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "empty",
+      "color": [
+        0.91,
+        0.43,
+        0.055,
+        1
+      ]
+    },
+    {
+      "name": "ExitPoint",
+      "parent": "Platform",
+      "position": [
+        -0.15,
+        0.12,
+        -0.57
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "kind": "empty",
+      "color": [
+        0.91,
+        0.43,
+        0.055,
+        1
+      ]
+    },
+    {
+      "name": "ScissorBar0",
+      "parent": "ScissorLift",
+      "position": [
+        -0.628,
+        0.57,
+        0.0
+      ],
+      "size": [
+        0.072,
+        2.18,
+        0.115
+      ],
+      "rotation": [
+        83.49975010795612,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.37,
+        0.45,
+        0.51,
+        1
+      ]
+    },
+    {
+      "name": "ScissorBar1",
+      "parent": "ScissorLift",
+      "position": [
+        -0.5519999999999999,
+        0.57,
+        0.0
+      ],
+      "size": [
+        0.072,
+        2.18,
+        0.115
+      ],
+      "rotation": [
+        -83.49975010795612,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.64,
+        0.68,
+        0.7,
+        1
+      ]
+    },
+    {
+      "name": "ScissorBar2",
+      "parent": "ScissorLift",
+      "position": [
+        0.5519999999999999,
+        0.57,
+        0.0
+      ],
+      "size": [
+        0.072,
+        2.18,
+        0.115
+      ],
+      "rotation": [
+        83.49975010795612,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.37,
+        0.45,
+        0.51,
+        1
+      ]
+    },
+    {
+      "name": "ScissorBar3",
+      "parent": "ScissorLift",
+      "position": [
+        0.628,
+        0.57,
+        0.0
+      ],
+      "size": [
+        0.072,
+        2.18,
+        0.115
+      ],
+      "rotation": [
+        -83.49975010795612,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.64,
+        0.68,
+        0.7,
+        1
+      ]
+    },
+    {
+      "name": "ScissorBar4",
+      "parent": "ScissorLift",
+      "position": [
+        -0.628,
+        0.8099999999999999,
+        0.0
+      ],
+      "size": [
+        0.072,
+        2.18,
+        0.115
+      ],
+      "rotation": [
+        83.49975010795612,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.37,
+        0.45,
+        0.51,
+        1
+      ]
+    },
+    {
+      "name": "ScissorBar5",
+      "parent": "ScissorLift",
+      "position": [
+        -0.5519999999999999,
+        0.8099999999999999,
+        0.0
+      ],
+      "size": [
+        0.072,
+        2.18,
+        0.115
+      ],
+      "rotation": [
+        -83.49975010795612,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.64,
+        0.68,
+        0.7,
+        1
+      ]
+    },
+    {
+      "name": "ScissorBar6",
+      "parent": "ScissorLift",
+      "position": [
+        0.5519999999999999,
+        0.8099999999999999,
+        0.0
+      ],
+      "size": [
+        0.072,
+        2.18,
+        0.115
+      ],
+      "rotation": [
+        83.49975010795612,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.37,
+        0.45,
+        0.51,
+        1
+      ]
+    },
+    {
+      "name": "ScissorBar7",
+      "parent": "ScissorLift",
+      "position": [
+        0.628,
+        0.8099999999999999,
+        0.0
+      ],
+      "size": [
+        0.072,
+        2.18,
+        0.115
+      ],
+      "rotation": [
+        -83.49975010795612,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.64,
+        0.68,
+        0.7,
+        1
+      ]
+    },
+    {
+      "name": "ScissorBar8",
+      "parent": "ScissorLift",
+      "position": [
+        -0.628,
+        1.0499999999999998,
+        0.0
+      ],
+      "size": [
+        0.072,
+        2.18,
+        0.115
+      ],
+      "rotation": [
+        83.49975010795612,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.37,
+        0.45,
+        0.51,
+        1
+      ]
+    },
+    {
+      "name": "ScissorBar9",
+      "parent": "ScissorLift",
+      "position": [
+        -0.5519999999999999,
+        1.0499999999999998,
+        0.0
+      ],
+      "size": [
+        0.072,
+        2.18,
+        0.115
+      ],
+      "rotation": [
+        -83.49975010795612,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.64,
+        0.68,
+        0.7,
+        1
+      ]
+    },
+    {
+      "name": "ScissorBar10",
+      "parent": "ScissorLift",
+      "position": [
+        0.5519999999999999,
+        1.0499999999999998,
+        0.0
+      ],
+      "size": [
+        0.072,
+        2.18,
+        0.115
+      ],
+      "rotation": [
+        83.49975010795612,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.37,
+        0.45,
+        0.51,
+        1
+      ]
+    },
+    {
+      "name": "ScissorBar11",
+      "parent": "ScissorLift",
+      "position": [
+        0.628,
+        1.0499999999999998,
+        0.0
+      ],
+      "size": [
+        0.072,
+        2.18,
+        0.115
+      ],
+      "rotation": [
+        -83.49975010795612,
+        0,
+        0
+      ],
+      "kind": "box",
+      "color": [
+        0.64,
+        0.68,
+        0.7,
+        1
+      ]
+    }
+  ]
+}

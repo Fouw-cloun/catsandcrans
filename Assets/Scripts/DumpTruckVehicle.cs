@@ -2,125 +2,214 @@ using FishNet.Object;
 using FishNet.Object.Synchronizing;
 using UnityEngine;
 
-/// <summary>
-/// Самосвал. Колёсная физика (WheeledVehicle): 6 колёс, 2 передних поворотных.
-///   WASD — езда, Q/E — поднять/опустить кузов (плавно, пока клавиша зажата,
-///   останавливается сразу при отпускании), F — выйти.
-///
-/// АРХИТЕКТУРА КУЗОВА (важно, чтобы не наступить на старые грабли):
-///   Целевой угол считается на клиенте-ВОДИТЕЛЕ каждый Update по Time.deltaTime
-///   (НЕ по сетевым тикам — тики могут "досрочно" сработать несколько раз за
-///   кадр при лагах, и если копить через тик, короткое нажатие может дать
-///   скачок на много тиков вперёд). На сервер каждый тик уходит АБСОЛЮТНОЕ
-///   текущее значение (не дельта) — повторная отправка того же числа безвредна.
-///   Водитель видит своё значение мгновенно (локально), остальные — сглаженно
-///   по SyncVar.
-/// </summary>
 public class DumpTruckVehicle : WheeledVehicle
 {
-    [Header("Кузов")]
     [SerializeField] private Transform _bed;
-    [Tooltip("Скорость подъёма, градусы/сек")]
-    [SerializeField] private float _tiltSpeed = 25f;
-    [Tooltip("Скорость визуального сглаживания для НЕ-водителя (градусы/сек)")]
-    [SerializeField] private float _visualSmoothSpeed = 90f;
-    [Tooltip("Добавка к базовому повороту: 0 = закрыт (база, у тебя X≈-90), " +
-             "70 = поднят (база + 70 = X≈-20).")]
-    [SerializeField] private Vector2 _bedLimit = new Vector2(0f, 70f);
+    [SerializeField] private float _tiltSpeed = 12;
+    [SerializeField] private float _visualSmoothSpeed = 90;
+    [SerializeField] private Vector2 _bedLimit = new Vector2(0, 55);
+    public Vector3 bedAxis = Vector3.right;
+    public Transform tailgate;
+    public Vector3 gateAxis = Vector3.right;
+    public float gateOpenAngle = 100;
+    public float gateSpeed = 120;
+    public float gateOpenFrom = 12;
+    public bool automaticGate = true;
+    [Header("Борт на ходу")]
+    [Range(0, 2)] public float gateRattleStrength = 1.0f;
 
-    // Целевой угол, посчитанный ЛОКАЛЬНО у водителя каждый кадр (точный,
-    // не зависит от сетевых тиков).
-    private float _localBedAngle;
+    [Header("Поворот задних колёс")]
+    public Transform[] rearWheelVisuals;
+    private Quaternion[] _rearBind;
+    private Vector3[] _previousWheelPoints;
+    private float[] _rearSpin;
+    private Wheel[] _rearWheels;
+    private Vector3 _previousPosition;
+    private bool _travelReady;
+    private float _roadSpeed, _roadVelocity, _roadAcceleration, _rattlePhase;
 
-    // Авторитетное значение сервера — синхронизируется всем клиентам.
-    private readonly SyncVar<float> _bedAngle = new(0f);
+    private readonly SyncVar<float> _bedAngle = new(0);
+    private Quaternion _bedRest, _gateRest;
+    private float _localBedAngle, _visualBed, _visualGate, _gateVelocity;
+    private bool _captured;
 
-    // Визуальный угол, который реально крутит меш — у водителя равен
-    // _localBedAngle напрямую (без задержки), у остальных плавно догоняет
-    // _bedAngle.Value.
-    private float _bedVisualAngle;
+    public Transform Bed => _bed;
+    public bool DischargeOpen => tailgate != null && _visualBed >= gateOpenFrom && _visualGate > 8;
 
-    // Исходный поворот кузова "как есть в сцене" (модель импортирована со своим
-    // оффсетом, у тебя это ~-90 по X). Запоминаем один раз и дальше крутим
-    // ОТНОСИТЕЛЬНО него.
-    private Quaternion _bedBaseLocalRotation;
-    private bool _bedBaseCaptured;
+    protected override void ApplyDriverState(NetworkObject player, bool entering)
+    {
+        if (entering) _localBedAngle = _bedAngle.Value;
+        base.ApplyDriverState(player, entering);
+    }
 
     protected override void DriverUpdate()
     {
-        float dir = (Input.GetKey(KeyCode.Q) ? 1f : 0f) - (Input.GetKey(KeyCode.E) ? 1f : 0f);
-        if (dir != 0f)
-        {
-            // Защита от скачка кадра (лаг/GC-пауза/фриз редактора): даже если
-            // реальный Time.deltaTime в этот кадр аномально большой, движение
-            // кузова за ОДИН кадр не может превысить этот потолок. Без этой
-            // защиты скачок FPS даёт пропорционально большой прыжок угла.
-            float dt = Mathf.Min(Time.deltaTime, 0.05f); // потолок ~20 FPS на шаг
-
-            float prevAngle = _localBedAngle;
-            _localBedAngle = Mathf.Clamp(
-                _localBedAngle + dir * _tiltSpeed * dt,
-                _bedLimit.x, _bedLimit.y);
-
-            // Диагностика: если шаг всё равно оказался подозрительно большим
-            // (например Time.deltaTime был честно большим ДО клампа — сам факт
-            // клампа уже спас от прыжка, но полезно видеть, что он сработал),
-            // залогируем — при следующем "дёрганье" в консоли будут точные цифры.
-            float step = Mathf.Abs(_localBedAngle - prevAngle);
-            float maxExpectedStep = _tiltSpeed * dt * 1.5f; // с запасом
-            if (step > maxExpectedStep + 0.01f)
-            {
-                Debug.LogWarning($"[DumpTruck] Подозрительный шаг кузова: " +
-                    $"{prevAngle:F2} -> {_localBedAngle:F2} (шаг {step:F2}°), " +
-                    $"raw deltaTime={Time.deltaTime:F4}, dir={dir}");
-            }
-            _localBedAngle = Mathf.Clamp(
-                _localBedAngle + dir * _tiltSpeed * Time.deltaTime,
-                _bedLimit.x, _bedLimit.y);
-        }
+        float direction = (Input.GetKey(KeyCode.Q) ? 1 : 0) - (Input.GetKey(KeyCode.E) ? 1 : 0);
+        _localBedAngle = Mathf.Clamp(_localBedAngle + direction * _tiltSpeed * Mathf.Min(.05f, Time.deltaTime),
+            _bedLimit.x, _bedLimit.y);
     }
 
-    protected override void DriverTick()
-    {
-        // Отправляем ТЕКУЩЕЕ (абсолютное) значение каждый тик — идемпотентно,
-        // несколько подряд идущих тиков с одним и тем же числом безвредны.
-        CmdSetBedAngle(_localBedAngle);
-    }
+    protected override void DriverTick() => SetBedAngle(_localBedAngle);
 
     [ServerRpc]
-    private void CmdSetBedAngle(float angle)
+    private void SetBedAngle(float angle)
     {
+        if (!HasDriver || float.IsNaN(angle) || float.IsInfinity(angle)) return;
         _bedAngle.Value = Mathf.Clamp(angle, _bedLimit.x, _bedLimit.y);
     }
 
     protected override void ApplyVisuals()
     {
-        base.ApplyVisuals(); // визуал колёс
-
+        UpdateRoadSpeed();
+        PrepareRearWheels();
+        base.ApplyVisuals();
+        RollRearWheels();
         if (_bed == null) return;
-
-        if (!_bedBaseCaptured)
+        if (!_captured)
         {
-            _bedBaseLocalRotation = _bed.localRotation;
-            _bedVisualAngle = _bedAngle.Value;
-            _localBedAngle = _bedAngle.Value; // не дёргаться из 0 при спавне
-            _bedBaseCaptured = true;
+            _bedRest = _bed.localRotation;
+            if (tailgate != null) _gateRest = tailgate.localRotation;
+            _visualBed = _localBedAngle = _bedAngle.Value;
+            _captured = true;
+        }
+        _visualBed = _isLocalDriver ? _localBedAngle :
+            Mathf.MoveTowards(_visualBed, _bedAngle.Value, _visualSmoothSpeed * Time.deltaTime);
+        _bed.localRotation = _bedRest * Quaternion.AngleAxis(_visualBed, bedAxis);
+
+        if (tailgate == null) return;
+        UpdateTailgate(Mathf.Min(.05f, Time.deltaTime));
+    }
+
+    private void UpdateTailgate(float dt)
+    {
+        float goal = 0;
+        float limit = Mathf.Abs(gateOpenAngle);
+        bool released = automaticGate && _visualBed > .08f;
+        if (released)
+        {
+            var parent = tailgate.parent;
+            Vector3 worldAxis = _gateRest * gateAxis;
+            Vector3 closedDown = _gateRest * Vector3.down;
+            if (parent != null)
+            {
+                worldAxis = parent.TransformDirection(worldAxis);
+                closedDown = parent.TransformDirection(closedDown);
+            }
+
+            // A hanging gate tends away from acceleration and back with braking.
+            float inertia = Mathf.Clamp(_roadAcceleration * .48f * gateRattleStrength, -2.1f, 2.1f);
+            Vector3 effectiveGravity = Physics.gravity - transform.forward * inertia;
+            Vector3 down = Vector3.ProjectOnPlane(effectiveGravity, worldAxis);
+            if (down.sqrMagnitude > .001f)
+                goal = Mathf.Clamp(Vector3.SignedAngle(closedDown, down, worldAxis), 0, limit);
+
+            float motion = Mathf.InverseLerp(.15f, 2.3f, _roadSpeed);
+            _rattlePhase = Mathf.Repeat(_rattlePhase + dt * (.50f + Mathf.Min(6, _roadSpeed) * .12f) *
+                Mathf.PI * 2f, Mathf.PI * 2f);
+            goal += Mathf.Sin(_rattlePhase) * 5.5f * motion * gateRattleStrength;
         }
 
-        if (_isLocalDriver)
+        // Minor over-travel at the target gives one soft impact when the gate
+        // returns, without a strong reverse impulse or a forced slam.
+        goal = Mathf.Clamp(goal, -2f, limit);
+        int steps = Mathf.Max(1, Mathf.CeilToInt(dt * 120f));
+        float step = dt / steps;
+        for (int i = 0; i < steps; i++)
         {
-            // Водитель — без задержки, своё же посчитанное значение.
-            _bedVisualAngle = _localBedAngle;
+            _gateVelocity += ((goal - _visualGate) * 27f - _gateVelocity * 7.6f) * step;
+            float closingLimit = Mathf.Lerp(13f, 78f, Mathf.InverseLerp(0, 13f, _visualGate));
+            float openingLimit = Mathf.Clamp(gateSpeed, 25f, 86f);
+            _gateVelocity = Mathf.Clamp(_gateVelocity, -closingLimit, openingLimit);
+            float next = _visualGate + _gateVelocity * step;
+            if (next <= 0 && _gateVelocity < 0)
+            {
+                float rebound = released ? -_gateVelocity * .09f : 0;
+                _visualGate = 0;
+                _gateVelocity = rebound >= .45f ? rebound : 0;
+            }
+            else if (next >= limit && _gateVelocity > 0)
+            {
+                _visualGate = limit;
+                _gateVelocity = 0;
+            }
+            else
+            {
+                _visualGate = Mathf.Clamp(next, 0, limit);
+            }
         }
-        else
-        {
-            // Остальные — плавно догоняют то, что прислал сервер.
-            _bedVisualAngle = Mathf.MoveTowards(_bedVisualAngle, _bedAngle.Value,
-                _visualSmoothSpeed * Time.deltaTime);
-        }
+        if (!released && _visualGate < .10f && Mathf.Abs(_gateVelocity) < 1f)
+            _visualGate = _gateVelocity = 0;
+        tailgate.localRotation = _gateRest * Quaternion.AngleAxis(_visualGate, gateAxis);
+    }
 
-        // Крутим ДОБАВОЧНО к базовому повороту: база -90 (закрыт) + угол (0..70)
-        // = -20 при полном подъёме. Плюс, не минус — иначе крутит в другую сторону.
-        _bed.localRotation = _bedBaseLocalRotation * Quaternion.Euler(_bedVisualAngle, 0f, 0f);
+    private void UpdateRoadSpeed()
+    {
+        Vector3 position = transform.position;
+        if (!_travelReady)
+        {
+            _previousPosition = position;
+            _travelReady = true;
+            return;
+        }
+        Vector3 delta = Vector3.ProjectOnPlane(position - _previousPosition, transform.up);
+        _previousPosition = position;
+        float dt = Time.deltaTime;
+        if (dt < .0001f) return;
+        if (delta.magnitude > .8f + dt * 15f)
+        {
+            _roadSpeed = _roadVelocity = _roadAcceleration = 0;
+            return;
+        }
+        float oldVelocity = _roadVelocity;
+        float forwardSpeed = Vector3.Dot(delta, transform.forward) / dt;
+        _roadSpeed = Mathf.Lerp(_roadSpeed, delta.magnitude / dt, 1 - Mathf.Exp(-10f * dt));
+        _roadVelocity = Mathf.Lerp(oldVelocity, forwardSpeed, 1 - Mathf.Exp(-9f * dt));
+        float acceleration = Mathf.Clamp((_roadVelocity - oldVelocity) / dt, -9f, 9f);
+        _roadAcceleration = Mathf.Lerp(_roadAcceleration, acceleration, 1 - Mathf.Exp(-6f * dt));
+    }
+
+    private void PrepareRearWheels()
+    {
+        if (_rearWheels != null || rearWheelVisuals == null || rearWheelVisuals.Length == 0 || wheels == null) return;
+        int n = rearWheelVisuals.Length;
+        _rearWheels = new Wheel[n];
+        _rearBind = new Quaternion[n];
+        _previousWheelPoints = new Vector3[n];
+        _rearSpin = new float[n];
+        for (int i = 0; i < n; i++)
+        {
+            var visual = rearWheelVisuals[i];
+            if (visual == null) continue;
+            foreach (var w in wheels)
+            {
+                if (w == null || w.visual != visual || w.anchor == null) continue;
+                _rearWheels[i] = w;
+                _rearBind[i] = Quaternion.Inverse(transform.rotation) * visual.rotation;
+                _previousWheelPoints[i] = w.anchor.position;
+                break;
+            }
+        }
+    }
+
+    private void RollRearWheels()
+    {
+        if (_rearWheels == null) return;
+        for (int i = 0; i < _rearWheels.Length; i++)
+        {
+            var w = _rearWheels[i];
+            if (w == null || w.anchor == null || w.visual == null) continue;
+            Vector3 current = w.anchor.position;
+            Vector3 delta = current - _previousWheelPoints[i];
+            _previousWheelPoints[i] = current;
+            if (delta.magnitude < .8f + Time.deltaTime * 15f)
+            {
+                float distance = Vector3.Dot(delta, transform.forward);
+                _rearSpin[i] = Mathf.Repeat(_rearSpin[i] + distance / Mathf.Max(.1f, wheelRadius) * Mathf.Rad2Deg, 360f);
+            }
+            Vector3 neutral = w.anchor.position - transform.up * (restLength - .14f);
+            float travel = Mathf.Clamp(Vector3.Dot(w.visual.position - neutral, transform.up), -.18f, .19f);
+            w.visual.SetPositionAndRotation(neutral + transform.up * travel,
+                transform.rotation * Quaternion.AngleAxis(_rearSpin[i], Vector3.right) * _rearBind[i]);
+        }
     }
 }

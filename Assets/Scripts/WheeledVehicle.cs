@@ -74,6 +74,11 @@ public class WheeledVehicle : NetworkVehicle
     [Header("Визуал колёс")]
     public float visualSpinSpeed = 1f;
 
+    [Header("Vehicle Workshop — мягкая езда с грузом")]
+    public bool stableSuspension;
+    [Min(.5f)] public float maxForwardSpeed=7f, maxReverseSpeed=3f;
+    [Min(.1f)] public float tractionAcceleration=1.6f;
+    private readonly RaycastHit[] _groundHits=new RaycastHit[64];
     private float _throttle;
     private float _steer;
 
@@ -85,7 +90,7 @@ public class WheeledVehicle : NetworkVehicle
     /// <summary>Луч подвески вниз. База — обычный Raycast по groundMask. Каток переопределяет:
     /// не забирается на тесто, а едет по земле (по тонкому слою) и толкает тесто перед собой.</summary>
     protected virtual bool WheelGroundCast(Vector3 pos, Vector3 dir, float maxDist, out RaycastHit hit)
-        => Physics.Raycast(pos, dir, out hit, maxDist, groundMask);
+        => stableSuspension ? CCVehicleGround.Cast(transform,_body,pos,dir,maxDist,groundMask,_groundHits,out hit) : Physics.Raycast(pos,dir,out hit,maxDist,groundMask);
 
     protected override void VehicleFixedUpdate()
     {
@@ -114,6 +119,7 @@ public class WheeledVehicle : NetworkVehicle
             _steer = Mathf.MoveTowards(_steer, 0f, steerSpeed * Time.fixedDeltaTime);
         }
 
+        if (stableSuspension && LocalDriver && !UiModal.AnyOpen && Input.GetKey(KeyCode.Space)) _throttle=0;
         if (wheels == null) return;
 
         float dt = Time.fixedDeltaTime;
@@ -122,7 +128,7 @@ public class WheeledVehicle : NetworkVehicle
 
         foreach (Wheel w in wheels)
         {
-            if (w.anchor == null) continue;
+            if (w == null || w.anchor == null) continue;
 
             // Угол поворота (плавно) — только у поворотных колёс.
             float targetAngle = w.steering ? _steer * maxSteerAngle : 0f;
@@ -143,6 +149,7 @@ public class WheeledVehicle : NetworkVehicle
                 float compression = maxDist - hit.distance;
                 float springVel = Vector3.Dot(up, tireVel);
                 float suspForce = compression * springStrength - springVel * springDamper;
+                if(stableSuspension) suspForce=Mathf.Clamp(suspForce,0,tireMass*Physics.gravity.magnitude*2.5f);
                 if (suspForce > 0f)
                     _body.AddForceAtPosition(up * suspForce, pos);
                 w.lastCompression = compression;
@@ -159,6 +166,11 @@ public class WheeledVehicle : NetworkVehicle
                     if (Mathf.Abs(_throttle) > 0.01f)
                     {
                         float f = _throttle > 0f ? motorForce : motorForce * reverseFactor;
+                        if(stableSuspension)
+                        {
+                            float cap=_throttle>0?maxForwardSpeed:maxReverseSpeed;
+                            f=tireMass*tractionAcceleration*Mathf.Clamp01((cap-Mathf.Sign(_throttle)*Vector3.Dot(tireVel,fwd))/Mathf.Max(.5f,cap*.3f));
+                        }
                         _body.AddForceAtPosition(fwd * _throttle * f, pos);
                     }
                     else
@@ -166,7 +178,7 @@ public class WheeledVehicle : NetworkVehicle
                         // Плавное торможение двигателем: ограничено, не мгновенный
                         // стоп (см. комментарий в TrackedVehicle — та же логика).
                         float fwdVel = Vector3.Dot(fwd, tireVel);
-                        float maxDeltaV = engineBrakeDeceleration * dt;
+                        float maxDeltaV = (stableSuspension && LocalDriver && !UiModal.AnyOpen && Input.GetKey(KeyCode.Space) ? 8f : engineBrakeDeceleration) * dt;
                         float deltaV = Mathf.Clamp(-fwdVel, -maxDeltaV, maxDeltaV);
                         _body.AddForceAtPosition(fwd * (deltaV / dt) * tireMass, pos);
                     }
@@ -211,7 +223,7 @@ public class WheeledVehicle : NetworkVehicle
 
         foreach (Wheel w in wheels)
         {
-            if (w.visual == null) continue;
+            if (w == null || w.visual == null) continue;
 
             // Захватываем базовый (импортный) поворот меша один раз — это твой
             // ручной оффсет из редактора (например Rotation 0,-90,90 на колесе).

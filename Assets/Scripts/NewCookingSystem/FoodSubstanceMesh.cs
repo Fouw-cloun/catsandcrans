@@ -777,41 +777,80 @@ namespace CatCooks.Food
         /// <summary>
         /// v19: КУЧКА САХАРА — пологая горка, на ней россыпь мелких кубиков-кристаллов разного размера
         /// и поворота (каждый своего оттенка); блеск даёт шейдер CatCooks/Sugar.
+        /// v23.64: salt — КУЧКА СОЛИ: горка острее (конусом), зернистее; кубики мельче, гуще и ровнее по размеру,
+        /// стоят на гранях (чуть повёрнуты), холодный белый с серо-голубыми оттенками и редкими крупными кристаллами.
         /// </summary>
-        public static void Crystals(Mesh m, Dims d, float crystalSize, float density, Color col, int seed)
+        public static void Crystals(Mesh m, Dims d, float crystalSize, float density, Color col, int seed, bool salt = false)
         {
             Begin();
-            Rings = 18; Segs = 48;
+            Rings = salt ? 22 : 18; Segs = salt ? 56 : 48;
             var rnd = new System.Random(seed);
             bool mound = d.Edge <= 0.001f;
             float R = Mathf.Max(d.Rx, d.Rz);
             float ox = (float)rnd.NextDouble() * 50f, oz = (float)rnd.NextDouble() * 50f;
-            HeightFn hf = (x, z, rho, th) =>
+            HeightFn hf;
+            if (!salt)
             {
-                float prof = mound ? Mathf.Pow(Mathf.Max(0f, 1f - rho * rho), 0.85f)
-                                   : d.Edge + (1f - d.Edge) * (1f - rho * rho);
-                float y = d.H * prof * 0.9f;
-                y += (Mathf.PerlinNoise(x / (R * 0.4f) + ox, z / (R * 0.4f) + oz) - 0.5f) * d.H * 0.3f * (1f - Mathf.Pow(rho, 4f));   // v23.7: рельефнее
-                y += (Chunks(x / (R * 0.22f) + oz, z / (R * 0.22f) + ox) + 0.1f) * d.H * 0.12f * (1f - Mathf.Pow(rho, 3f));
-                return Mathf.Max(0f, y);
-            };
-            Grid(d, hf, RaggedRim(rnd, mound ? 0.06f : 0.02f), col * 0.92f, true);
+                hf = (x, z, rho, th) =>
+                {
+                    float prof = mound ? Mathf.Pow(Mathf.Max(0f, 1f - rho * rho), 0.85f)
+                                       : d.Edge + (1f - d.Edge) * (1f - rho * rho);
+                    float y = d.H * prof * 0.9f;
+                    y += (Mathf.PerlinNoise(x / (R * 0.4f) + ox, z / (R * 0.4f) + oz) - 0.5f) * d.H * 0.3f * (1f - Mathf.Pow(rho, 4f));   // v23.7: рельефнее
+                    y += (Chunks(x / (R * 0.22f) + oz, z / (R * 0.22f) + ox) + 0.1f) * d.H * 0.12f * (1f - Mathf.Pow(rho, 3f));
+                    return Mathf.Max(0f, y);
+                };
+            }
+            else
+            {
+                hf = (x, z, rho, th) =>
+                {
+                    // конус со скруглённой макушкой (соль насыпается острее сахара), мелкая зернистая рябь
+                    float cone = Mathf.Max(0f, 1f - rho);
+                    float prof = mound ? Mathf.Lerp(Mathf.Pow(cone, 1.1f), 1f - rho * rho, 0.25f)
+                                       : d.Edge + (1f - d.Edge) * (1f - rho * rho);
+                    float y = d.H * prof * 0.95f;
+                    y += (Mathf.PerlinNoise(x / (R * 0.3f) + ox, z / (R * 0.3f) + oz) - 0.5f) * d.H * 0.16f * (1f - Mathf.Pow(rho, 4f));
+                    y += (Mathf.PerlinNoise(x / (R * 0.09f) + oz, z / (R * 0.09f) + ox) - 0.5f) * d.H * 0.07f * (1f - Mathf.Pow(rho, 3f));
+                    return Mathf.Max(0f, y);
+                };
+                col = Color.Lerp(col, new Color(0.92f, 0.94f, 0.98f, 1f), 0.5f);   // холодный белый
+                col.a = 1f;
+            }
+            Grid(d, hf, RaggedRim(rnd, mound ? (salt ? 0.04f : 0.06f) : 0.02f), salt ? col * 0.88f : col * 0.92f, true);
 
             // кристаллики
             float cs = Mathf.Max(0.002f, crystalSize * R);
             float area = Mathf.PI * d.Rx * d.Rz;
-            int n = Mathf.Clamp(Mathf.RoundToInt(area / (cs * cs) * 0.35f * density), 40, 700);
+            int n = Mathf.Clamp(Mathf.RoundToInt(area / (cs * cs) * 0.35f * density), salt ? 80 : 40, salt ? 1100 : 700);
             for (int i = 0; i < n; i++)
             {
                 float rr = Mathf.Sqrt((float)rnd.NextDouble()) * 0.97f, a = (float)rnd.NextDouble() * 6.28f;
                 float x = Mathf.Cos(a) * rr * d.Rx, z = Mathf.Sin(a) * rr * d.Rz;
                 float y = hf(x, z, rr, a);
-                float sz = cs * 0.6f * (0.5f + (float)rnd.NextDouble() * 1.2f);            // v23.9: кристаллы мельче (столько же)
-                Quaternion q = Quaternion.Euler((float)rnd.NextDouble() * 360f, (float)rnd.NextDouble() * 360f, (float)rnd.NextDouble() * 360f);
-                float tint = 0.95f + (float)rnd.NextDouble() * 0.2f;
-                Color cc = new Color(Mathf.Min(1f, col.r * tint), Mathf.Min(1f, col.g * tint), Mathf.Min(1f, col.b * tint), 1f);
-                if (SpoilK > 0.001f) cc = SpoilColor(cc, x, z, SpoilK);
-                Cube(new Vector3(x, y + sz * 0.3f, z), q, sz, cc);
+                Color cc;
+                if (!salt)
+                {
+                    float sz = cs * 0.6f * (0.5f + (float)rnd.NextDouble() * 1.2f);            // v23.9: кристаллы мельче (столько же)
+                    Quaternion q = Quaternion.Euler((float)rnd.NextDouble() * 360f, (float)rnd.NextDouble() * 360f, (float)rnd.NextDouble() * 360f);
+                    float tint = 0.95f + (float)rnd.NextDouble() * 0.2f;
+                    cc = new Color(Mathf.Min(1f, col.r * tint), Mathf.Min(1f, col.g * tint), Mathf.Min(1f, col.b * tint), 1f);
+                    if (SpoilK > 0.001f) cc = SpoilColor(cc, x, z, SpoilK);
+                    Cube(new Vector3(x, y + sz * 0.3f, z), q, sz, cc);
+                }
+                else
+                {
+                    // соль: ровные кубики одного калибра, стоят на гранях (лёгкий наклон), изредка — крупный кристалл
+                    float roll = (float)rnd.NextDouble();
+                    float sz = cs * 0.6f * (0.8f + (float)rnd.NextDouble() * 0.4f) * (roll < 0.07f ? 1.8f : 1f);
+                    Quaternion q = Quaternion.Euler(((float)rnd.NextDouble() - 0.5f) * 24f, (float)rnd.NextDouble() * 90f, ((float)rnd.NextDouble() - 0.5f) * 24f);
+                    float tint = 0.9f + (float)rnd.NextDouble() * 0.14f;
+                    float cool = (float)rnd.NextDouble() * 0.04f;
+                    cc = new Color(Mathf.Min(1f, col.r * tint - cool), Mathf.Min(1f, col.g * tint - cool * 0.5f), Mathf.Min(1f, col.b * tint), 1f);
+                    if (roll > 0.96f) cc = new Color(cc.r * 0.84f, cc.g * 0.86f, cc.b * 0.9f, 1f);   // редкие сероватые крупинки — «каменная» соль
+                    if (SpoilK > 0.001f) cc = SpoilColor(cc, x, z, SpoilK);
+                    Cube(new Vector3(x, y + sz * 0.38f, z), q, sz, cc);
+                }
             }
             Finish(m);
         }

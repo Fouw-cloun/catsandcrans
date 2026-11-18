@@ -112,6 +112,8 @@ namespace CatCooks.Food.Tools
         [Tooltip("v8: насколько круто щуп входит в горловину (0 — как держишь, 1 — отвесно)")]
         [Range(0f, 1f)][SerializeField] private float _steep = 0.55f;
         [SerializeField] private float _splashPerSecond = 40f;
+        /// <summary>v23.64: сила эффектов вибратора (тучки, капли, брызги, плюхи) — в 2.5 раза тише прежнего; миксер — 1.3.</summary>
+        private const float VibratorFxAmount = 0.4f;
 
 
         [Header("Отладка")]
@@ -548,7 +550,7 @@ namespace CatCooks.Food.Tools
 
             bool splash = _churning.Value && f != null;
             // Взбивают — воронка, закрутка сливок, пена. Просто включён в таре — лёгкая дрожь.
-            if (lv != null && (splash || StationOn)) lv.Stir(tip, splash ? 1f : 0.3f);
+            if (lv != null && (splash || StationOn)) lv.Stir(tip, splash ? 1f : 0.3f, 1f, VibratorFxAmount);   // v23.64: эффекты вибратора в 2.5 раза тише
 
             Vector3 at = tip;
             if (lv != null && lv.TryGetSurfaceY(tip, out float sy)) at.y = Mathf.Min(tip.y, sy + 0.005f);
@@ -557,14 +559,14 @@ namespace CatCooks.Food.Tools
             bool wet = lv == null || lv.PasteAmount < 0.6f;
             if (splash && wet && _splash == null) _splash = LiquidFx.CreateStream(transform, 0.012f, 1.1f);
             if (_splash != null)
-                CCRuntimeParticles.SetStream(_splash, splash && wet, at, Vector3.up, Color.Lerp(c0, Color.white, 0.3f), c0, _splashPerSecond);
+                CCRuntimeParticles.SetStream(_splash, splash && wet, at, Vector3.up, Color.Lerp(c0, Color.white, 0.3f), c0, _splashPerSecond * VibratorFxAmount);
 
             // Плюхи у щупа — вспышка и корона капель.
             _plopT -= Time.deltaTime;
             if (splash && wet && _plopT <= 0f)
             {
-                _plopT = UnityEngine.Random.Range(0.12f, 0.25f);
-                LiquidFx.ImpactSplash(at, Vector3.up, c0, UnityEngine.Random.Range(0.25f, 0.55f), 0.8f);
+                _plopT = UnityEngine.Random.Range(0.12f, 0.25f) / VibratorFxAmount;           // v23.64: плюхи реже
+                LiquidFx.ImpactSplash(at, Vector3.up, c0, UnityEngine.Random.Range(0.25f, 0.55f) * 0.65f, 0.8f);   // и мельче
             }
         }
 

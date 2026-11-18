@@ -15,7 +15,7 @@ using UnityEngine;
 /// На сервер уходит АБСОЛЮТНОЕ значение каждый тик, идемпотентно. Водитель
 /// видит свою руку без задержки, остальные — сглаженно по SyncVar.
 /// </summary>
-public class ExcavatorVehicle : TrackedVehicle
+public class ExcavatorVehicle : TrackedVehicle, ICCVehicleHelp
 {
     [Header("Подвижные части (рука)")]
     [SerializeField] private Transform _tower;
@@ -36,6 +36,19 @@ public class ExcavatorVehicle : TrackedVehicle
     [SerializeField] private Vector2 _boomLimit = new Vector2(-45, 45);
     [SerializeField] private Vector2 _armLimit = new Vector2(-60, 60);
     [SerializeField] private Vector2 _bucketLimit = new Vector2(-120, 120);
+
+    [Header("Управление (можно переназначить)")]
+    public KeyCode modeKey = KeyCode.Tab;
+    public KeyCode towerLeftKey = KeyCode.A, towerRightKey = KeyCode.D;
+    public KeyCode boomUpKey = KeyCode.W, boomDownKey = KeyCode.S;
+    public KeyCode armOutKey = KeyCode.E, armInKey = KeyCode.Q;
+    public KeyCode bucketOutKey = KeyCode.T, bucketInKey = KeyCode.R;
+    [Header("Оси шарниров относительно импортной позы")]
+    public Vector3 boomAxis = Vector3.right, armAxis = Vector3.right, bucketAxis = Vector3.right;
+    public bool WorkMode => _workMode.Value;
+    public string ControlHelp => $"Tab: {(WorkMode ? "РАБОТА" : "ЕЗДА")} | WASD: ход / поворот\n" +
+        $"{modeKey}: режим • работа: {towerLeftKey}/{towerRightKey} башня, {boomUpKey}/{boomDownKey} стрела, " +
+        $"{armInKey}/{armOutKey} рукоять, {bucketInKey}/{bucketOutKey} ковш\nSpace: тормоз • F: выйти • H: подсказка";
 
     // Авторитетные (серверные) значения — синхронизируются всем.
     private readonly SyncVar<bool> _workMode = new(false);
@@ -113,17 +126,17 @@ public class ExcavatorVehicle : TrackedVehicle
 
     protected override void DriverUpdate()
     {
-        if (Input.GetKeyDown(KeyCode.Tab)) CmdToggleMode();
+        if (Input.GetKeyDown(modeKey)) CmdToggleMode();
 
         if (!_workMode.Value) return; // рука активна только в режиме работы
 
-        float dt = Time.deltaTime;
-        float tower = (Input.GetKey(KeyCode.D) ? 1f : 0f) - (Input.GetKey(KeyCode.A) ? 1f : 0f);
-        float boom = (Input.GetKey(KeyCode.W) ? 1f : 0f) - (Input.GetKey(KeyCode.S) ? 1f : 0f);
-        float arm = (Input.GetKey(KeyCode.E) ? 1f : 0f) - (Input.GetKey(KeyCode.Q) ? 1f : 0f);
-        float bucket = (Input.GetKey(KeyCode.T) ? 1f : 0f) - (Input.GetKey(KeyCode.R) ? 1f : 0f);
+        float dt = Mathf.Min(Time.deltaTime, .05f);
+        float tower = (Input.GetKey(towerRightKey) ? 1f : 0f) - (Input.GetKey(towerLeftKey) ? 1f : 0f);
+        float boom = (Input.GetKey(boomUpKey) ? 1f : 0f) - (Input.GetKey(boomDownKey) ? 1f : 0f);
+        float arm = (Input.GetKey(armOutKey) ? 1f : 0f) - (Input.GetKey(armInKey) ? 1f : 0f);
+        float bucket = (Input.GetKey(bucketOutKey) ? 1f : 0f) - (Input.GetKey(bucketInKey) ? 1f : 0f);
 
-        _localTower += tower * _towerSpeed * dt; // башня крутится свободно, без предела
+        _localTower = Mathf.Repeat(_localTower + tower * _towerSpeed * dt + 180f, 360f) - 180f; // башня крутится свободно, без предела
         _localBoom = Mathf.Clamp(_localBoom + boom * _armSpeed * dt, _boomLimit.x, _boomLimit.y);
         _localArm = Mathf.Clamp(_localArm + arm * _armSpeed * dt, _armLimit.x, _armLimit.y);
         _localBucket = Mathf.Clamp(_localBucket + bucket * _armSpeed * dt, _bucketLimit.x, _bucketLimit.y);
@@ -142,7 +155,8 @@ public class ExcavatorVehicle : TrackedVehicle
     [ServerRpc]
     private void CmdArmInput(float tower, float boom, float arm, float bucket)
     {
-        _towerAngle.Value = tower;
+        if (!CCVehicleGround.Finite(tower) || !CCVehicleGround.Finite(boom) || !CCVehicleGround.Finite(arm) || !CCVehicleGround.Finite(bucket) || !_workMode.Value) return;
+        _towerAngle.Value = Mathf.Repeat(tower + 180f, 360f) - 180f;
         _boomAngle.Value = Mathf.Clamp(boom, _boomLimit.x, _boomLimit.y);
         _armAngle.Value = Mathf.Clamp(arm, _armLimit.x, _armLimit.y);
         _bucketAngle.Value = Mathf.Clamp(bucket, _bucketLimit.x, _bucketLimit.y);
@@ -164,7 +178,7 @@ public class ExcavatorVehicle : TrackedVehicle
             _armBaseCaptured = true;
         }
 
-        float dt = Time.deltaTime;
+        float dt = Mathf.Min(Time.deltaTime, .05f);
         if (_isLocalDriver)
         {
             _visTower = _localTower;
@@ -174,15 +188,15 @@ public class ExcavatorVehicle : TrackedVehicle
         }
         else
         {
-            _visTower = Mathf.MoveTowards(_visTower, _towerAngle.Value, _visualSmoothSpeed * dt);
+            _visTower = Mathf.MoveTowardsAngle(_visTower, _towerAngle.Value, _visualSmoothSpeed * dt);
             _visBoom = Mathf.MoveTowards(_visBoom, _boomAngle.Value, _visualSmoothSpeed * dt);
             _visArm = Mathf.MoveTowards(_visArm, _armAngle.Value, _visualSmoothSpeed * dt);
             _visBucket = Mathf.MoveTowards(_visBucket, _bucketAngle.Value, _visualSmoothSpeed * dt);
         }
 
         if (_tower != null) _tower.localRotation = _towerBaseRot * Quaternion.AngleAxis(_visTower, _towerAxis);
-        if (_boom != null) _boom.localRotation = _boomBaseRot * Quaternion.Euler(_visBoom, 0f, 0f);
-        if (_arm != null) _arm.localRotation = _armBaseRot * Quaternion.Euler(_visArm, 0f, 0f);
-        if (_bucket != null) _bucket.localRotation = _bucketBaseRot * Quaternion.Euler(_visBucket, 0f, 0f);
+        if (_boom != null) _boom.localRotation = _boomBaseRot * Quaternion.AngleAxis(_visBoom, boomAxis);
+        if (_arm != null) _arm.localRotation = _armBaseRot * Quaternion.AngleAxis(_visArm, armAxis);
+        if (_bucket != null) _bucket.localRotation = _bucketBaseRot * Quaternion.AngleAxis(_visBucket, bucketAxis);
     }
 }

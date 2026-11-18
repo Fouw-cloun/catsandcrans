@@ -250,8 +250,10 @@ namespace CatCooks.Food
                 if (macBatter) col = BatterCol;
                 if (eggClear) col = new Color(0.96f, 0.95f, 0.8f);
                 if (t.Contains("бисквит")) col = Color.Lerp(col, new Color(0.6f, 0.4f, 0.26f), 0.85f);
-                if (t.Contains("шоколадная масса") || t.Contains("ганаш")) col = Color.Lerp(col, new Color(0.5f, 0.31f, 0.19f), 0.8f);   // v23.43: молочный шоколад   // v23.40: как в таре
-                if (t.Contains("мёд") || t.Contains("мед") || t.Contains("карамел")) col = Color.Lerp(col, new Color(1f, 0.85f, 0.45f), 0.25f);
+                if (t.Contains("шоколадная масса")) col = Color.Lerp(col, new Color(0.5f, 0.31f, 0.19f), 0.8f);   // v23.43: молочный шоколад   // v23.40: как в таре
+                if (kind == 11) col = CookwareLiquidVisual.GanacheColor;                 // v23.64: ганаш — сливочная карамель, как в таре
+                else if (kind == 10) col = CookwareLiquidVisual.BurntCaramelColor;       // v23.64: горелая — тёмная
+                else if (t.Contains("мёд") || t.Contains("мед") || t.Contains("карамел")) col = Color.Lerp(col, new Color(1f, 0.85f, 0.45f), 0.25f);
                 if (kind == 5) col = Color.Lerp(col, new Color(0.99f, 0.97f, 0.92f), 0.45f);       // мороженое — белое (крапинки ванили рисует шейдер)
                 col.a = 1f;
                 var lg = new GameObject("Liquid");
@@ -278,7 +280,7 @@ namespace CatCooks.Food
                 lm.SetFloat("_AnimeDepth", 0.18f);
                 lm.SetFloat("_AnimeFlecks", 0f);
                 lm.SetFloat("_AnimeCaustic", water ? 1f : 0f);
-                bool syrup = t.Contains("мёд") || t.Contains("мед") || t.Contains("карамел") || t.Contains("сироп");
+                bool syrup = (t.Contains("мёд") || t.Contains("мед") || t.Contains("карамел") || t.Contains("сироп")) && kind != 10 && kind != 11;
                 lm.SetFloat("_AnimeGlow", syrup ? 0.4f : 0f);
                 lm.SetFloat("_AnimeBubbles", 0f);
                 lm.SetFloat("_AnimeShine", kind == 4 || kind == 7 || kind == 9 ? 0.85f : kind == 0 ? 0.4f : (kind == 3 || kind == 5) ? 0f : 0.45f);
@@ -395,7 +397,9 @@ namespace CatCooks.Food
             if (t.Contains("меренг")) return 2;
             if (t.Contains("яичная масса")) return 8;                                         // v23.20: своя (разводы + пена)
             if (t.Contains("тесто") || t.Contains("смесь для морож")) return 3;
-            if (t.Contains("карамел")) return 9;                                                                        // v23.63: карамель — хвосты-стёки, чуть прозрачная
+            if (t.Contains("ганаш")) return 11;                                                                          // v23.64: ганаш — сложенные ленты (до «карамел»: «Карамельный ганаш»)
+            if (t.Contains("карамел") && (t.Contains("горел") || t.Contains("пригор"))) return 10;                       // v23.64: горелая — чёрные куски
+            if (t.Contains("карамел")) return 9;                                                                        // v23.64: карамель — кучки и пузырьки
             if (t.Contains("мёд") || t.Contains("мед") || t.Contains("сироп")) return 7;     // v23.16: свои ленты
             if (t.Contains("шоколад") || t.Contains("ганаш") || t.Contains("глазур")) return 4;
             if (t.Contains("сметан") || t.Contains("крем")) return 1;
@@ -988,7 +992,7 @@ namespace CatCooks.Food
                 Color col = sub.ColorFor(FoodColors.Of(d, FoodState.None));
                 int seed = i * 37 + 11;
                 if (sub.Look == SubstanceLook.Powder) FoodSubstanceMesh.Powder(mesh, dims, sub.Wonky, col, seed, sub.Sugar);
-                else if (sub.Look == SubstanceLook.Crystals) FoodSubstanceMesh.Crystals(mesh, dims, sub.CrystalSize, sub.CrystalDensity, col, seed);
+                else if (sub.Look == SubstanceLook.Crystals) FoodSubstanceMesh.Crystals(mesh, dims, sub.CrystalSize, sub.CrystalDensity, col, seed, sub.Salt);
                 else if (sub.Look == SubstanceLook.Spread)
                 {
                     float grow = Mathf.Clamp01((dims.RectN - 2.6f) / 1.4f);           // v23.6: с капельками по краю

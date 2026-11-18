@@ -35,6 +35,26 @@ public class TrackedVehicle : NetworkVehicle
              "— плавно гасит скорость с этим ускорением). 2-3 мягко, 6-8 резко.")]
     public float idleBrakeDeceleration = 4f;
 
+    [Header("Vehicle Workshop")]
+    public bool stableSuspension;
+    [Min(.5f)] public float maxForwardSpeed = 5f, maxReverseSpeed = 2.5f;
+    [Min(.1f)] public float tractionAcceleration = 2f;
+    [Range(1, 5)] public float supportLimit = 2.5f;
+
+    [Header("Track steering and throttle")]
+    public bool heavyTrackDrive;
+    [Min(.1f)] public float reverseAcceleration = 2.4f;
+    [Min(.1f)] public float throttleRise = 3f;
+    [Min(.1f)] public float pivotAcceleration = 4f;
+    [Range(10, 90)] public float pivotSpeedDegrees = 42f;
+    [Range(0, 1)] public float pivotScrub = .1f;
+    [Range(0, 100)] public float pivotYawAssist = 45f;
+
+    private readonly RaycastHit[] _groundHits = new RaycastHit[64];
+    private float _throttleCommand;
+    private float _steeringCommand;
+    public int GroundContacts { get; private set; }
+
     protected virtual bool TryAutomatedInput(out float move,out float turn) { move=turn=0;return false; }
     private float _move;
     private float _turn;
@@ -48,6 +68,14 @@ public class TrackedVehicle : NetworkVehicle
         }
         else if(IsServerInitialized && CanDrive && TryAutomatedInput(out _move,out _turn)) { _move=Mathf.Clamp(_move,-1,1);_turn=Mathf.Clamp(_turn,-1,1); }
         else { _move = 0f; _turn = 0f; }
+
+        if (stableSuspension)
+        {
+            StableFixedUpdate();
+            return;
+        }
+        GroundContacts = 0;
+        _throttleCommand = _steeringCommand = 0;
 
         // Дифференциал: поворот = разная тяга сторон.
         float leftIn = Mathf.Clamp(_move + _turn, -1f, 1f);
@@ -132,5 +160,140 @@ public class TrackedVehicle : NetworkVehicle
                 _body.AddForceAtPosition(fwd * (deltaV / dt) * tireMass, pos);
             }
         }
+    }
+
+    private void StableFixedUpdate()
+    {
+        float dt = Time.fixedDeltaTime;
+        bool brake = _isLocalDriver && !UiModal.AnyOpen && Input.GetKey(KeyCode.Space);
+        float move = brake ? 0 : _move;
+        float turn = brake ? 0 : _turn;
+        if (brake || (Mathf.Abs(move) < .01f && Mathf.Abs(turn) < .01f))
+        {
+            _throttleCommand = 0;
+            _steeringCommand = 0;
+        }
+        else
+        {
+            _throttleCommand = Mathf.MoveTowards(_throttleCommand, move, throttleRise * dt);
+            _steeringCommand = Mathf.MoveTowards(_steeringCommand, turn, 5f * dt);
+        }
+
+        int total = CountPoints(leftTrackPoints) + CountPoints(rightTrackPoints);
+        GroundContacts = 0;
+        if (total == 0) return;
+        float pointMass = _body.mass / total;
+        if (!heavyTrackDrive)
+        {
+            ApplyStableTrack(leftTrackPoints, Mathf.Clamp(move + turn, -1, 1), 0, false, pointMass, brake, dt);
+            ApplyStableTrack(rightTrackPoints, Mathf.Clamp(move - turn, -1, 1), 0, false, pointMass, brake, dt);
+            return;
+        }
+
+        bool pivot = Mathf.Abs(move) < .01f && Mathf.Abs(turn) > .01f;
+        float throttle = pivot ? 0 : _throttleCommand;
+        float travelSpeed = throttle * (throttle < 0 ? maxReverseSpeed : maxForwardSpeed);
+        float trackHalfGauge = TrackHalfGauge();
+        float requestedYaw = _steeringCommand * pivotSpeedDegrees * Mathf.Deg2Rad * (pivot ? 1f : .7f);
+        float differential = requestedYaw * trackHalfGauge;
+        int left = ApplyStableTrack(leftTrackPoints, travelSpeed + differential, requestedYaw, pivot, pointMass, brake, dt);
+        int right = ApplyStableTrack(rightTrackPoints, travelSpeed - differential, requestedYaw, pivot, pointMass, brake, dt);
+        if (pivot && left > 0 && right > 0)
+        {
+            Vector3 up = transform.up;
+            float actualYaw = Vector3.Dot(_body.angularVelocity, up);
+            float maxAssist = pivotYawAssist * Mathf.Deg2Rad;
+            float acceleration = Mathf.Clamp((requestedYaw - actualYaw) * 4f, -maxAssist, maxAssist);
+            float groundedFraction = (left + right) / (float)total;
+            _body.AddTorque(up * (acceleration * groundedFraction), ForceMode.Acceleration);
+        }
+    }
+
+    private float TrackHalfGauge()
+    {
+        return Mathf.Max(.2f, Mathf.Abs(AverageTrackX(rightTrackPoints) - AverageTrackX(leftTrackPoints)) * .5f);
+    }
+
+    private float AverageTrackX(Transform[] points)
+    {
+        if (points == null) return 0;
+        float sum = 0;
+        int count = 0;
+        foreach (var point in points)
+        {
+            if (point == null) continue;
+            sum += Vector3.Dot(point.position - transform.position, transform.right);
+            count++;
+        }
+        return count > 0 ? sum / count : 0;
+    }
+
+    private static int CountPoints(Transform[] points)
+    {
+        if (points == null) return 0;
+        int count = 0;
+        foreach (var point in points)
+            if (point != null) count++;
+        return count;
+    }
+
+    private int ApplyStableTrack(Transform[] points, float input, float requestedYaw, bool pivot, float pointMass, bool brake, float dt)
+    {
+        if (points == null) return 0;
+        int contacts = 0;
+        Vector3 up = transform.up;
+        float rayLength = restLength + trackRadius;
+        foreach (Transform point in points)
+        {
+            if (point == null) continue;
+            Vector3 position = point.position;
+            if (!CCVehicleGround.Cast(transform, _body, position, -up, rayLength, groundMask, _groundHits, out RaycastHit hit))
+                continue;
+
+            contacts++;
+            GroundContacts++;
+            Vector3 velocity = _body.GetPointVelocity(position);
+            if (hit.rigidbody != null) velocity -= hit.rigidbody.GetPointVelocity(hit.point);
+            float support = (rayLength - hit.distance) * springStrength - Vector3.Dot(velocity, up) * springDamper;
+            float supportCap = pointMass * Physics.gravity.magnitude * supportLimit;
+            _body.AddForceAtPosition(up * Mathf.Clamp(support, 0, supportCap), position);
+
+            Vector3 forward = Vector3.ProjectOnPlane(transform.forward, hit.normal).normalized;
+            Vector3 right = Vector3.Cross(hit.normal, forward).normalized;
+            float sideSpeed = Vector3.Dot(velocity, right);
+            float sideLimit = trackGrip * 20f;
+            if (heavyTrackDrive && Mathf.Abs(requestedYaw) > .001f)
+            {
+                // Steering deliberately scrubs the tracks sideways at the front and rear.
+                Vector3 yawVelocity = Vector3.Cross(up * requestedYaw, position - _body.worldCenterOfMass);
+                sideSpeed -= Vector3.Dot(yawVelocity, right);
+                sideLimit *= pivot ? pivotScrub : .45f;
+            }
+            else if (!heavyTrackDrive && Mathf.Abs(_turn) > .01f)
+                sideLimit *= .25f;
+            _body.AddForceAtPosition(right * (Mathf.Clamp(-sideSpeed / dt, -sideLimit, sideLimit) * pointMass), position);
+
+            float speed = Vector3.Dot(velocity, forward);
+            float acceleration;
+            if (heavyTrackDrive)
+            {
+                float limit = brake ? 8f : Mathf.Abs(input) < .01f ? idleBrakeDeceleration :
+                    pivot ? pivotAcceleration : _throttleCommand < 0 ? reverseAcceleration : tractionAcceleration;
+                acceleration = Mathf.Clamp((input - speed) * 4f, -limit, limit);
+            }
+            else if (Mathf.Abs(input) > .01f)
+            {
+                float cap = input > 0 ? maxForwardSpeed : maxReverseSpeed;
+                acceleration = input * tractionAcceleration *
+                    Mathf.Clamp01((cap - Mathf.Sign(input) * speed) / Mathf.Max(.5f, cap * .3f));
+            }
+            else
+            {
+                float limit = brake ? 8f : idleBrakeDeceleration;
+                acceleration = Mathf.Clamp(-speed / dt, -limit, limit);
+            }
+            _body.AddForceAtPosition(forward * (acceleration * pointMass), position);
+        }
+        return contacts;
     }
 }

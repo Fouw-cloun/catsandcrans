@@ -300,7 +300,7 @@ namespace CatCooks.Food
             int seed = nb != null && nb.IsSpawned ? nb.ObjectId * 31 + 5 : 3;
             FoodSubstanceMesh.SpoilK = FoodStateInfo.IsSpoiled((FoodState)_state) ? 1f : 0f;   // v19: испорченное — видно
             if (_sub.Look == SubstanceLook.Powder) FoodSubstanceMesh.Powder(_mesh, _dims, _sub.Wonky, _col, seed, _sub.Sugar);   // v23.62: смесь — с крупинками сахара
-            else if (_sub.Look == SubstanceLook.Crystals) FoodSubstanceMesh.Crystals(_mesh, _dims, _sub.CrystalSize, _sub.CrystalDensity, _col, seed);
+            else if (_sub.Look == SubstanceLook.Crystals) FoodSubstanceMesh.Crystals(_mesh, _dims, _sub.CrystalSize, _sub.CrystalDensity, _col, seed, _sub.Salt);
             else if (_sub.Look == SubstanceLook.Spread)
             {
                 // v23.6: густые капли свисают с края полотна (чем больше пасты — тем их больше)

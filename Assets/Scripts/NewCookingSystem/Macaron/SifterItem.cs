@@ -370,7 +370,7 @@ namespace CatCooks.Food
             d.RectN = 2f;
             Color col = sub.ColorFor(FoodColors.Of(def, top.State));
             int seed = (base.NetworkObject != null && base.NetworkObject.IsSpawned ? base.NetworkObject.ObjectId * 17 : 7) + total;
-            if (sub.Look == SubstanceLook.Crystals) FoodSubstanceMesh.Crystals(_heapMesh, d, sub.CrystalSize, sub.CrystalDensity, col, seed);
+            if (sub.Look == SubstanceLook.Crystals) FoodSubstanceMesh.Crystals(_heapMesh, d, sub.CrystalSize, sub.CrystalDensity, col, seed, sub.Salt);
             else FoodSubstanceMesh.Powder(_heapMesh, d, sub.Wonky, col, seed, sub.Sugar);
             Material m = sub.GetMaterial();
             if (m != null) _heapMr.sharedMaterial = m;
