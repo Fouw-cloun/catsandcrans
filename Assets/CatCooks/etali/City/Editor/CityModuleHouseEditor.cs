@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEditor;
+using CatCooks.SiteTools;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
 
@@ -24,6 +25,8 @@ namespace CatCooks.Level
 
         private int _lastX = int.MinValue, _lastZ = int.MinValue, _lastS = -1, _group = -1;
         private bool _hover; private int _hx, _hz, _hs;
+
+        private Vector3Int? _orientationCell;
 
         private void OnEnable() { Undo.undoRedoPerformed += OnUndo; }
 
@@ -134,7 +137,7 @@ namespace CatCooks.Level
         }
 
         // ══════════════ КАРТА ЭТАЖА В ИНСПЕКТОРЕ ══════════════
-        private static readonly string[] KindShort = { "Комн", "Пол", "Карк", "Кол", "Плита" };
+        private static readonly string[] KindShort = { "Комн", "Пол", "Карк", "Кол", "Плита", "Лифт", "ТК", "Тр", "↑" };
         private static GUIStyle s_cellLabel;
         private bool _mapDrag;
         private int _mapBtn, _mapGroup = -1;
@@ -201,12 +204,48 @@ namespace CatCooks.Level
             GUILayout.Label("Модуль — щелчок по квадрату", EditorStyles.miniBoldLabel);
             using (new EditorGUILayout.HorizontalScope())
             {
-                if (ColorButton("Пусто", new Color(0.45f, 0.45f, 0.45f), h.Tool == 1)) { Undo.RecordObject(h, "Кисть"); h.Tool = 1; }
+                if (ColorButton("Пусто", new Color(0.45f, 0.45f, 0.45f), h.Tool == 1)) { Undo.RecordObject(h, "Кисть"); h.Tool = 1; h.FittingBrush=false; }
                 for (int k = 0; k < 5; k++)
                 {
                     CityModuleHouse.CellKind ck = (CityModuleHouse.CellKind)k;
-                    if (ColorButton(CityModuleHouse.KindName(ck), CityModuleHouse.KindColor(ck), h.Tool != 1 && h.Brush == ck)) { Undo.RecordObject(h, "Кисть"); h.Tool = 0; h.Brush = ck; }
+                    if (ColorButton(CityModuleHouse.KindName(ck), CityModuleHouse.KindColor(ck), h.Tool != 1 && h.Brush == ck)) { Undo.RecordObject(h, "Кисть"); h.Tool = 0; h.Brush = ck; h.FittingBrush=false; }
                 }
+            }
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                for(int k=5;k<=6;k++){
+                    var kind=(CityModuleHouse.CellKind)k;
+                    if(ColorButton(CityModuleHouse.KindName(kind),CityModuleHouse.KindColor(kind),h.Brush==kind && h.Tool==0)){
+                        Undo.RecordObject(h,"Инженерная кисть");h.Brush=kind;h.Tool=0;h.EdgeMode=0;h.FittingBrush=false;
+                    }
+                }
+            }
+            using(new EditorGUILayout.HorizontalScope()){
+                foreach(var k in new[]{CityModuleHouse.CellKind.PipeRise,CityModuleHouse.CellKind.PipeBranch}){
+                    if(ColorButton("Продлить "+CityModuleHouse.KindName(k).ToLower(),CityModuleHouse.KindColor(k),h.Brush==k && h.Tool==0 && !h.FittingBrush)){
+                        Undo.RecordObject(h,"Продление");h.Brush=k;h.Tool=0;h.EdgeMode=0;h.FittingBrush=false;
+                    }
+                }
+                if(ColorButton("Арматура",Color.cyan,h.FittingBrush)){
+                    Undo.RecordObject(h,"Арматура");h.Tool=0;h.EdgeMode=0;h.FittingBrush=true;h.Brush=CityModuleHouse.CellKind.PipeBranch;
+                    if(h.BrushFitting==0)h.BrushFitting=1;
+                }
+            }
+            if(h.Tool==0 && h.FittingBrush){
+                int line=EditorGUILayout.Popup("Труба арматуры",h.BrushLine,new[]{"Холодная","Горячая","Слив"});
+                bool rotate = GUILayout.Toolbar(h.RotateFitting ? 1 : 0, new[]{"Установка", "Поворот детали"}) == 1;
+                if (rotate != h.RotateFitting){
+                    Undo.RecordObject(h,"Режим арматуры");
+                    h.RotateFitting=rotate;
+                    _orientationCell=null;
+                }
+                int fitting=h.BrushFitting;
+                if (!rotate)
+                    fitting=EditorGUILayout.Popup("Арматура кисти",fitting,new[]{"Без арматуры","Вентиль","Штуцер шланга","Люк","Рычажный переключатель","Обратный клапан","Соединительная муфта"});
+                if(line!=h.BrushLine || fitting!=h.BrushFitting){
+                    Undo.RecordObject(h,"Выбор арматуры");h.BrushLine=line;h.BrushFitting=fitting;
+                }
+                if (rotate) DrawFittingAngles(h);
             }
             using (new EditorGUILayout.HorizontalScope())
             {
@@ -270,17 +309,22 @@ namespace CatCooks.Level
                                 Color kb = CityModuleHouse.KindColor(b.Kind); kb.a = 0.3f;
                                 EditorGUI.DrawRect(new Rect(r.x + 4, r.y + 4, r.width - 8, r.height - 8), kb);       // этаж ниже — тусклым
                             }
-                            if (x == 0 && z == 0) GUI.Label(r, "0,0", s_cellLabel);
+                            if(h.ReservedShaft(x,F,z)) GUI.Label(r,"Шах",s_cellLabel);
+                            else if (x == 0 && z == 0) GUI.Label(r, "0,0", s_cellLabel);
                             continue;
                         }
                         if (c.Locked) EditorGUI.DrawRect(new Rect(r.x - 3, r.y - 3, r.width + 6, r.height + 6), new Color(0.75f, 0.5f, 1f));
                         EditorGUI.DrawRect(r, CityModuleHouse.KindColor(c.Kind));
+                        if (h.FittingBrush && h.RotateFitting && _orientationCell == new Vector3Int(x,F,z)){
+                            EditorGUI.DrawRect(r, Color.cyan);
+                            EditorGUI.DrawRect(new Rect(r.x+2,r.y+2,r.width-4,r.height-4),CityModuleHouse.KindColor(c.Kind));
+                        }
                         if (h.EdgeMode == 1 && CityModuleHouse.HasBeams(c.Kind))
                         {
                             Color mb = c.BeamRemoved(4) ? new Color(0.2f, 0.2f, 0.2f, 0.5f) : new Color(0.9f, 0.3f, 0.22f);
                             EditorGUI.DrawRect(new Rect(r.x + 3, r.center.y - 2, r.width - 6, 4), mb);   // средняя балка
                         }
-                        GUI.Label(r, cs >= 26f ? KindShort[(int)c.Kind] : KindShort[(int)c.Kind].Substring(0, 1), s_cellLabel);
+                        GUI.Label(r, h.ReservedShaft(x,F,z)?"Шах": c.PipeVerticalOverlay ? "Т↑" : c.PipeOverlay ? "Т+" : cs >= 26f ? KindShort[(int)c.Kind] : KindShort[(int)c.Kind].Substring(0, 1), s_cellLabel);
                     }
                 // стены: вертикальные полоски (между x−1 и x) и горизонтальные (между z−1 и z)
                 for (int z = z0; z <= z1; z++)
@@ -366,6 +410,7 @@ namespace CatCooks.Level
             float lx = mp.x - left, ly = mp.y - top;
             int ix = Mathf.FloorToInt(lx / st), iy = Mathf.FloorToInt(ly / st);
             bool edgeX = lx - ix * st < g, edgeY = ly - iy * st < g;
+            if(h.Tool==0 && CityModuleHouse.Utility(h.Brush) && h.EdgeMode==0 && (edgeX || edgeY))return;
             int F = h.ActiveFloor;
             string key;
             if (edgeX && edgeY)                                               // перекрёсток полосок = угловая колонна
@@ -431,21 +476,102 @@ namespace CatCooks.Level
                 RebuildRegion(h, cx, cx, F, F, cz, cz);
                 return;
             }
+            if(h.FittingBrush && h.Tool==0){
+                PaintFitting(h,c,_mapBtn==1);
+                return;
+            }
             bool erase = _mapBtn == 1 || h.Tool == 1;
             if (erase)
             {
                 if (c == null) return;
                 Undo.RecordObject(h, "Стереть клетку");
-                h.Remove(cx, F, cz);
+                if(!EraseBrush(h,c))return;
             }
             else
             {
-                if (c != null && c.Kind == h.Brush) return;
+                if (!CanPlace(h,cx,F,cz) || (c != null && c.Kind==h.Brush && !c.HasPipes)) return;
                 Undo.RecordObject(h, "Клетка");
                 h.Add(cx, F, cz, h.Brush);
             }
             EditorUtility.SetDirty(h);
             RebuildRegion(h, cx, cx, F, F, cz, cz);
+        }
+
+        private static void Notice(string message){
+            var window=EditorWindow.mouseOverWindow;
+            if(window!=null)window.ShowNotification(new GUIContent(message));
+            else Debug.LogWarning(message);
+        }
+        private static bool CanPlace(CityModuleHouse h,int x,int y,int z){
+            if(h.BulkModule==null)AutoAssign(h);
+            if(h.BulkModule==null){Notice("У дома отсутствует Bulk Module. Назначь модель каркаса.");return false;}
+            if(h.CanPaint(x,y,z,h.Brush))return true;
+            var here=h.Find(x,y,z);
+            var below=h.Find(x,y-1,z);
+            string reason;
+            if(h.ReservedShaft(x,y,z))reason="В этой клетке уже проходит шахта сверху.";
+            else if(here?.Locked==true)reason="Клетка заморожена. Ctrl+ЛКМ по квадрату карты снимает замок.";
+            else if(h.Brush==CityModuleHouse.CellKind.Lift && here?.HasPipes==true)reason="Клетка занята трубами.";
+            else if(h.Brush==CityModuleHouse.CellKind.Lift && below?.Locked==true)reason="Клетка этажом ниже заморожена.";
+            else if(h.Brush==CityModuleHouse.CellKind.Lift)reason="Шахта пересечётся с инженерным узлом этажом ниже.";
+            else reason="Здесь уже установлен другой инженерный модуль.";
+            Notice($"({x}, {y}, {z}) {reason}");
+            return false;
+        }
+        private void DrawFittingAngles(CityModuleHouse h)
+        {
+            var key = _orientationCell;
+            if (!key.HasValue || key.Value.y != h.ActiveFloor){
+                EditorGUILayout.HelpBox("Щёлкни по клетке с установленной деталью.", MessageType.Info);
+                return;
+            }
+            var pos = key.Value;
+            var cell = h.Find(pos.x,pos.y,pos.z);
+            if (cell == null || !cell.HasPipes || cell.Locked || cell.PartAt(h.BrushLine)==0){
+                EditorGUILayout.HelpBox("На выбранной линии нет доступной детали.", MessageType.Info);
+                return;
+            }
+            int line = h.BrushLine;
+            EditorGUILayout.LabelField($"Клетка X {pos.x} / этаж {pos.y} / Z {pos.z}");
+            var before = cell.AnglesAt(line);
+            using (new EditorGUI.DisabledScope(Application.isPlaying)){
+                var angles = CCPipeBuilder.AngleControls(before);
+                if (before == angles) return;
+                Undo.RecordObject(h,"Поворот арматуры");
+                cell.SetAngles(line,angles);
+                EditorUtility.SetDirty(h);
+                PrefabUtility.RecordPrefabInstancePropertyModifications(h);
+                var network = Root(h,false)?.Find(CellName(pos.x,pos.y,pos.z) + "/Трубная сеть");
+                var device = CCGridUtilityBuilder.FindFitting(network,cell,line);
+                if (device != null) CCPipeBuilder.OrientMount(device,line,angles,true);
+                else RebuildRegion(h,pos.x,pos.x,pos.y,pos.y,pos.z,pos.z);
+                SceneView.RepaintAll();
+            }
+        }
+
+        private void PaintFitting(CityModuleHouse h,CityModuleHouse.Cell c,bool remove){
+            if(c==null || !c.HasPipes || c.Locked){Notice("Выбери незамороженную клетку с трубами.");return;}
+            if (h.RotateFitting){
+                if (remove) return;
+                _orientationCell=new Vector3Int(c.X,c.Y,c.Z);
+                Repaint();
+                return;
+            }
+            int part=remove?0:h.BrushFitting;
+            if(c.PartAt(h.BrushLine)==part)return;
+            Undo.RecordObject(h,"Сменить арматуру");c.SetPart(h.BrushLine,part);
+            EditorUtility.SetDirty(h);RebuildRegion(h,c.X,c.X,c.Y,c.Y,c.Z,c.Z);
+        }
+
+        private static bool EraseBrush(CityModuleHouse h, CityModuleHouse.Cell c)
+        {
+            if(h.Tool==0 && CityModuleHouse.Utility(h.Brush)){
+                if(c.Locked)return false;
+                if(h.Brush==CityModuleHouse.CellKind.PipeRise && c.PipeVerticalOverlay){c.PipeVerticalOverlay=false;return true;}
+                if(h.Brush==CityModuleHouse.CellKind.PipeBranch && c.PipeOverlay){c.PipeOverlay=false;return true;}
+                if(c.Kind!=h.Brush)return false;
+            }
+            return h.Remove(c.X,c.Y,c.Z);
         }
 
         private static void SetCorner(CityModuleHouse.Cell c, int sx, int sz, bool removed)
@@ -513,12 +639,12 @@ namespace CatCooks.Level
                 if (so != h.ShowOtherFloors) { Undo.RecordObject(h, "Этажи"); h.ShowOtherFloors = so; SceneView.RepaintAll(); }
             }
             int t = GUILayout.Toolbar(h.Tool, ToolNames);
-            if (t != h.Tool) { Undo.RecordObject(h, "Инструмент"); h.Tool = t; }
+            if (t != h.Tool) { Undo.RecordObject(h, "Инструмент"); h.FittingBrush=false;h.Tool = t; }
             if (h.Tool == 0)
             {
-                string[] kinds = { "Комната", "Каркас+плита", "Каркас", "Колонны", "Плита" };
-                int k = GUILayout.SelectionGrid((int)h.Brush, kinds, compact ? 3 : 5);
-                if (k != (int)h.Brush) { Undo.RecordObject(h, "Кисть"); h.Brush = (CityModuleHouse.CellKind)k; }
+                string[] kinds = { "Комната", "Каркас+плита", "Каркас", "Колонны", "Плита", "Крытый лифт", "Трубная комната", "В сторону", "Вверх" };
+                int k = GUILayout.SelectionGrid(h.FittingBrush?-1:(int)h.Brush, kinds, compact ? 3 : 5);
+                if (k>=0 && (h.FittingBrush || k != (int)h.Brush)) { Undo.RecordObject(h, "Кисть"); h.FittingBrush=false;h.EdgeMode=0;h.Brush = (CityModuleHouse.CellKind)k; }
             }
             else if (h.Tool == 2)
             {
@@ -559,7 +685,7 @@ namespace CatCooks.Level
 
             Event e = Event.current;
             int id = GUIUtility.GetControlID(FocusType.Passive);
-            Rect panel = new Rect(10, 10, 320, h.Tool == 0 || h.Tool == 2 ? 184 : 138);
+            Rect panel = new Rect(10, 10, 320, h.Tool == 0 || h.Tool == 2 ? 212 : 138);
 
             // окошко с инструментами
             Handles.BeginGUI();
@@ -698,14 +824,15 @@ namespace CatCooks.Level
             CityModuleHouse.Cell c = h.Find(x, y, z);
             if (ctrl)
             {
-                if (c != null) { Undo.RecordObject(h, "Взять тип"); h.Brush = c.Kind; h.Tool = 0; Repaint(); }
+                if (c != null) { Undo.RecordObject(h, "Взять тип"); h.Brush = c.Kind; h.Tool = 0; h.FittingBrush=false; Repaint(); }
                 return;
             }
+            if(h.FittingBrush && h.Tool==0){PaintFitting(h,c,shift);return;}
             switch (h.Tool)
             {
                 case 0:
-                    if (shift) { if (c == null) return; Undo.RecordObject(h, "Стереть клетку"); h.Remove(x, y, z); }
-                    else { if (c != null && c.Kind == h.Brush) return; Undo.RecordObject(h, "Клетка"); h.Add(x, y, z, h.Brush); }
+                    if (shift) { if (c == null) return; Undo.RecordObject(h, "Стереть клетку"); if(!EraseBrush(h,c))return; }
+                    else { if (!CanPlace(h,x,y,z) || (c != null && c.Kind==h.Brush && !c.HasPipes)) return; Undo.RecordObject(h, "Клетка"); h.Add(x, y, z, h.Brush); }
                     break;
                 case 1:
                     if (c == null) return;
@@ -735,6 +862,7 @@ namespace CatCooks.Level
         // ══════════════ ОПЕРАЦИИ С КЛЕТКАМИ ══════════════
         private static void Fill(CityModuleHouse h, int x0, int z0, int w, int d, bool erase)
         {
+            if(h.Tool==0 && h.FittingBrush && h.RotateFitting){Notice("Для поворота выбери одну клетку.");return;}
             Undo.IncrementCurrentGroup();
             int g = Undo.GetCurrentGroup();
             Undo.RecordObject(h, erase ? "Стереть прямоугольник" : "Залить");
@@ -742,7 +870,10 @@ namespace CatCooks.Level
             for (int x = x0; x < x0 + w; x++)
                 for (int z = z0; z < z0 + d; z++)
                 {
-                    if (erase) h.Remove(x, y, z); else h.Add(x, y, z, h.Brush);
+                    if(!erase && h.FittingBrush && h.Tool==0){
+                        var cell=h.Find(x,y,z);
+                        if(cell!=null && cell.HasPipes && !cell.Locked)cell.SetPart(h.BrushLine,h.BrushFitting);
+                    }else if (erase) h.Remove(x, y, z); else h.Add(x, y, z, h.Brush);
                 }
             EditorUtility.SetDirty(h);
             RebuildRegion(h, x0, x0 + w - 1, y, y, z0, z0 + d - 1);
@@ -782,6 +913,17 @@ namespace CatCooks.Level
             if (t1 < t0) { int tt = t0; t0 = t1; t1 = tt; }
             List<CityModuleHouse.Cell> from = new List<CityModuleHouse.Cell>();
             foreach (CityModuleHouse.Cell c in h.Cells) if (c != null && c.Y == src) from.Add(c.Copy());
+            var planned = new Dictionary<Vector3Int,CityModuleHouse.Cell>();
+            foreach(var existing in h.Cells)
+                if(existing!=null && (existing.Y<t0 || existing.Y>t1 || (existing.Y==src && !mx && !mz)))
+                    planned[new Vector3Int(existing.X,existing.Y,existing.Z)]=existing;
+            for(int level=t0;level<=t1;level++)
+                foreach(var cell in from)
+                    planned[new Vector3Int(mx?x0+x1-cell.X:cell.X,level,mz?z0+z1-cell.Z:cell.Z)]=cell;
+            foreach(var pair in planned)
+                if(pair.Value.Kind==CityModuleHouse.CellKind.Lift && planned.TryGetValue(pair.Key+Vector3Int.down,out var under) && (under.Locked || under.HasPipes || CityModuleHouse.Utility(under.Kind))){
+                    Debug.LogWarning("Копирование перекроет шахту лифта замороженной клеткой или инженерным узлом.");return;
+                }
             Undo.IncrementCurrentGroup();
             int g = Undo.GetCurrentGroup();
             Undo.RecordObject(h, "Копировать этаж");
@@ -901,7 +1043,7 @@ namespace CatCooks.Level
             h.Reindex();
             Transform r = Root(h, true);
             if (h.ApplyMaterials) EnsureMaterials(h);
-            for (int y = y0; y <= y1 + 1; y++)
+            for (int y = y0-1; y <= y1 + 1; y++)
                 for (int x = x0 - 1; x <= x1 + 1; x++)
                     for (int z = z0 - 1; z <= z1 + 1; z++)
                     {
@@ -925,16 +1067,20 @@ namespace CatCooks.Level
             System.Random rnd = new System.Random(Hash(c.X, c.Y, c.Z));
             CityModuleHouse.CellKind k = c.Kind;
 
+            if(k==CityModuleHouse.CellKind.PipeBranch || k==CityModuleHouse.CellKind.PipeRise){
+                CatCooks.SiteTools.CCGridUtilityBuilder.Build(h,c,cg.transform);return cg;
+            }
+            bool shaft=h.ReservedShaft(c.X,c.Y,c.Z);
             // каркас: колонны / балки / плита сверху
             GameObject b = Spawn(h.BulkModule, cg.transform, 0, h.ModuleScale, "Bulk");
-            KeepBulkParts(b, CityModuleHouse.HasColumns(k), CityModuleHouse.HasBeams(k), CityModuleHouse.HasSlab(k));
+            KeepBulkParts(b, CityModuleHouse.HasColumns(k), CityModuleHouse.HasBeams(k) && !shaft, CityModuleHouse.HasSlab(k) && !shaft && !c.VerticalPipe);
             if (h.HideRoofPlates && h.Find(c.X, c.Y + 1, c.Z) == null) RemoveRoofPlates(h, cg.transform, b);
             Dedupe(h, cg.transform, b, c);
             if (h.ApplyMaterials) Paint(h, b, h.BulkMaterial, rnd);
             FinishSlabs(h, b);
 
             // пол снизу (если под клеткой нет плиты)
-            if (h.FloorUnder && CityModuleHouse.WantsFloor(k))
+            if (h.FloorUnder && CityModuleHouse.WantsFloor(k) && !c.VerticalPipe)
             {
                 CityModuleHouse.Cell below = h.Find(c.X, c.Y - 1, c.Z);
                 if (below == null || !CityModuleHouse.HasSlab(below.Kind))
@@ -951,6 +1097,7 @@ namespace CatCooks.Level
             // стены
             for (int s = 0; s < 4; s++)
             {
+                if((shaft || k==CityModuleHouse.CellKind.Lift) && s==2)continue;
                 CityModuleHouse.WallKind w = h.ResolveWall(c, s);
                 if (w == CityModuleHouse.WallKind.None || w == CityModuleHouse.WallKind.Auto) continue;
                 bool glass = w == CityModuleHouse.WallKind.Glass;
@@ -968,6 +1115,7 @@ namespace CatCooks.Level
                 if (h.ApplyMaterials) Paint(h, wg, glass ? h.GlassMaterial : h.BrickMaterial, rnd);
                 if (h.AddColliders) AddBoxes(wg);
             }
+            CatCooks.SiteTools.CCGridUtilityBuilder.Build(h,c,cg.transform);
             return cg;
         }
 
@@ -1052,7 +1200,7 @@ namespace CatCooks.Level
         private static bool Occ(CityModuleHouse h, int x, int y, int z, int part)
         {
             CityModuleHouse.Cell c = h.Find(x, y, z);
-            if (c == null) return false;
+            if (c == null || (part!=0 && h.ReservedShaft(x,y,z)) || (part==2 && c.VerticalPipe)) return false;
             return part == 0 ? CityModuleHouse.HasColumns(c.Kind) : part == 1 ? CityModuleHouse.HasBeams(c.Kind) : CityModuleHouse.HasSlab(c.Kind);
         }
 
@@ -1086,7 +1234,7 @@ namespace CatCooks.Level
                 {
                     if (ex && !ez) keep = !c.BeamRemoved(sx > 0 ? 0 : 1);
                     else if (ez && !ex) keep = !c.BeamRemoved(sz > 0 ? 2 : 3);
-                    else if (!ex && !ez) keep = !c.BeamRemoved(4);
+                    else if (!ex && !ez) keep = !c.BeamRemoved(4) && !c.VerticalPipe;
                 }
                 if (!keep) kill.Add(r.gameObject);
             }

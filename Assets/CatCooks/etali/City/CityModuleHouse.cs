@@ -13,7 +13,7 @@ namespace CatCooks.Level
     /// </summary>
     public class CityModuleHouse : MonoBehaviour
     {
-        public enum CellKind { Room = 0, Deck = 1, Frame = 2, Columns = 3, Slab = 4 }
+        public enum CellKind { Room = 0, Deck = 1, Frame = 2, Columns = 3, Slab = 4, Lift = 5, Riser = 6, PipeBranch = 7, PipeRise = 8 }
         public enum WallKind { Auto = 0, None = 1, Glass = 2, Brick = 3, BrickBlank = 4 }
         public enum GlassMode { Clear = 0, CityWindows = 1 }
 
@@ -25,6 +25,35 @@ namespace CatCooks.Level
             public WallKind PX, NX, PZ, NZ;            // стены по сторонам: +X, −X, +Z, −Z
             [Tooltip("Ручная клетка: пересборка её не трогает (можно править руками)")]
             public bool Locked;
+            public bool PipeOverlay, PipeVerticalOverlay;
+            public int UtilityLine, UtilityFitting;
+            public int ColdPart=-1, HotPart=-1, DrainPart=-1;
+            [HideInInspector] public Vector2 ColdAngles, HotAngles, DrainAngles;
+            public Vector2 AnglesAt(int line)
+            {
+                if (line == 0) return ColdAngles;
+                return line == 1 ? HotAngles : DrainAngles;
+            }
+
+            public void SetAngles(int line, Vector2 angles)
+            {
+                if (line == 0) ColdAngles = angles;
+                else if (line == 1) HotAngles = angles;
+                else DrainAngles = angles;
+            }
+
+            public int PartAt(int line)
+            {
+                int value=line==0?ColdPart:line==1?HotPart:DrainPart;
+                return value<0?(UtilityLine==line?UtilityFitting:0):value;
+            }
+            public void SetPart(int line,int value)
+            {
+                if (value == 0) SetAngles(line, Vector2.zero);
+                if(line==0)ColdPart=value;else if(line==1)HotPart=value;else DrainPart=value;
+            }
+            public bool VerticalPipe => PipeVerticalOverlay || Kind==CellKind.Riser || Kind==CellKind.PipeRise;
+            public bool HasPipes => Kind==CellKind.PipeRise || Kind == CellKind.Riser || Kind == CellKind.PipeBranch || PipeOverlay || PipeVerticalOverlay;
             [Tooltip("Убранные балки: бит 0 +X, 1 −X, 2 +Z, 3 −Z, 4 — средняя; колонны по углам: 5 +X+Z, 6 −X+Z, 7 +X−Z, 8 −X−Z")]
             public int BeamOff;
 
@@ -129,10 +158,38 @@ namespace CatCooks.Level
             return _map.TryGetValue(Key(x, y, z), out c) ? c : null;
         }
 
+        [HideInInspector] public int BrushLine, BrushFitting;
+        [HideInInspector] public bool FittingBrush;
+        [HideInInspector] public bool RotateFitting;
+        public bool ReservedShaft(int x,int y,int z) => Find(x,y+1,z)?.Kind == CellKind.Lift;
+        public static bool Utility(CellKind kind) => (int)kind >= (int)CellKind.Lift;
+        public bool CanPaint(int x,int y,int z,CellKind kind)
+        {
+            var c=Find(x,y,z);
+            if(ReservedShaft(x,y,z))return false;
+            if(c!=null && c.Locked)return false;
+            if(!Utility(kind))return true;
+            if(kind==CellKind.Lift){
+                if(c!=null && c.HasPipes)return false;
+                var below=Find(x,y-1,z);
+                return below==null || (!below.Locked && !Utility(below.Kind) && !below.HasPipes);
+            }
+            if(c==null || c.Kind==kind)return true;
+            if(c.Kind==CellKind.Lift)return false;
+            return kind==CellKind.PipeRise || kind==CellKind.PipeBranch || (kind==CellKind.Riser && !Utility(c.Kind));
+        }
         public Cell Add(int x, int y, int z, CellKind kind)
         {
             Cell c = Find(x, y, z);
-            if (c != null) { c.Kind = kind; return c; }
+            if (!CanPaint(x,y,z,kind)) return c;
+            if (c != null) {
+                if(kind==CellKind.PipeRise && c.Kind!=kind){ c.PipeVerticalOverlay=true; }
+                else if(kind==CellKind.PipeBranch && c.Kind!=kind){ c.PipeOverlay=true; }
+                else if(c.Kind!=kind){ c.Kind=kind; c.PipeOverlay=false; c.PipeVerticalOverlay=false;
+                    if(!c.HasPipes){c.UtilityFitting=0;for(int line=0;line<3;line++)c.SetPart(line,0);} }
+                
+                return c;
+            }
             c = new Cell { X = x, Y = y, Z = z, Kind = kind };
             Cells.Add(c);
             _map[Key(x, y, z)] = c;
@@ -148,9 +205,9 @@ namespace CatCooks.Level
             return true;
         }
 
-        public static bool HasColumns(CellKind k) { return k != CellKind.Slab; }
-        public static bool HasBeams(CellKind k) { return k == CellKind.Room || k == CellKind.Deck || k == CellKind.Frame; }
-        public static bool HasSlab(CellKind k) { return k == CellKind.Room || k == CellKind.Deck || k == CellKind.Slab; }
+        public static bool HasColumns(CellKind k) { return k != CellKind.Slab && k != CellKind.PipeBranch && k != CellKind.PipeRise; }
+        public static bool HasBeams(CellKind k) { return k == CellKind.Room || k == CellKind.Deck || k == CellKind.Frame || k==CellKind.Lift || k==CellKind.Riser; }
+        public static bool HasSlab(CellKind k) { return k == CellKind.Room || k == CellKind.Deck || k == CellKind.Slab || k == CellKind.Lift; }
         public static bool WantsFloor(CellKind k) { return k == CellKind.Room || k == CellKind.Deck; }
 
         /// <summary>Какая стена реально стоит у клетки на стороне s (Авто → по соседям).</summary>
@@ -161,7 +218,8 @@ namespace CatCooks.Level
             if (c.Kind != CellKind.Room) return WallKind.None;
             int dx = s == 0 ? 1 : s == 1 ? -1 : 0, dz = s == 2 ? 1 : s == 3 ? -1 : 0;
             Cell n = Find(c.X + dx, c.Y, c.Z + dz);
-            if (n != null && n.Kind == CellKind.Room) return WallKind.None;
+            if (n != null && (n.Kind == CellKind.Room ||
+                (s == 3 && (n.Kind == CellKind.Lift || ReservedShaft(n.X,n.Y,n.Z))))) return WallKind.None;
             if (n != null && n.Wall(Opp(s)) != WallKind.Auto && n.Wall(Opp(s)) != WallKind.None) return WallKind.None;   // стену уже ставит сосед
             return DefaultWall == WallKind.Auto ? WallKind.Glass : DefaultWall;
         }
@@ -236,6 +294,10 @@ namespace CatCooks.Level
         {
             switch (k)
             {
+                case CellKind.Lift: return new Color(.98f,.71f,.22f);
+                case CellKind.PipeRise:
+                case CellKind.Riser: return new Color(.26f,.78f,.79f);
+                case CellKind.PipeBranch: return new Color(.46f,.8f,.51f);
                 case CellKind.Room: return new Color(0.35f, 0.8f, 1f);
                 case CellKind.Deck: return new Color(0.4f, 1f, 0.5f);
                 case CellKind.Frame: return new Color(1f, 0.75f, 0.25f);
@@ -248,6 +310,10 @@ namespace CatCooks.Level
         {
             switch (k)
             {
+                case CellKind.Lift: return "Крытый лифт";
+                case CellKind.Riser: return "Трубная комната";
+                case CellKind.PipeRise: return "Вверх";
+                case CellKind.PipeBranch: return "В сторону";
                 case CellKind.Room: return "Комната";
                 case CellKind.Deck: return "Каркас+плита";
                 case CellKind.Frame: return "Каркас";

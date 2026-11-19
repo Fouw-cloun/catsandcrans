@@ -20,7 +20,8 @@ namespace CatCooks.Food
         /// <summary>Отладка (хост): N — положить в тару под прицелом всё для выбранного рецепта (одна порция рецепта),
         /// Ctrl+N / Ctrl+Shift+N — следующий / предыдущий рецепт.
         /// v23.49: Shift+N — «новинки»: тара — заменить содержимое на следующее (шоколадная масса, тесто, мороженое, меренга…);
-        /// опалубка — сразу испечённый бисквит; тарелка Аляски — собрать / отсадить хвостики.</summary>
+        /// опалубка — сразу испечённый бисквит; тарелка Аляски — собрать / отсадить хвостики.
+        /// v23.66: в начале списка — всё для макарон «Солёная каска» (ингредиенты и смеси по порядку готовки); Alt+Shift+N — на шаг назад.</summary>
         public static KeyCode RecipeFillKey = KeyCode.N;
         /// <summary>Отладка (хост): X — положить в тару под прицелом сразу ГОТОВЫЙ продукт выбранного рецепта
         /// (тесто, ганаш, карамель…), столько, сколько дал бы рецепт. Ctrl+N — предыдущий рецепт.</summary>
@@ -65,7 +66,7 @@ namespace CatCooks.Food
                 bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
                 bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
                 if (ctrl) NextTestRecipe(shift ? -1 : 1);                  // v23.49: рецепты — Ctrl+N (вперёд) / Ctrl+Shift+N (назад)
-                else if (shift) DebugShowcase();                           // v23.49: Shift+N — новинки
+                else if (shift) DebugShowcase(Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt) ? -1 : 1);   // v23.49: Shift+N — новинки; v23.66: Alt+Shift+N — назад
                 else DebugFillRecipe();
             }
             if (Input.GetKeyDown(ReadyFillKey)) DebugFillReady();
@@ -268,8 +269,14 @@ namespace CatCooks.Food
         /// <summary>Что Shift+N по очереди кладёт в тару (то, что перестроили: вид, рельеф, пар). Нет продукта — пропуск.</summary>
         private static readonly string[] Showcase =
         {
-            "Шоколадная масса", "Бисквитное тесто", "Мороженое", "Меренга", "Яичная масса", "Яичный белок", "Яичный желток",
-            "Сливки", "Молоко", "Сметана", "Мёд", "Карамель", "Вода"
+            // v23.66: МАКАРОН «Солёная каска» — тесто: ингредиенты → смеси (и ошибки повара)
+            "Яичный белок", "Сахар", "Меренга", "Меренга перебитая", "Мука миндальная", "Миндальная смесь",
+            "Тёртое какао", "Шоколадная паста", "Тесто для макарон", "Тесто для макарон перемешанное",
+            // v23.66: МАКАРОН — начинка: карамель → солёная карамель → шоколадная масса → ганаш
+            "Карамель", "Карамель горелая", "Сливочное масло", "Соль", "Солёная карамель", "Шоколадная масса", "Карамельный ганаш",
+            // прочие новинки
+            "Бисквитное тесто", "Мороженое", "Яичная масса", "Яичный желток",
+            "Сливки", "Молоко", "Сметана", "Мёд", "Вода"
         };
         private static int _showcase = -1;
 
@@ -278,7 +285,8 @@ namespace CatCooks.Food
             if (cw != null && FindOn<BakeTray>(cw) != null) return "<size=11>Shift+N — сразу ИСПЕЧЁННЫЙ бисквит в опалубке (режь пилой прямо в ней)</size>";
             if (cw != null && cw.GetComponent<DessertPlate>() != null) return "<size=11>Shift+N — собрать Аляску (бисквит, мороженое, меренга); ещё раз — отсадить все хвостики</size>";
             string next = Showcase[(_showcase + 1 + Showcase.Length) % Showcase.Length];
-            return $"<size=11>Shift+N — заменить содержимое на новинку (следующая: «{next}»)</size>";
+            string prev = Showcase[((_showcase < 0 ? 0 : _showcase) - 1 + Showcase.Length * 2) % Showcase.Length];
+            return $"<size=11>Shift+N — заменить содержимое на новинку (следующая: «{next}») · Alt+Shift+N — назад («{prev}»)</size>";
         }
 
         private static T FindOn<T>(Cookware cw) where T : Component
@@ -289,8 +297,10 @@ namespace CatCooks.Food
             return t;
         }
 
-        private void DebugShowcase()
+        private void DebugShowcase(int dir = 1)
         {
+            dir = dir < 0 ? -1 : 1;
+            if (_showcase < 0 && dir < 0) _showcase = 0;                        // назад с самого начала — на последнюю
             Cookware cw = Aim();
             if (cw == null) { Flash("Shift+N: наведись на тару, опалубку или тарелку Аляски"); return; }
             if (!cw.IsServerInitialized) { Flash("Shift+N работает у хоста"); return; }
@@ -318,7 +328,7 @@ namespace CatCooks.Food
             if (db == null || db.Table == null) { Flash("Shift+N: нет базы продуктов"); return; }
             for (int tries = 0; tries < Showcase.Length; tries++)
             {
-                _showcase = (_showcase + 1 + Showcase.Length) % Showcase.Length;
+                _showcase = (_showcase + dir + Showcase.Length * 2) % Showcase.Length;
                 ProductDef p = null;
                 for (int id = 1; id < 2048 && p == null; id++)
                 {

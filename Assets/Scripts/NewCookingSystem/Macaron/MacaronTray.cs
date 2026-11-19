@@ -18,12 +18,14 @@ namespace CatCooks.Food
     ///      Получилось — у скорлупки снизу кружевная «юбочка».
     ///   4. F по готовому противню — скорлупки выпадают отдельными предметами (Shell Prefab),
     ///      каждая со своим размером и оценкой. Противень снова пуст.
+    ///      v23.67: F по ДИСКУ в кольце — достать эту скорлупку (противень не поднимается; сырой диск — подсказка,
+    ///      что дальше); F по БОРТУ — испечённый: все скорлупки сразу, иначе — взять противень.
     ///
     /// ═══ НА КОРНЕ ═══ NetworkObject · NetworkTransform · Rigidbody · этот компонент (он же «в руки») ·
     /// коллайдеры листа и колец. Кольца (центры, радиус) записывает меню «Макарон → 5».
     /// Духовка считает противень «пекущимся» (давление, как у хлеба).
     /// </summary>
-    public sealed class MacaronTray : PickupItem, IOvenBaking
+    public sealed class MacaronTray : PickupItem, IOvenBaking, IAimedInteract
     {
         [Header("Что печём (пусто — по названию)")]
         [SerializeField] private ProductDef _batter;
@@ -402,6 +404,66 @@ namespace CatCooks.Food
             base.ServerInteract(interactor);
         }
 
+        /// <summary>
+        /// v23.67: F с точкой прицела. По диску в кольце: испечён — выпадает ЭТА скорлупка; сырой или печётся —
+        /// противень НЕ поднимается (подсказка над диском, что делать). По борту — как раньше.
+        /// </summary>
+        public void ServerInteractAt(PlayerInteractor interactor, Vector3 hitPoint)
+        {
+            int disc = DiscAt(hitPoint);
+            if (disc < 0) { ServerInteract(interactor); return; }
+            if (State == TrayState.Baked) { ServerPopOne(disc); return; }
+            if (_log) Debug.Log($"[Противень] «{name}»: F по диску {disc + 1} — {DiscHint(disc)}", this);
+        }
+
+        /// <summary>v23.67: диск (кольцо с тестом/скорлупкой) под точкой мира; −1 — борт или пустое кольцо.</summary>
+        public int DiscAt(Vector3 world)
+        {
+            Vector3 lp = transform.InverseTransformPoint(world);
+            int best = -1; float bd = _ringRadius * _ringRadius * 1.25f;
+            for (int i = 0; i < RingCount; i++)
+            {
+                if (FillOf(i) < 0.02f) continue;
+                float dx = lp.x - _rings[i].x, dz = lp.z - _rings[i].z;
+                float d = dx * dx + dz * dz;
+                if (d < bd) { bd = d; best = i; }
+            }
+            return best;
+        }
+
+        /// <summary>v23.67: что сейчас с диском и что делать дальше (подсказка над диском и в лог).</summary>
+        public string DiscHint(int i)
+        {
+            switch (State)
+            {
+                case TrayState.Baked:
+                    return "F — достать скорлупку · F по борту — все сразу";
+                case TrayState.Baking:
+                    return $"печётся {_bake.Value / 255f * 100f:0}% — жди, F по борту — взять противень";
+                default:
+                    float skin = Skin01;
+                    if (skin < _skinNeeded)
+                        return $"сырое тесто: подсыхает {skin / Mathf.Max(0.01f, _skinNeeded) * 100f:0}% — потом в духовку от {_bakeFromC:0} °C · F по борту — взять противень";
+                    return $"корочка схватилась — в духовку от {_bakeFromC:0} °C (~{_bakeSeconds:0} с) · F по борту — взять противень";
+            }
+        }
+
+        /// <summary>v23.67: одна скорлупка из кольца i. Последняя — противень снова пуст (можно отсаживать).</summary>
+        [Server]
+        private void ServerPopOne(int i)
+        {
+            Resolve();
+            if (_shellPrefab == null) { Debug.LogError($"[Противень] «{name}»: не задан Shell Prefab — скорлупки не достать", this); return; }
+            if (i < 0 || i >= RingCount) return;
+            if (FillOf(i) >= 0.1f) SpawnShell(i);
+            else { _fill[i] = 0; _result[i] = 0; }                            // крошка, а не скорлупка — просто счищается
+            for (int k = 0; k < RingCount; k++) if (FillOf(k) >= 0.1f) return;   // остались ещё скорлупки
+            for (int k = 0; k < RingCount; k++) { _fill[k] = 0; _result[k] = 0; }
+            _state.Value = (byte)TrayState.Raw;
+            _skin.Value = 0; _bake.Value = 0; _skinT = 0f; _overmixed = false;
+            if (_log) Debug.Log($"[Противень] «{name}»: достали последнюю скорлупку — шприцем ганаш на половинку, второй накрыть (ЛКМ скорлупкой в руке)", this);
+        }
+
         [Server]
         private void ServerPop()
         {
@@ -410,26 +472,58 @@ namespace CatCooks.Food
             int n = 0;
             for (int i = 0; i < RingCount; i++)
             {
-                float f = FillOf(i);
-                if (f < 0.1f) continue;
-                byte fl = _result[i];
-                float sizeK = f <= 1f ? Mathf.Lerp(0.7f, 1f, Mathf.Sqrt(f)) : 1f + (f - 1f) * 0.6f;
-                if ((fl & Spread) != 0) sizeK *= 1.08f;
-                Vector3 at = RingWorld(i) + transform.up * (_ringHeight * Mathf.Abs(transform.lossyScale.y) + 0.02f);
-                GameObject go = Instantiate(_shellPrefab, at, Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
-                MacaronShell sh = go.GetComponent<MacaronShell>();
-                if (sh != null) sh.ServerSetup(_ringRadius * MaxScaleXZ() * sizeK, sizeK, fl, _quality[i]);
-                FoodPiece fp = go.GetComponent<FoodPiece>();
-                if (fp != null) fp.ServerPreset(_shell, FoodState.Baked, 100, 100, _quality[i]);
-                base.Spawn(go);
-                Rigidbody rb = go.GetComponent<Rigidbody>();
-                if (rb != null) rb.AddForce(Vector3.up * 1.2f + Random.insideUnitSphere * 0.4f, ForceMode.VelocityChange);
-                _fill[i] = 0; _result[i] = 0;
+                if (FillOf(i) < 0.1f) continue;
+                SpawnShell(i);
                 n++;
             }
             _state.Value = (byte)TrayState.Raw;
             _skin.Value = 0; _bake.Value = 0; _skinT = 0f; _overmixed = false;
             if (_log) Debug.Log($"[Противень] «{name}»: достали {n} скорлупок — шприцем ганаш на половинку, второй накрыть (ЛКМ скорлупкой в руке)", this);
+        }
+
+        /// <summary>Скорлупка из кольца i выпадает предметом (размер и оценка — по наливу и выпечке); кольцо пустеет. Сервер.</summary>
+        [Server]
+        private void SpawnShell(int i)
+        {
+            float f = FillOf(i);
+            byte fl = _result[i];
+            float sizeK = f <= 1f ? Mathf.Lerp(0.7f, 1f, Mathf.Sqrt(f)) : 1f + (f - 1f) * 0.6f;
+            if ((fl & Spread) != 0) sizeK *= 1.08f;
+            Vector3 at = RingWorld(i) + transform.up * (_ringHeight * Mathf.Abs(transform.lossyScale.y) + 0.02f);
+            GameObject go = Instantiate(_shellPrefab, at, Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
+            MacaronShell sh = go.GetComponent<MacaronShell>();
+            if (sh != null) sh.ServerSetup(_ringRadius * MaxScaleXZ() * sizeK, sizeK, fl, _quality[i]);
+            FoodPiece fp = go.GetComponent<FoodPiece>();
+            if (fp != null) fp.ServerPreset(_shell, FoodState.Baked, 100, 100, _quality[i]);
+            base.Spawn(go);
+            Rigidbody rb = go.GetComponent<Rigidbody>();
+            if (rb != null) rb.AddForce(Vector3.up * 1.2f + Random.insideUnitSphere * 0.4f, ForceMode.VelocityChange);
+            _fill[i] = 0; _result[i] = 0;
+        }
+
+        // ───────────────────────── v23.67: подсказка над диском (у каждого игрока своя) ─────────────────────────
+
+        private GUIStyle _discStyle;
+
+        private void DrawDiscHint()
+        {
+            if (Event.current.type != EventType.Repaint || RingCount == 0) return;
+            if (PipingBagItem.LocalAimTray != null) return;                       // со шприцем — своя подсказка налива
+            Camera cam = Camera.main;
+            if (cam == null || (cam.transform.position - transform.position).sqrMagnitude > 36f) return;
+            if (!Physics.Raycast(cam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f)), out RaycastHit h, 4f, ~0, QueryTriggerInteraction.Ignore)) return;
+            if (h.collider.GetComponentInParent<MacaronTray>() != this) return;
+            int disc = DiscAt(h.point);
+            if (disc < 0) return;
+            Vector3 sp = cam.WorldToScreenPoint(RingWorld(disc) + transform.up * (_ringHeight * Mathf.Abs(transform.lossyScale.y) + 0.06f));
+            if (sp.z <= 0f) return;
+            string s = DiscHint(disc);
+            if (_discStyle == null) _discStyle = new GUIStyle(GUI.skin.label) { fontSize = 15, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, wordWrap = true };
+            Rect rc = new Rect(sp.x - 230f, Screen.height - sp.y - 44f, 460f, 42f);
+            _discStyle.normal.textColor = Color.black;
+            GUI.Label(new Rect(rc.x + 1, rc.y + 1, rc.width, rc.height), s, _discStyle);
+            _discStyle.normal.textColor = State == TrayState.Baked ? new Color(0.4f, 1f, 0.45f) : new Color(1f, 0.85f, 0.3f);
+            GUI.Label(rc, s, _discStyle);
         }
 
         private float MaxScaleXZ()
@@ -633,7 +727,9 @@ namespace CatCooks.Food
         /// <summary>Подсказка над кольцом, в которое смотрит игрок со шприцем.</summary>
         private void OnGUI()
         {
-            if (!_showFillHint || State != TrayState.Raw) return;
+            if (!_showFillHint) return;
+            DrawDiscHint();                                                     // v23.67: смотришь на диск без шприца — что с ним и что дальше
+            if (State != TrayState.Raw) return;
             Camera cam = Camera.main;
             if (cam == null || PipingBagItem.LocalAimTray != this) return;
             int i = PipingBagItem.LocalAimRing;

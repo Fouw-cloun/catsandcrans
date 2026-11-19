@@ -161,6 +161,18 @@ public class HydrantNut : NetworkBehaviour
         }
     }
 
+    public void ServerSetPipeOpening(float opening)
+    {
+        if (IsServerInitialized && _kind == NutKind.TopValve)
+            _angle.Value = Mathf.Clamp01(opening) * Mathf.Max(1f, _turnsToOpen * 360f);
+    }
+
+    public void ServerSetLever(bool open)
+    {
+        if (IsServerInitialized && _kind == NutKind.TopValve)
+            _angle.Value = open ? Mathf.Max(1f, _turnsToOpen * 360f) : 0f;
+    }
+
     private void Awake()
     {
         if (_nutPivot != null) _baseRot = _nutPivot.localRotation;

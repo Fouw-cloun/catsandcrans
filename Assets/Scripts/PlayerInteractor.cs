@@ -29,6 +29,15 @@ using UnityEngine;
 ///    предупреждения FishNet в ней терялись.
 /// ─────────────────────────────────────────────────────────────────────────
 /// </summary>
+/// <summary>
+/// v23.67: предмету важно, КУДА именно смотрят при F (противень: диск в кольце — достать скорлупку,
+/// борт — взять противень). Сервер получает точку попадания луча.
+/// </summary>
+public interface IAimedInteract
+{
+    void ServerInteractAt(PlayerInteractor interactor, Vector3 hitPoint);
+}
+
 public class PlayerInteractor : NetworkBehaviour
 {
     [Header("Прицел")]
@@ -170,6 +179,11 @@ public class PlayerInteractor : NetworkBehaviour
             // ту кабину, на которую смотрим, а не в первую попавшуюся.
             NetworkVehicle chosen = ResolveSeatByCollider(item, hit.collider);
             InteractableItem target = chosen != null ? chosen : item;
+            if (chosen == null && target is IAimedInteract)                      // v23.67: предмету нужна точка прицела
+            {
+                CmdInteractAt(target.NetworkObject, hit.point);
+                return;
+            }
             CmdInteract(target.NetworkObject, target is NetworkVehicle nv ? nv.SeatIndexOnObject : -1);
             return;
         }
@@ -230,6 +244,20 @@ public class PlayerInteractor : NetworkBehaviour
             return;
 
         item.ServerInteract(this);
+    }
+
+    /// <summary>v23.67: F по предмету, которому важна точка прицела (IAimedInteract).</summary>
+    [ServerRpc]
+    private void CmdInteractAt(NetworkObject target, Vector3 hitPoint)
+    {
+        if (target == null) return;
+        InteractableItem item = target.GetComponent<InteractableItem>();
+        if (item == null) return;
+        if (Vector3.Distance(transform.position, target.transform.position) > _reach + 1.5f)
+            return;
+        if (Vector3.Distance(transform.position, hitPoint) > _reach + 2f) hitPoint = target.transform.position;   // точка — только рядом с игроком
+        if (item is IAimedInteract aimed) aimed.ServerInteractAt(this, hitPoint);
+        else item.ServerInteract(this);
     }
 
     [ServerRpc]
