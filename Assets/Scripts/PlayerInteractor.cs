@@ -1,4 +1,6 @@
 using FishNet.Object;
+using FishNet.Object.Synchronizing;
+using CatCooks.SiteTools;
 using UnityEngine;
 
 /// <summary>
@@ -86,7 +88,9 @@ public class PlayerInteractor : NetworkBehaviour
 
     private void Update()
     {
+        if (IsServerInitialized) TickPipeValve();
         if (!base.IsOwner) return;
+        if (ReadPipeValve()){_charging=false;return;}
 
         // Открыто меню — мир не трогаем. Иначе клик по кнопке в интерфейсе
         // уходит ещё и в применение предмета.
@@ -98,6 +102,7 @@ public class PlayerInteractor : NetworkBehaviour
             return;
         }
 
+        if (Input.GetKeyDown(KeyCode.R) && TryBurstPipe()) return;
         if (Input.GetKeyDown(KeyCode.F)) TryInteract();
         if (Input.GetKeyDown(KeyCode.G)) TryDrop();
 
@@ -228,8 +233,7 @@ public class PlayerInteractor : NetworkBehaviour
             foreach (NetworkVehicle v in seats)
             {
                 if (v.SeatIndexOnObject != seatIndex) continue;
-                Vector3 seatTarget = v.SeatCollider != null ? v.SeatCollider.ClosestPoint(transform.position) : v.transform.position;
-                if (Vector3.Distance(transform.position, seatTarget) > _reach + 4f)
+                if (Vector3.Distance(transform.position, target.transform.position) > _reach + 4f)
                     return;
                 v.ServerInteract(this);
                 return;
@@ -312,5 +316,148 @@ public class PlayerInteractor : NetworkBehaviour
         UseContext ctx = new UseContext(base.Owner, origin, direction, charge, _hand);
         if (primary) item.ServerPrimaryUse(ctx);
         else item.ServerSecondaryUse(ctx);
+    }
+
+    // A focused player stays at the wheel and keeps the normal camera look.
+    private readonly SyncVar<HydrantNut> _pipeNut = new(null);
+    private CCColdPipeValve _serverValve;
+    private FirstPersonController _pipeMovement;
+    private bool _pipeWasSuspended, _pipeExiting;
+    private int _pipeDirection, _lastPipeInput;
+    private float _pipeHeartbeat, _pipeLease, _pipeInputUntil;
+
+    public bool ServerFocusPipeValve(CCColdPipeValve valve)
+    {
+        if (!IsServerInitialized || _serverValve!=null || valve==null || !NearWheel(valve)) return false;
+        _serverValve=valve;
+        _pipeDirection=0;
+        _pipeLease=Time.unscaledTime+2.5f;
+        _pipeNut.Value=valve.nut;
+        return true;
+    }
+
+    private bool NearWheel(CCColdPipeValve valve)
+    {
+        return Vector3.Distance(transform.position,valve.transform.position)<=Reach+1.25f;
+    }
+
+    private void TickPipeValve()
+    {
+        if (_serverValve==null){
+            if (_pipeNut.Value!=null) EndPipeFocus();
+            return;
+        }
+        if (!_serverValve.isActiveAndEnabled || !NearWheel(_serverValve) || Time.unscaledTime>_pipeLease){
+            EndPipeFocus();
+            return;
+        }
+        if (_pipeDirection!=0 && Time.unscaledTime<=_pipeInputUntil){
+            var nut=_serverValve.nut;
+            nut.ServerSetPipeOpening(nut.Open01 + _pipeDirection * Time.deltaTime / Mathf.Max(.5f,_serverValve.travelSeconds));
+        }
+    }
+
+    private void EndPipeFocus()
+    {
+        if (_serverValve!=null) _serverValve.Release(this);
+        _serverValve=null;
+        _pipeDirection=0;
+        _pipeNut.Value=null;
+    }
+
+    private bool ReadPipeValve()
+    {
+        var nut=_pipeNut.Value;
+        if (nut==null){
+            LeavePipeControls();
+            return false;
+        }
+        if (_pipeMovement==null){
+            _pipeMovement=GetComponent<FirstPersonController>();
+            if (_pipeMovement!=null){
+                _pipeWasSuspended=_pipeMovement.CraneSuspended;
+                _pipeMovement.SetCraneSuspended(true,Vector3.zero);
+            }
+            _lastPipeInput=2;
+        }
+        if (_pipeExiting) return true;
+        if (UiModal.AnyOpen || Input.GetKeyDown(KeyCode.F)){
+            _pipeExiting=true;
+            CmdLeavePipeValve(nut);
+            return true;
+        }
+        int direction=(Input.GetKey(KeyCode.D)?1:0)-(Input.GetKey(KeyCode.A)?1:0);
+        if (direction!=_lastPipeInput || Time.unscaledTime>=_pipeHeartbeat){
+            _lastPipeInput=direction;
+            _pipeHeartbeat=Time.unscaledTime+.15f;
+            CmdTurnPipeValve(nut,direction);
+        }
+        return true;
+    }
+
+    [ServerRpc]
+    private void CmdTurnPipeValve(HydrantNut expected,int direction)
+    {
+        if (_serverValve==null || expected!=_serverValve.nut || !NearWheel(_serverValve)) return;
+        _pipeDirection=Mathf.Clamp(direction,-1,1);
+        _pipeInputUntil=Time.unscaledTime+.45f;
+        _pipeLease=Time.unscaledTime+2.5f;
+    }
+
+    [ServerRpc]
+    private void CmdLeavePipeValve(HydrantNut expected)
+    {
+        if (_serverValve!=null && expected==_serverValve.nut) EndPipeFocus();
+    }
+
+    private void OnGUI()
+    {
+        if (!IsOwner || _pipeNut.Value==null || UiModal.AnyOpen) return;
+        var rect=new Rect(Screen.width*.5f-215f,Screen.height*.73f,430f,28f);
+        GUI.Box(rect,$"Вентиль   {Mathf.RoundToInt(_pipeNut.Value.Open01*100f)}%     A закрыть   ·   D открыть   ·   F отпустить");
+    }
+
+    private void LeavePipeControls()
+    {
+        if (_pipeMovement!=null) _pipeMovement.SetCraneSuspended(_pipeWasSuspended,Vector3.zero);
+        _pipeMovement=null;
+        _pipeExiting=false;
+    }
+
+    private bool TryBurstPipe()
+    {
+        var origin=AimOrigin;
+        if (!Physics.Raycast(origin.position,origin.forward,out var hit,Reach,InteractMask)) return false;
+        var hatch=hit.collider.GetComponentInParent<CCInspectionHatch>();
+        if (hatch==null || !hatch.CanBurst) return false;
+        CmdBurstPipe(hatch,origin.position,origin.forward);
+        return true;
+    }
+
+    [ServerRpc]
+    private void CmdBurstPipe(CCInspectionHatch hatch,Vector3 origin,Vector3 aim)
+    {
+        if (_serverValve!=null || hatch==null || !hatch.CanBurst || aim.sqrMagnitude<.9f) return;
+        if ((origin-transform.position).sqrMagnitude>6.25f) return;
+        if (Physics.Raycast(origin,aim.normalized,out var hit,Reach+.15f,InteractMask) &&
+            hit.collider.GetComponentInParent<CCInspectionHatch>()==hatch) hatch.ServerBurst();
+    }
+
+    private void OnDisable()
+    {
+        if (IsServerInitialized && _serverValve!=null) EndPipeFocus();
+        LeavePipeControls();
+    }
+
+    public override void OnStopClient()
+    {
+        LeavePipeControls();
+        base.OnStopClient();
+    }
+
+    public override void OnStopServer()
+    {
+        if (_serverValve!=null) EndPipeFocus();
+        base.OnStopServer();
     }
 }

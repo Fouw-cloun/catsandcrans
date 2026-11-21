@@ -149,6 +149,7 @@ namespace CatCooks.Food.Tools
         [SerializeField] private bool _log = true;
 
         private readonly SyncVar<ushort> _left = new SyncVar<ushort>(0);
+        private readonly SyncVar<bool> _infNet = new SyncVar<bool>(true);      // v25.3: клиенты знают, конечный ли бидон (доставка ставит запас только на сервере)
         private readonly SyncVar<bool> _pouring = new SyncVar<bool>(false);
         private readonly SyncVar<bool> _duo = new SyncVar<bool>(false);
         private readonly SyncVar<NetworkObject> _helper = new SyncVar<NetworkObject>(null);
@@ -187,6 +188,7 @@ namespace CatCooks.Food.Tools
         {
             base.OnStartServer();
             _left.Value = (ushort)Mathf.Clamp(_capacity, 0, ushort.MaxValue);
+            _infNet.Value = _infinite;
             _duo.Value = _twoPlayers;
             _duoLast = _twoPlayers;
         }
@@ -426,7 +428,7 @@ namespace CatCooks.Food.Tools
             _spoutLast = p; _spoutHas = true;
         }
 
-        private bool HasMilk => _infinite || _left.Value > 0;
+        private bool HasMilk => (base.IsServerInitialized ? _infinite : _infNet.Value) || _left.Value > 0;
 
         /// <summary>0..1 — насколько бидон докланился после точки, где начинает литься.</summary>
         private float Flow01 => Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(_startTilt, 1f, _tilt) * 0.7f + 0.3f);
@@ -742,6 +744,7 @@ namespace CatCooks.Food.Tools
                     ((_wants.Value & 1) != 0 ? "✔" : "…");
             }
             if (t == null) return;
+            if (!_infNet.Value) t = (_left.Value == 0 ? "Бидон ПУСТОЙ.   " : $"Осталось {_left.Value} порц.   ") + t;   // v25.3: запас конечный
             if (_hintStyle == null)
             {
                 _hintStyle = new GUIStyle(GUI.skin.box) { fontSize = 15, alignment = TextAnchor.MiddleCenter, wordWrap = true };

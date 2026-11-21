@@ -66,7 +66,7 @@ namespace CatCooks.SiteTools
                 int fitting=c.PartAt(i);
                 if(fitting>0){
                     var device=CCPipeBuilder.BuildGridFitting(root,i,fitting-1);
-                    if (i==0) CCColdPipeSetup.Configure(device,new Vector3Int(c.X,c.Y,c.Z));
+                    CCColdPipeSetup.Configure(device,new Vector3Int(c.X,c.Y,c.Z),i);
                     device.name=FittingName(i);
                     device.localPosition=hub;
                     CCPipeBuilder.OrientMount(device,i,c.AnglesAt(i));

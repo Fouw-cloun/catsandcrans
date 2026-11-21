@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using FishNet.Component.Transforming;
 using FishNet.Connection;
 using FishNet.Object;
 using FishNet.Object.Synchronizing;
@@ -31,6 +33,27 @@ public abstract class NetworkVehicle : InteractableItem
 
     public Collider SeatCollider => _seatCollider;
 
+    // v11: камера кабины — картинка как у игрока + оглядеться мышью ±100° / ±60°
+    private CCCabCamera _cab;
+
+    /// <summary>Своя мышь у камеры в кабине (каток крутит камеру сам — ему выкл).</summary>
+    protected virtual bool CabMouseLook => GetType().Name != "RoadRollerVehicle";
+
+    private void SetCabCamera(bool entering, Camera playerCam)
+    {
+        if (!entering && _cab != null) { _cab.End(); _cab = null; }
+        if (_vehicleCamera == null) return;
+        if (entering)
+        {
+            Camera eye = _vehicleCamera.GetComponentInChildren<Camera>(true);
+            Transform frame = eye != null && eye.transform.parent != null && eye.transform.parent.IsChildOf(transform)
+                ? eye.transform.parent : (_seatPoint != null ? _seatPoint : transform);
+            _vehicleCamera.SetActive(true);
+            _cab = CCCabCamera.Begin(_vehicleCamera, playerCam, frame, CabMouseLook);
+        }
+        else _vehicleCamera.SetActive(false);
+    }
+
     /// <summary>Индекс этой кабины среди всех NetworkVehicle на том же
     /// NetworkObject (стабилен, т.к. порядок компонентов фиксирован). Нужен,
     /// чтобы сервер знал, в какую именно кабину сажать (автокран: шасси/кран).</summary>
@@ -60,7 +83,6 @@ public abstract class NetworkVehicle : InteractableItem
 
     protected bool _isLocalDriver;
     public bool LocalDriver => _isLocalDriver;
-    public Rigidbody VehicleBody => _body;
     public bool HasDriver => _driver.Value != null;
     public bool IsDriver(NetworkObject player) => player != null && _driver.Value == player;
 
@@ -92,6 +114,13 @@ public abstract class NetworkVehicle : InteractableItem
 
     public override void OnStopNetwork()
     {
+        if (_cab != null) { _cab.End(); _cab = null; }
+        if(UsesFloorExit && _seatedPlayer)
+        {
+            var rider=_seatedPlayer;
+            bool found=CCVehicleExitFloor.TryFind(this,_seatPoint,_exitPoint,rider.GetComponent<CharacterController>(),out var place);
+            PlaceOutside(rider,found?place:_entryPosition,CCVehicleExitFloor.Upright(rider.transform));
+        }
         base.OnStopNetwork();
         _driver.OnChange -= OnDriverChanged;
         if (base.TimeManager != null) base.TimeManager.OnTick -= OnTick;
@@ -133,11 +162,52 @@ public abstract class NetworkVehicle : InteractableItem
     }
 
     protected virtual bool CanEnter(PlayerInteractor interactor) => true;
+    private bool UsesFloorExit => this is TrackedVehicle || this is DumpTruckVehicle ||
+        this is MobileCraneChassis || this is CraneOperatorSeat || GetType().Name=="CCConcreteTruckVehicle";
+    private NetworkObject _seatedPlayer;
+    private Vector3 _landing, _entryPosition;
+    private Quaternion _landingRotation;
+    private readonly List<Collider> _seatColliders = new();
+    private readonly List<Renderer> _seatRenderers = new();
+    private bool _exitReleased;
+
+    [ObserversRpc]
+    private void RpcPlaceOutside(NetworkObject player,Vector3 landing,Quaternion rotation)
+    {
+        PlaceOutside(player,landing,rotation);
+    }
+    private void PlaceOutside(NetworkObject player,Vector3 landing,Quaternion rotation)
+    {
+        if(player==null || _seatedPlayer!=player) return;
+        _landing=landing;
+        _landingRotation=rotation;
+        ApplyDriverState(player,false);
+        _seatedPlayer=null;
+    }
+
+    [TargetRpc]
+    private void TargetNoFloor(NetworkConnection conn)
+    {
+        Debug.Log("Выход заблокирован: рядом нет свободной площадки. Переставь машину.",this);
+    }
+
 
     [ServerRpc(RequireOwnership = true)]
     protected void CmdExit()
     {
         if (_driver.Value == null) return;
+        if(UsesFloorExit)
+        {
+            var rider=_driver.Value;
+            if(!CCVehicleExitFloor.TryFind(this,_seatPoint,_exitPoint,rider.GetComponent<CharacterController>(),out var landing))
+            {
+                TargetNoFloor(rider.Owner);
+                return;
+            }
+            Quaternion rotation=CCVehicleExitFloor.Upright(rider.transform);
+            PlaceOutside(rider,landing,rotation);
+            RpcPlaceOutside(rider,landing,rotation);
+        }
         _driver.Value = null;
         NetworkObject.RemoveOwnership(); // authority вернётся серверу
     }
@@ -146,12 +216,28 @@ public abstract class NetworkVehicle : InteractableItem
 
     private void OnDriverChanged(NetworkObject prev, NetworkObject next, bool asServer)
     {
+        if(UsesFloorExit)
+        {
+            if(next!=null && next!=_seatedPlayer)
+            {
+                _entryPosition=next.transform.position;
+                _seatedPlayer=next;
+                _exitReleased=false;
+                ApplyDriverState(next,true);
+            }
+            return;
+        }
         if (next != null) ApplyDriverState(next, true);
         else if (prev != null) ApplyDriverState(prev, false);
     }
 
     protected virtual void ApplyDriverState(NetworkObject player, bool entering)
     {
+        if (UsesFloorExit)
+        {
+            ApplyFloorSeat(player,entering);
+            return;
+        }
         bool local = player.IsOwner;
         if (entering) _isLocalDriver = local && entering;
 
@@ -190,7 +276,7 @@ public abstract class NetworkVehicle : InteractableItem
 
             Camera pcam = player.GetComponentInChildren<Camera>(true);
             if (pcam != null) pcam.gameObject.SetActive(!entering);
-            if (_vehicleCamera != null) _vehicleCamera.SetActive(entering);
+            SetCabCamera(entering, pcam);
 
             foreach (Renderer r in player.GetComponentsInChildren<Renderer>(true))
                 r.enabled = !entering;
@@ -199,11 +285,55 @@ public abstract class NetworkVehicle : InteractableItem
         if (!entering) _isLocalDriver = false;
     }
 
+    private void ApplyFloorSeat(NetworkObject player,bool entering)
+    {
+        bool local=player.IsOwner;
+        _isLocalDriver=entering && local;
+        var fpc=player.GetComponent<FirstPersonController>();
+        var interactor=player.GetComponent<PlayerInteractor>();
+        if(entering)
+        {
+            _seatColliders.Clear();
+            foreach(var c in player.GetComponentsInChildren<Collider>(true))
+                if(c.enabled){ _seatColliders.Add(c); c.enabled=false; }
+        }
+        else
+        {
+            player.transform.SetPositionAndRotation(_landing,_landingRotation);
+            if(local && fpc)
+            {
+                fpc.ResetLookToCurrent();
+                fpc.SetCraneSuspended(false,Vector3.zero);
+            }
+            Physics.SyncTransforms();
+            if(local && player.TryGetComponent<NetworkTransform>(out var nt)) nt.Teleport();
+            foreach(var c in _seatColliders) if(c) c.enabled=true;
+            _seatColliders.Clear();
+        }
+        if(!local) return;
+        if(fpc) fpc.enabled=!entering;
+        if(interactor) interactor.enabled=!entering;
+        Camera cam=player.GetComponentInChildren<Camera>(true);
+        if(cam) cam.gameObject.SetActive(!entering);
+        SetCabCamera(entering, cam);
+        if(entering)
+        {
+            _seatRenderers.Clear();
+            foreach(var r in player.GetComponentsInChildren<Renderer>(true))
+                if(r.enabled){ _seatRenderers.Add(r); r.enabled=false; }
+        }
+        else
+        {
+            foreach(var r in _seatRenderers) if(r) r.enabled=true;
+            _seatRenderers.Clear();
+        }
+    }
+
     // ───────── ЦИКЛЫ ─────────
 
     private void OnTick()
     {
-        if (_isLocalDriver && !UiModal.AnyOpen) DriverTick();
+        if (_isLocalDriver) DriverTick();
     }
 
     protected virtual void Update()
@@ -215,9 +345,8 @@ public abstract class NetworkVehicle : InteractableItem
         if (_driver.Value != null && _seatPoint != null)
             _driver.Value.transform.SetPositionAndRotation(_seatPoint.position, _seatPoint.rotation);
 
-        if (UiModal.AnyOpen) return;
-
-        if (Input.GetKeyDown(KeyCode.F)) { CmdExit(); return; }
+        if (UsesFloorExit && !_exitReleased && !Input.GetKey(KeyCode.F)) _exitReleased=true;
+        if (Input.GetKeyDown(KeyCode.F) && (!UsesFloorExit || _exitReleased)) { CmdExit(); return; }
 
         DriverUpdate();
     }
@@ -244,7 +373,7 @@ public abstract class NetworkVehicle : InteractableItem
 
     /// <summary>Активно ли машина управляется прямо сейчас (есть локальный
     /// водитель и езда разрешена). Наследники сужают через CanDrive.</summary>
-    protected bool IsDriving => _isLocalDriver && CanDrive && !UiModal.AnyOpen;
+    protected bool IsDriving => _isLocalDriver && CanDrive;
 
     /// <summary>Разрешена ли езда (кран блокирует при опорах, экскаватор — в
     /// режиме работы рукой). База — да.</summary>

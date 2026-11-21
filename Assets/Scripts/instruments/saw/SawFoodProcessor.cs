@@ -54,6 +54,9 @@ public class SawFoodProcessor : NetworkBehaviour
              "чтобы вся картошка не рассыпалась за один взмах.")]
     [SerializeField] private float _minSecondsPerCut = 0.4f;
 
+    [Tooltip("v25.5: туша — сколько шва пропиливает один штрих (вперёд-назад), × ширины шва. Отпусти ЛКМ, наведись дальше по шву, пили снова")]
+    [Range(0.5f, 5f)][SerializeField] private float _carcassStroke = 2.2f;
+
     [Header("Прицел")]
     [Tooltip("Дальность луча от камеры, метры")]
     [SerializeField] private float _range = 2.5f;
@@ -340,7 +343,7 @@ public class SawFoodProcessor : NetworkBehaviour
     /// <summary>Пока пилишь — точка прицела на той же цели.</summary>
     private void TrackAim(Transform aim)
     {
-        if (!(_target is CatCooks.Food.ICuttableAim)) return;
+        if (!(_target is CatCooks.Food.ICuttableAim) && !(_target is IPartCuttable)) return;   // v25.5: туша — пилим там, куда смотришь
         if (!TrackAimMask(aim, _foodMask)) TrackAimMask(aim, ~0);   // еда не на слое Food — всё равно ведём прицел
     }
 
@@ -451,6 +454,14 @@ public class SawFoodProcessor : NetworkBehaviour
         if (Time.time - _lastCutTime < _minSecondsPerCut) return;
         _lastCutTime = Time.time;
 
+        // v25.5: ТУША — штрих ножовкой пропиливает шов в точке прицела (широко, но по штриху за раз)
+        CatCooks.Food.FoodCarcass carcass = t.GetComponent<CatCooks.Food.FoodCarcass>();
+        if (carcass != null && carcass.TraceSeam)
+        {
+            carcass.ServerSawAt(aim, _carcassStroke, true, base.NetworkObject, CatCooks.Food.FoodCarcass.JamKind.Handsaw);
+            if (!carcass.CanCut) ServerRelease();
+            return;
+        }
         if (s is CatCooks.Food.ICuttableAim a) a.ServerAimAt(aim);   // пласт: кубик там, куда смотришь
         s.ServerCutOne(_cutProcess, 1f);
 

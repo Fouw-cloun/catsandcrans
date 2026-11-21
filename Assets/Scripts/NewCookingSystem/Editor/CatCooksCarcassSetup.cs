@@ -162,7 +162,9 @@ namespace CatCooks.Food
                     done++;
                     if (mm == null) { log.AppendLine($"  ⚠ {CarcassModel.Id(sp, p)}: пусто"); continue; }
                     Mesh m = CarcassModel.ToMesh(mm, "Meat_" + CarcassModel.Id(sp, p), CarcassModel.BoxCenter(sp, p));
+                    int newV = m.vertexCount;
                     res[i] = SaveMesh(m);
+                    if (i == (int)MeatPart.LoinL) log.AppendLine($"  проверка: {res[i].name} — вершин {res[i].vertexCount} (построено {newV}), габарит {res[i].bounds.size}");
                 }
             }
             finally { EditorUtility.ClearProgressBar(); }
@@ -180,7 +182,23 @@ namespace CatCooks.Food
             DS.EnsureDir(MeshDir);
             string path = MeshDir + "/" + m.name + ".asset";
             Mesh have = AssetDatabase.LoadAssetAtPath<Mesh>(path);
-            if (have != null) { EditorUtility.CopySerialized(m, have); Object.DestroyImmediate(m); EditorUtility.SetDirty(have); return have; }
+            if (have != null)
+            {
+                // v28.2: копируем данные через API — CopySerialized оставлял в ассете СТАРУЮ геометрию
+                have.Clear();
+                have.indexFormat = m.indexFormat;
+                have.vertices = m.vertices;
+                have.normals = m.normals;
+                have.colors = m.colors;
+                have.subMeshCount = 1;
+                have.SetTriangles(m.triangles, 0);
+                have.RecalculateBounds();
+                have.UploadMeshData(false);
+                Object.DestroyImmediate(m);
+                EditorUtility.SetDirty(have);
+                AssetDatabase.SaveAssetIfDirty(have);
+                return have;
+            }
             AssetDatabase.CreateAsset(m, path);
             return m;
         }
@@ -415,6 +433,66 @@ namespace CatCooks.Food
         }
 
         // ───────────────────────── 7. ПРОВЕРКА ─────────────────────────
+
+        // ───────────────────────── 8. ОБНОВИТЬ ВСЕ ТУШИ (v28) ─────────────────────────
+
+        [MenuItem(Root + "8. Обновить ВСЕ туши: новые меши + части на места (сцена и префабы)", priority = 28)]
+        public static void UpdateAll()
+        {
+            var log = new StringBuilder("ТУШИ → 8. Обновить всё\n");
+            log.AppendLine($"  форма из кода: {CarcassModel.ShapeVersion}");
+            MeatCutSettings st = Settings(log);
+            Mesh[] pork = BuildMeshes(MeatSpecies.Pork, st, log);
+            Mesh[] beef = BuildMeshes(MeatSpecies.Beef, st, log);
+            int fixedParts = 0, carcs = 0, prefabs = 0;
+            // открытые сцены
+            foreach (FoodCarcass fc in Object.FindObjectsByType<FoodCarcass>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                int n = FixCarcass(fc.transform, pork, beef);
+                if (n > 0) { carcs++; fixedParts += n; EditorUtility.SetDirty(fc.gameObject); EditorSceneManager.MarkSceneDirty(fc.gameObject.scene); log.AppendLine($"  ✔ в сцене «{fc.name}»: {n} частей"); }
+            }
+            // префабы
+            foreach (string guid in AssetDatabase.FindAssets("t:Prefab", new[] { "Assets" }))
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                GameObject a = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (a == null || a.GetComponentInChildren<FoodCarcass>(true) == null) continue;
+                GameObject root = PrefabUtility.LoadPrefabContents(path);
+                try
+                {
+                    int n = 0;
+                    foreach (FoodCarcass fc in root.GetComponentsInChildren<FoodCarcass>(true)) n += FixCarcass(fc.transform, pork, beef);
+                    if (n > 0) { PrefabUtility.SaveAsPrefabAsset(root, path); prefabs++; fixedParts += n; log.AppendLine($"  ✔ префаб {path}: {n} частей"); }
+                }
+                finally { PrefabUtility.UnloadPrefabContents(root); }
+            }
+            AssetDatabase.SaveAssets();
+            log.AppendLine($"\nГотово: туш в сцене {carcs}, префабов {prefabs}, частей поставлено на место {fixedParts}. Сохрани сцену (Ctrl+S).");
+            if (carcs + prefabs == 0) log.AppendLine("⚠ не нашёл ни одной туши (Food Carcass) — поставь меню 2 / 3");
+            DS.Done("Туши обновлены", log);
+        }
+
+        /// <summary>Части туши (Meat Part Tag): свежий меш, место, коллайдер. Сколько частей тронуто.</summary>
+        private static int FixCarcass(Transform carcass, Mesh[] pork, Mesh[] beef)
+        {
+            int n = 0;
+            foreach (MeatPartTag tag in carcass.GetComponentsInChildren<MeatPartTag>(true))
+            {
+                Mesh[] arr = tag.Species == MeatSpecies.Beef ? beef : pork;
+                Mesh m = arr != null && (int)tag.Part < arr.Length ? arr[(int)tag.Part] : null;
+                if (m == null) continue;
+                Transform t = tag.transform;
+                t.localPosition = CarcassModel.BoxCenter(tag.Species, tag.Part);
+                t.localRotation = Quaternion.identity; t.localScale = Vector3.one;
+                MeshFilter mf = t.GetComponent<MeshFilter>();
+                if (mf != null) mf.sharedMesh = m;
+                BoxCollider bc = t.GetComponent<BoxCollider>();
+                if (bc != null) { bc.center = m.bounds.center; bc.size = m.bounds.size; }
+                EditorUtility.SetDirty(t);
+                n++;
+            }
+            return n;
+        }
 
         [MenuItem(Root + "7. Проверить", priority = 27)]
         public static void Check()

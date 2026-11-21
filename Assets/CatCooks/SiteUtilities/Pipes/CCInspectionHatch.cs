@@ -9,7 +9,9 @@ namespace CatCooks.SiteTools
     public sealed class CCInspectionHatch : NetworkBehaviour, IVehiclePart
     {
         public Transform hinge;
-        public WaterJet coldJet;
+        [UnityEngine.Serialization.FormerlySerializedAs("coldJet")]
+        public WaterJet pipeJet;
+        public CCPipeFluid fluid;
         public Vector3Int gridCell;
         readonly SyncVar<bool> open = new(false);
         readonly SyncVar<bool> ruptured = new(false);
@@ -25,11 +27,11 @@ namespace CatCooks.SiteTools
         float nextPose;
         public NetworkObject OwningNetworkObject => NetworkObject;
         public int PartId => 0;
-        public bool CanBurst => coldJet != null && !ruptured.Value;
+        public bool CanBurst => pipeJet != null && !ruptured.Value;
 
         public void ServerUse(PlayerInteractor player)
         {
-            if (coldJet == null && IsServerInitialized && player != null &&
+            if (!ruptured.Value && (pipeJet == null || fluid != CCPipeFluid.Cold) && IsServerInitialized && player != null &&
                 Vector3.Distance(player.transform.position,transform.position)<4f) open.Value=!open.Value;
         }
 
@@ -83,7 +85,7 @@ namespace CatCooks.SiteTools
 
         void Update()
         {
-            if (coldJet == null){
+            if (pipeJet == null || (fluid != CCPipeFluid.Cold && !ruptured.Value)){
                 if(hinge!=null) hinge.localRotation=Quaternion.RotateTowards(hinge.localRotation,
                     Quaternion.Euler(open.Value?-105:0,0,0),170f*Time.deltaTime);
                 return;
@@ -109,9 +111,9 @@ namespace CatCooks.SiteTools
             // A slight horizontal component gives the returning stream a landing point beside the hatch.
             Vector3 side=Vector3.ProjectOnPlane(hinge.parent.up,Vector3.up);
             if (side.sqrMagnitude<.001f) side=Vector3.ProjectOnPlane(hinge.parent.right,Vector3.up);
-            coldJet.transform.rotation=Quaternion.LookRotation((Vector3.up+side.normalized*.18f).normalized);
-            if (!coldJet.gameObject.activeSelf) coldJet.gameObject.SetActive(true);
-            coldJet.SetExternalFlow(true,Supply());
+            pipeJet.transform.rotation=Quaternion.LookRotation((Vector3.up+side.normalized*.18f).normalized);
+            if (!pipeJet.gameObject.activeSelf) pipeJet.gameObject.SetActive(true);
+            pipeJet.SetExternalFlow(true,Supply());
         }
 
         public override void OnStopNetwork()
@@ -120,7 +122,7 @@ namespace CatCooks.SiteTools
             loose=null;
             body=null;
             if (hinge!=null) hinge.gameObject.SetActive(true);
-            if (coldJet!=null){coldJet.SetExternalFlow(false,0f);coldJet.gameObject.SetActive(false);}
+            if (pipeJet!=null){pipeJet.SetExternalFlow(false,0f);pipeJet.gameObject.SetActive(false);}
             valves=null;
             base.OnStopNetwork();
         }

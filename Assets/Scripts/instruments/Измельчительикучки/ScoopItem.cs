@@ -502,9 +502,9 @@ namespace CatCooks.Food.Tools
 
             // Источник (мешок): берём прямо из него, горка в горловине — только вид.
             IScoopSource src = target.GetComponent<IScoopSource>();
-            if (src != null)
+            // v25.6b: источник «не даёт» (мульчер без намотки, измельчитель не заклинен) — дальше как обычно (ковш экскаватора — тара)
+            if (src != null && src.PeekScoop(out ushort sp, out FoodState sst) && CanTake(sp, sst))
             {
-                if (!src.PeekScoop(out ushort sp, out FoodState sst) || !CanTake(sp, sst)) return;
                 int got = src.ServerScoop(room, out ushort product, out FoodState state, out byte cook, out byte clean);
                 Load(product, state, got, cook, clean);
                 return;

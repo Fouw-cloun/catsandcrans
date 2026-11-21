@@ -216,6 +216,7 @@ public class PlayerHand : NetworkBehaviour
     public bool ServerTryHold(InteractableItem item)
     {
         if (item == null) return false;
+        if (item.PickupLocked) return false;   // v25.6: застрявшая пила — не взять, только вытянуть
         CraneLoad craneLoad = item.GetComponentInParent<CraneLoad>();
         if (craneLoad != null && craneLoad.IsAttached) return false;
         CraneRider rider = GetComponent<CraneRider>();

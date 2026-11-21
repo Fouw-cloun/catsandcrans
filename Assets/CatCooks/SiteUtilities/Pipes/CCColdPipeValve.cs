@@ -9,6 +9,7 @@ namespace CatCooks.SiteTools
     public sealed class CCColdPipeValve : MonoBehaviour, IVehiclePart
     {
         public HydrantNut nut;
+        public CCPipeFluid fluid;
         public Vector3Int gridCell;
         [Min(.5f)] public float travelSeconds = 5f;
         public PlayerInteractor Operator { get; private set; }
@@ -32,7 +33,7 @@ namespace CatCooks.SiteTools
             var run = hatch.GetComponentInParent<CCPipeRun>();
             if (run != null){
                 foreach (var valve in run.GetComponentsInChildren<CCColdPipeValve>(true))
-                    if (valve.GetComponentInParent<CCPipeRun>() == run) valves.Add(valve);
+                    if (valve.fluid == hatch.fluid && valve.GetComponentInParent<CCPipeRun>() == run) valves.Add(valve);
                 return valves;
             }
             var house = hatch.GetComponentInParent<CityModuleHouse>();
@@ -57,7 +58,7 @@ namespace CatCooks.SiteTools
                 }
             }
             foreach (var valve in house.GetComponentsInChildren<CCColdPipeValve>(true))
-                if (valve.GetComponentInParent<CCPipeRun>() == null && valve.GetComponentInParent<CityModuleHouse>() == house &&
+                if (valve.fluid == hatch.fluid && valve.GetComponentInParent<CCPipeRun>() == null && valve.GetComponentInParent<CityModuleHouse>() == house &&
                     visited.Contains(valve.gridCell)) valves.Add(valve);
             return valves;
         }

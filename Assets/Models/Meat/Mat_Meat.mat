@@ -34,6 +34,9 @@ Material:
     m_Ints: []
     m_Floats:
     - _Ambient: 0.6
+    - _Anime: 1
+    - _AnimePaint: 0.5
+    - _AnimePosterize: 0.75
     - _Band: -0.05
     - _BandSoft: 0.22
     - _BlendSharpness: 6

@@ -100,12 +100,24 @@ public sealed class CraneLoad : NetworkBehaviour
     public bool ServerAttach(CraneHook hook, CraneLiftPoint point)
     {
         if (!IsServerInitialized || point == null || point.Load != this || !CanAttach(hook)) return false;
-        if (Vector3.Distance(hook.LatchWorld, point.WorldPoint) > point.WorldRadius) return false;
-        if ((_body.GetPointVelocity(point.WorldPoint) - hook.Body.GetPointVelocity(hook.LatchWorld)).magnitude > hook.MaxCaptureSpeed) return false;
-        Vector3 gap = point.WorldPoint - hook.LatchWorld;
-        if (gap.sqrMagnitude > 0.0001f)
-            foreach (RaycastHit hit in Physics.RaycastAll(hook.LatchWorld, gap.normalized, gap.magnitude, ~0, QueryTriggerInteraction.Ignore))
-                if (!hit.transform.IsChildOf(transform) && !hit.transform.IsChildOf(hook.transform)) return false;
+        Vector3 anchor = point.WorldPoint;
+        if (TryGetComponent<CCCarcassSling>(out var sling) && sling.point == point &&
+            hook.TryGetComponent<CCMobileHookGuide>(out var guide))
+        {
+            if (!guide.CanCapture(sling, out _)) return false;
+            // The two bands already run to the hook mouth. Capture their current
+            // meeting point, so attaching near an end does not snap the load sideways.
+            anchor = hook.LatchWorld;
+        }
+        else
+        {
+            if (Vector3.Distance(hook.LatchWorld, anchor) > point.WorldRadius) return false;
+            Vector3 gap = anchor - hook.LatchWorld;
+            if (gap.sqrMagnitude > 0.0001f)
+                foreach (RaycastHit hit in Physics.RaycastAll(hook.LatchWorld, gap.normalized, gap.magnitude, ~0, QueryTriggerInteraction.Ignore))
+                    if (!hit.transform.IsChildOf(transform) && !hit.transform.IsChildOf(hook.transform)) return false;
+        }
+        if ((_body.GetPointVelocity(anchor) - hook.Body.GetPointVelocity(hook.LatchWorld)).magnitude > hook.MaxCaptureSpeed) return false;
         CatCooks.Food.CookwareDock dock = FindDock();
         if (dock != null) dock.ReleaseForCrane(_body);
         _serverHook = hook;
@@ -114,7 +126,7 @@ public sealed class CraneLoad : NetworkBehaviour
         _joint = gameObject.AddComponent<ConfigurableJoint>();
         _joint.autoConfigureConnectedAnchor = false;
         _joint.connectedBody = hook.Body;
-        _joint.anchor = transform.InverseTransformPoint(point.WorldPoint);
+        _joint.anchor = transform.InverseTransformPoint(anchor);
         _joint.connectedAnchor = hook.transform.InverseTransformPoint(hook.LatchWorld);
         _joint.xMotion = _joint.yMotion = _joint.zMotion = ConfigurableJointMotion.Locked;
         _joint.angularXMotion = _joint.angularYMotion = _joint.angularZMotion =

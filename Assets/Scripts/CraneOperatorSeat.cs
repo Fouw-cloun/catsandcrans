@@ -7,7 +7,7 @@ using UnityEngine;
 ///   A/D — поворот башни вокруг своей оси,
 ///   W/S — наклон всей стрелы вверх/вниз,
 ///   Q/E — выдвижение секций стрелы (3 сегмента, вложены, едут одновременно),
-///   R/G — крюк вверх/вниз (длина троса; крюк болтается физикой),
+///   R/G — поднять/опустить крюк лебёдки Workshop,
 ///   F — выйти.
 ///
 /// Структура стрелы: _boomBase наклоняется целиком (W/S). Внутри неё три
@@ -43,6 +43,9 @@ public class CraneOperatorSeat : NetworkVehicle
     [Tooltip("Для каждой выдвижной секции: локальная Y задвинуто (X) и выдвинуто (Y)")]
     [SerializeField] private Vector2[] _sectionYRange;
 
+    [Header("Лебёдка Workshop")]
+    [SerializeField] private CCMobileCraneWinch _workshopWinch;
+
     [Header("Крюк (физический, на тросе)")]
     [SerializeField] private ConfigurableJoint _hookJoint;
     [SerializeField] private LineRenderer _rope;
@@ -74,15 +77,35 @@ public class CraneOperatorSeat : NetworkVehicle
     private Quaternion _towerBaseRot, _boomBaseRot;
     private bool _baseCaptured;
 
+    public override void OnStartServer()
+    {
+        base.OnStartServer();
+        if (_workshopWinch && _workshopWinch.physicalHook)
+            _hookLen.Value = CCMobileCraneWinch.ParkedLength;
+    }
+
     protected override bool CanEnter(PlayerInteractor interactor)
     {
         // В кабину крана садимся ВСЕГДА (просто посидеть можно всегда).
+        if(TryGetComponent<CCWorkshopCraneChassis>(out var chassis)) return !chassis.HasDriver && CanOperate;
         return true;
     }
 
     // Управлять краном можно только с ОПУЩЕННЫМИ опорами (иначе кран без опор
     // раскачивал бы корпус). Без опор сидим, но рычаги не работают.
     private bool CanOperate => _craneState != null && _craneState.IsDeployed;
+
+    protected override void ApplyDriverState(NetworkObject player,bool entering)
+    {
+        if(entering)
+        {
+            _localRotate=_rotate.Value;
+            _localPitch=_pitch.Value;
+            _localExtend=_extend.Value;
+            _localHook=_hookLen.Value;
+        }
+        base.ApplyDriverState(player,entering);
+    }
 
     protected override void DriverUpdate()
     {
@@ -94,11 +117,14 @@ public class CraneOperatorSeat : NetworkVehicle
         float rot = (Input.GetKey(KeyCode.D) ? 1f : 0f) - (Input.GetKey(KeyCode.A) ? 1f : 0f);
         float pit = (Input.GetKey(KeyCode.W) ? 1f : 0f) - (Input.GetKey(KeyCode.S) ? 1f : 0f);
         float ext = (Input.GetKey(KeyCode.E) ? 1f : 0f) - (Input.GetKey(KeyCode.Q) ? 1f : 0f);
-        float hk = (Input.GetKey(KeyCode.R) ? 1f : 0f) - (Input.GetKey(KeyCode.G) ? 1f : 0f);
+        float hookInput = (Input.GetKey(KeyCode.G) ? 1f : 0f) - (Input.GetKey(KeyCode.R) ? 1f : 0f);
+        float hk = _workshopWinch ? hookInput : (_hookJoint ? -hookInput : 0f);
 
         _localRotate += rot * _rotateSpeed * dt;
         _localPitch = Mathf.Clamp(_localPitch + pit * _pitchSpeed * dt, _pitchLimit.x, _pitchLimit.y);
         _localExtend = Mathf.Clamp01(_localExtend + ext * _extendSpeed * dt);
+        if (_workshopWinch)
+            _localHook = Mathf.Min(_localHook, Mathf.Max(_hookLimit.x, _workshopWinch.Clearance(_localHook)));
         _localHook = Mathf.Clamp(_localHook + hk * _hookSpeed * dt, _hookLimit.x, _hookLimit.y);
     }
 
@@ -110,6 +136,7 @@ public class CraneOperatorSeat : NetworkVehicle
     [ServerRpc]
     private void CmdCraneInput(float rotate, float pitch, float extend, float hook)
     {
+        if (!HasDriver || !CanOperate) return;
         _rotate.Value = rotate;
         _pitch.Value = Mathf.Clamp(pitch, _pitchLimit.x, _pitchLimit.y);
         _extend.Value = Mathf.Clamp01(extend);
@@ -172,6 +199,9 @@ public class CraneOperatorSeat : NetworkVehicle
                 _sections[i].localPosition = lp;
             }
         }
+
+        if (_workshopWinch)
+            _workshopWinch.RequestLength(_visHook);
 
         // Длина троса крюка.
         if (_hookJoint != null)

@@ -3,7 +3,8 @@ using Cookware = CatCooks.Food.Cookware;
 
 public enum CCMiniTool
 {
-    Bucket, Clamp, Grapple, Trencher, Mulcher, Forks, Hammer, Mixer
+    Bucket, Clamp, Grapple, Trencher, Mulcher, Forks, Hammer, Mixer,
+    Saw     // v28.5: дисковая пила (клавиша 9)
 }
 
 public sealed class CCMiniExcavatorAttachment : MonoBehaviour
@@ -57,7 +58,7 @@ public sealed class CCMiniExcavatorAttachment : MonoBehaviour
         if (drivePart == null) return;
 
         _drive = Mathf.MoveTowards(_drive, power ? 1f : 0f, 4f * dt);
-        _phase = Mathf.Repeat(_phase + dt * _drive * (kind == CCMiniTool.Hammer ? 1440f : 500f), 360f);
+        _phase = Mathf.Repeat(_phase + dt * _drive * (kind == CCMiniTool.Hammer ? 1440f : kind == CCMiniTool.Saw ? 1600f : 500f), 360f);
         if (kind == CCMiniTool.Hammer)
         {
             float stroke = (.5f - .5f * Mathf.Cos(_phase * Mathf.Deg2Rad)) * .14f * _drive;

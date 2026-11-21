@@ -35,7 +35,7 @@ namespace CatCooks.Food.Tools
     ///   ├─ ButtonOff               коллайдер + ShredderButtonPart (Turn On = нет, Part Id = 1)
     ///   └─ Rotor (необязательно)   то, что крутится внутри
     /// </summary>
-    public class ShredderStation : NetworkBehaviour
+    public class ShredderStation : NetworkBehaviour, IScoopSource
     {
         [Header("Что делает")]
         [Tooltip("Процесс, который применяется к продукту в воронке")]
@@ -138,6 +138,17 @@ namespace CatCooks.Food.Tools
         [Tooltip("Пыль/брызги сока в секунду у выхода")]
         [SerializeField] private float _dustPerSecond = 40f;
 
+        [Header("v25.6: ЗАКЛИНИВАНИЕ")]
+        [Tooltip("Может заклинить: кость в воронке — сразу; воронка забита больше Jam Overload — шанс Jam Chance в секунду")]
+        [SerializeField] private bool _canJam = true;
+        [Range(0.3f, 1f)][SerializeField] private float _jamOverload = 0.7f;
+        [Range(0f, 1f)][SerializeField] private float _jamChance = 0.12f;
+        [Tooltip("Заклинило и ВКЛЮЧЁН — стреляет фаршем во все стороны: комок каждые N с")]
+        [Range(0.1f, 1f)][SerializeField] private float _sprayInterval = 0.25f;
+        [SerializeField] private float _spraySpeed = 6f;
+        [Tooltip("Починка: ВЫКЛЮЧИТЬ и выковырять мастерком или лопатой (ЛКМ по станку) столько раз — достаёшь кость и комки")]
+        [Range(1, 8)][SerializeField] private int _fixHits = 3;
+
         [Header("Отладка")]
         [SerializeField] private bool _log = true;
 
@@ -166,6 +177,11 @@ namespace CatCooks.Food.Tools
         // Что сейчас сыплется — чтобы стружка у всех была цвета продукта.
         private readonly SyncVar<ushort> _curProduct = new SyncVar<ushort>(0);
         private readonly SyncVar<byte> _curState = new SyncVar<byte>(0);
+        private readonly SyncVar<bool> _jammed = new SyncVar<bool>(false);
+        private readonly SyncVar<byte> _fixLeft = new SyncVar<byte>(0);
+        private float _jamRollAt, _sprayT;
+        private readonly SyncVar<ushort> _jamProduct = new SyncVar<ushort>(0);   // что выковыривается: кость или фарш
+        public bool IsJammed => _jammed.Value;
 
         // ───────── сервер ─────────
         private readonly List<Batch> _queue = new List<Batch>();
@@ -205,6 +221,18 @@ namespace CatCooks.Food.Tools
 
             FoodDatabase db = FoodDatabase.Instance;
             if (db == null) return;
+
+            // v25.6: кость в воронке — нож заклинило
+            string title = piece.Def != null && piece.Def.Title != null ? piece.Def.Title.ToLowerInvariant() : "";
+            if (_canJam && title.Contains("кост"))
+            {
+                ushort bone = piece.ProductId;
+                if (!piece.ServerTryConsume()) return;
+                piece.NetworkObject.Despawn();
+                ServerJam("в воронку попала кость");
+                _jamProduct.Value = bone;
+                return;
+            }
 
             if (!ResolveOutput(db, piece, out ushort outProduct, out FoodState outState, out string how))
             {
@@ -261,6 +289,30 @@ namespace CatCooks.Food.Tools
             if (_allowMince && db.Table.TryGet(piece.ProductId, piece.State, FoodProcess.Mince, out FoodTransition m))
             { state = m.To; how = "в фарш"; return true; }
             return false;
+        }
+
+        /// <summary>
+        /// v25.6: во что кусок превратится, если его смолоть в фарш (мульчер экскаватора в таре). Порции — как у измельчителя.
+        /// </summary>
+        public static bool MinceOf(FoodPiece piece, out ushort product, out FoodState state, out int portions)
+        {
+            product = 0; state = FoodState.None; portions = 0;
+            FoodDatabase db = FoodDatabase.Instance;
+            if (db == null || piece == null) return false;
+            bool ok = false;
+            foreach (FoodRecipeDef r in db.Recipes)
+            {
+                if (r == null || r.Process != FoodProcess.Mince || r.ResultProduct == null || r.Needs.Count != 1) continue;
+                FoodNeed nd = r.Needs[0];
+                if (nd.Product == null || nd.Product.Id != piece.ProductId) continue;
+                if (nd.State != FoodState.None && nd.State != piece.State) continue;
+                product = r.ResultProduct.Id; state = FoodState.Minced; ok = true; break;
+            }
+            if (!ok && MeatMince(db, piece, out ushort mp)) { product = mp; state = FoodState.Minced; ok = true; }
+            if (!ok && db.Table.TryGet(piece.ProductId, piece.State, FoodProcess.Mince, out FoodTransition m)) { product = piece.ProductId; state = m.To; ok = true; }
+            if (!ok) return false;
+            portions = Mathf.Max(piece.Count, MeatPortions(piece));
+            return true;
         }
 
         /// <summary>Отбитый кусок говядины → «Говядина соломкой» (если такой продукт есть — меню Бефстроганов → 1).</summary>
@@ -349,8 +401,104 @@ namespace CatCooks.Food.Tools
             UpdateVisual();
         }
 
+        [Server]
+        private void ServerJam(string why)
+        {
+            if (_jammed.Value) return;
+            _jammed.Value = true;
+            _fixLeft.Value = (byte)_fixHits;
+            _jamProduct.Value = _queue.Count > 0 ? _queue[0].Product : _curProduct.Value;
+            if (_log) Debug.Log($"[Измельчитель] ЗАКЛИНИЛО: {why}. Выключи (красная кнопка) и выковыряй мастерком ×{_fixHits}", this);
+        }
+
+        // ── v25.6b: IScoopSource — заклинило и выключен: мастерком/лопатой выковыриваешь кость и комки ──
+        public bool PeekScoop(out ushort product, out FoodState state)
+        {
+            product = _jamProduct.Value != 0 ? _jamProduct.Value : _curProduct.Value;
+            state = FoodState.Minced;
+            FoodDatabase db = FoodDatabase.Instance;
+            ProductDef d = db != null && product != 0 ? db.Get(product) : null;
+            if (d != null && d.Title != null && d.Title.ToLowerInvariant().Contains("кост")) state = d.StartState;
+            return _jammed.Value && !_on.Value && product != 0;
+        }
+
+        public int ServerScoop(int max, out ushort product, out FoodState state, out byte cook, out byte clean)
+        {
+            cook = 0; clean = 50;
+            if (!PeekScoop(out product, out state) || max <= 0) return 0;
+            int got = 1;
+            bool bone = _jamProduct.Value != 0 && state != FoodState.Minced;
+            if (!bone && _queue.Count > 0)
+            {
+                // ковыряешь — достаёшь комок того, что застряло
+                Batch b = _queue[0];
+                got = Mathf.Min(max, Mathf.Min(2, b.Portions));
+                product = b.Product; state = b.State; cook = b.Cook;
+                b.Portions -= got;
+                if (b.Portions <= 0) _queue.RemoveAt(0); else _queue[0] = b;
+                _queued.Value = (ushort)Mathf.Max(0, _queued.Value - got);
+            }
+            // кость достали — дальше выковыриваются комки фарша
+            if (bone) _jamProduct.Value = _queue.Count > 0 ? _queue[0].Product : (ushort)0;
+            if (bone && _queue.Count == 0) _fixLeft.Value = 1;                 // кроме кости ничего не было — чисто
+            _fixLeft.Value = (byte)Mathf.Max(0, _fixLeft.Value - 1);
+            if (_log) Debug.Log($"[Измельчитель] выковырял {(bone ? "кость" : got + " порц.")} — осталось {_fixLeft.Value}", this);
+            if (_fixLeft.Value == 0) { _jammed.Value = false; if (_log) Debug.Log("[Измельчитель] прочищен — можно включать", this); }
+            return got;
+        }
+
+        private static GUIStyle _hint;
+
+        private void OnGUI()
+        {
+            if (!_jammed.Value || Event.current.type != EventType.Repaint) return;
+            Camera cam = Camera.main;
+            if (cam == null || (cam.transform.position - transform.position).sqrMagnitude > 64f) return;
+            string t = _on.Value
+                ? "ИЗМЕЛЬЧИТЕЛЬ ЗАКЛИНИЛО — стреляет фаршем! Выключи (красная кнопка)"
+                : $"Измельчитель заклинило — выковыряй мастерком или лопатой (ЛКМ по станку): ещё {_fixLeft.Value}";
+            if (_hint == null) { _hint = new GUIStyle(GUI.skin.box) { fontSize = 16, alignment = TextAnchor.MiddleCenter, wordWrap = true }; _hint.normal.textColor = Color.white; }
+            float w = Mathf.Min(760f, Screen.width - 40f);
+            GUI.Box(new Rect((Screen.width - w) * 0.5f, Screen.height * 0.28f, w, 44f), t, _hint);
+        }
+
+        /// <summary>Заклинило и включён: комок фарша из воронки в случайную сторону.</summary>
+        [Server]
+        private void SprayLump()
+        {
+            if (_queue.Count == 0) return;
+            FoodHeap prefab = ActiveHeapPrefab;
+            if (prefab == null) return;
+            Batch b = _queue[0];
+            int n = Mathf.Min(_portionsPerLump, b.Portions);
+            b.Portions -= n;
+            if (b.Portions <= 0) _queue.RemoveAt(0); else _queue[0] = b;
+            _queued.Value = (ushort)Mathf.Max(0, _queued.Value - n);
+            if (_curProduct.Value != b.Product) _curProduct.Value = b.Product;
+            Vector3 from = transform.position + transform.up * 1.2f;
+            FoodHeap heap = Instantiate(prefab, from, Quaternion.identity);
+            heap.ServerPreset(b.Product, b.State, n, b.Cook, 60);              // летит куда попало — грязное
+            base.Spawn(heap.gameObject);
+            Vector3 d = Random.insideUnitSphere; d.y = Mathf.Abs(d.y) + 0.35f;
+            heap.ServerLaunch(d.normalized * _spraySpeed * Random.Range(0.7f, 1.2f));
+        }
+
         private void ServerTick()
         {
+            if (_jammed.Value)
+            {
+                if (_outputting.Value) _outputting.Value = false;
+                if (!_on.Value) { _sprayT = 0f; return; }
+                _sprayT += Time.deltaTime;
+                if (_sprayT >= _sprayInterval) { _sprayT = 0f; SprayLump(); }
+                return;
+            }
+            // перегруз: забитая воронка — шанс заклинить
+            if (_canJam && _on.Value && _queued.Value > _hopperCapacity * _jamOverload && Time.time >= _jamRollAt)
+            {
+                _jamRollAt = Time.time + 1f;
+                if (Random.value < _jamChance) { ServerJam("воронка забита"); return; }
+            }
             bool working = _on.Value && _queue.Count > 0;
             if (_outputting.Value != working) _outputting.Value = working;
             if (!working) { _timer = 0f; return; }
@@ -564,7 +712,7 @@ namespace CatCooks.Food.Tools
 
         private void UpdateVisual()
         {
-            float target = _on.Value ? 1f : 0f;
+            float target = _on.Value && !_jammed.Value ? 1f : 0f;
             _spin = Mathf.MoveTowards(_spin, target, Time.deltaTime * (_on.Value ? 3f : 1f));
 
             if (_rotor != null && _spin > 0.001f)
@@ -610,7 +758,7 @@ namespace CatCooks.Food.Tools
                 }
             }
 
-            float k = _spin * (_outputting.Value ? 1.6f : 1f);
+            float k = _jammed.Value && _on.Value ? 4f : _spin * (_outputting.Value ? 1.6f : 1f);   // заклинило и включён — колотит
             float amp = _shake * k;
             float ang = _shakeAngle * k;
 

@@ -1,4 +1,5 @@
 using UnityEngine;
+using CatCooks.SiteTools;
 
 /// <summary>
 /// СТРУЯ ВОДЫ из бокового выхода гидранта. Вешается на пустышку у выхода
@@ -111,11 +112,19 @@ public class WaterJet : MonoBehaviour
     [SerializeField] private Vector3 _splashEulerOffset = Vector3.zero;
 
     // ── runtime ──
+    private CCPipeJetLook _pipe;
+    public bool HasImpact => IsFlowing && _hasHit;
+    public Vector3 ImpactNormal => _hitNormal;
+    public float LaunchSpeed => Mathf.Lerp(_minLaunchSpeed,_maxLaunchSpeed,Flow01);
+    public float StreamGravity => _gravity;
+    public float FlightLimit => _maxFlightTime;
+    public LayerMask SurfaceMask => _hitMask;
     private MeshFilter _mf;
     private MeshRenderer _mr;
     private Mesh _mesh;
     private Vector3[] _verts;
     private Vector2[] _uvs;
+    private Vector2[] _pipeSurface;
     private int[] _tris;
     private Vector3[] _pathPoints;   // точки параболы (мировые)
     private int _pathCount;
@@ -160,6 +169,7 @@ public class WaterJet : MonoBehaviour
 
     private void Awake()
     {
+        _pipe = GetComponent<CCPipeJetLook>();
         _mf = GetComponent<MeshFilter>();
         _mr = GetComponent<MeshRenderer>();
         _mesh = new Mesh { name = "WaterJetMesh" };
@@ -213,8 +223,9 @@ public class WaterJet : MonoBehaviour
     {
         // Физику толкаем только там, где считается физика "ничьих" объектов — на
         // сервере/хосте. На чистом клиенте кинематичные RB всё равно не сдвинуть.
-        if (_pushObjects && Flow01 >= _pushThreshold)
-            PushObjectsAlongJet();
+        if (!_pushObjects || Flow01 < _pushThreshold) return;
+        if (_pipe != null) _pipe.PushAlongCone(this, _maxPushForce);
+        else PushObjectsAlongJet();
     }
 
     // ───────── ПАРАБОЛА ─────────
@@ -282,6 +293,7 @@ public class WaterJet : MonoBehaviour
         {
             _verts = new Vector3[vCount];
             _uvs = new Vector2[vCount];
+            if (_pipe != null) _pipeSurface = new Vector2[vCount];
             _tris = new int[(rings - 1) * _radialSegments * 6];
             int ti = 0;
             for (int i = 0; i < rings - 1; i++)
@@ -289,6 +301,11 @@ public class WaterJet : MonoBehaviour
                 {
                     int a = i * vpr + s;
                     int b = a + vpr;
+                    if (_pipe != null){
+                        _tris[ti++] = a; _tris[ti++] = a + 1; _tris[ti++] = b;
+                        _tris[ti++] = a + 1; _tris[ti++] = b + 1; _tris[ti++] = b;
+                        continue;
+                    }
                     _tris[ti++] = a; _tris[ti++] = b; _tris[ti++] = a + 1;
                     _tris[ti++] = a + 1; _tris[ti++] = b; _tris[ti++] = b + 1;
                 }
@@ -302,6 +319,7 @@ public class WaterJet : MonoBehaviour
         if (normal.sqrMagnitude < 1e-4f) normal = Vector3.Cross(tangent, Vector3.right);
         normal.Normalize();
         Vector3 prevT = tangent;
+        float travelled = 0f;
 
         for (int i = 0; i < rings; i++)
         {
@@ -317,24 +335,47 @@ public class WaterJet : MonoBehaviour
             Vector3 binormal = Vector3.Cross(t, normal);
             prevT = t;
 
+            if (i > 0 && _pipe != null) travelled += Vector3.Distance(_pathPoints[i-1], _pathPoints[i]);
             float vAlong = (float)i / (rings - 1);
             // Радиус по ПРОФИЛЮ из инспектора: конус, бочка, капля — любая форма.
-            float r = radius * Mathf.Max(0.01f, _radiusProfile.Evaluate(vAlong));
+            float r = _pipe != null ? _pipe.RadiusAt(travelled,Flow01) :
+                radius * Mathf.Max(0.01f, _radiusProfile.Evaluate(vAlong));
 
+            float breakUp=0f;
+            if (_pipe!=null){
+                float flight=i*_maxFlightTime/_lengthSegments;
+                float fraction=flight*_gravity/Mathf.Max(1f,LaunchSpeed*transform.forward.y);
+                breakUp=Mathf.SmoothStep(0,1,Mathf.InverseLerp(.36f,1.38f,fraction));
+                float throat=Mathf.Lerp(.95f,_pipe.fluid==CCPipeFluid.Sewage?.48f:.31f,breakUp);
+                // A tube wider than the curvature radius folds over itself at the crest.
+                Vector3 velocity=transform.forward*LaunchSpeed+Vector3.down*_gravity*flight;
+                float curvatureRadius=Mathf.Pow(velocity.magnitude,3f)/
+                    Mathf.Max(.15f,Vector3.Cross(velocity,Vector3.down*_gravity).magnitude);
+                r=Mathf.Min(r*throat,Mathf.Max(.055f,.52f*curvatureRadius));
+            }
             Vector3 local = transform.InverseTransformPoint(_pathPoints[i]);
             for (int s = 0; s < vpr; s++)
             {
                 float ang = (float)s / _radialSegments * Mathf.PI * 2f;
                 Vector3 dir = Mathf.Cos(ang) * normal + Mathf.Sin(ang) * binormal;
                 int idx = i * vpr + s;
-                _verts[idx] = local + transform.InverseTransformDirection(dir) * r;
-                _uvs[idx] = new Vector2((float)s / _radialSegments, vAlong);
+                float skin=r;
+                if (_pipe!=null){
+                    float pulse=travelled*.93f-Time.time*(1.4f+2.3f*Flow01);
+                    skin*=1f+Mathf.Clamp01(travelled)*(.07f+.12f*breakUp)*
+                        (Mathf.Sin(3f*ang+pulse)+.47f*Mathf.Sin(5f*ang-pulse*.73f));
+                    _pipeSurface[idx]=new Vector2(breakUp,0f);
+                }
+                _verts[idx] = local + (_pipe != null ? transform.InverseTransformVector(dir*skin) :
+                    transform.InverseTransformDirection(dir)*r);
+                _uvs[idx] = new Vector2((float)s / _radialSegments, _pipe != null ? travelled : vAlong);
             }
         }
 
         _mesh.Clear();
         _mesh.vertices = _verts;
         _mesh.uv = _uvs;
+        if (_pipe!=null) _mesh.uv2 = _pipeSurface;
         _mesh.triangles = _tris;
         _mesh.RecalculateNormals();
         _mesh.RecalculateBounds();

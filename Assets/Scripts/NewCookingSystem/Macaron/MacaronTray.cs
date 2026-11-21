@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using FishNet.Connection;
 using FishNet.Object;
 using FishNet.Object.Synchronizing;
 using UnityEngine;
@@ -16,16 +18,15 @@ namespace CatCooks.Food
     ///   3. ВЫПЕЧКА. ЛКМ с противнем в руке — встаёт ровно на решётку духовки. От 130 °C, ~40 с.
     ///      Выше 190 °C — подгорят. Перемешанное тесто — растечётся блинами.
     ///      Получилось — у скорлупки снизу кружевная «юбочка».
-    ///   4. F по готовому противню — скорлупки выпадают отдельными предметами (Shell Prefab),
-    ///      каждая со своим размером и оценкой. Противень снова пуст.
-    ///      v23.67: F по ДИСКУ в кольце — достать эту скорлупку (противень не поднимается; сырой диск — подсказка,
-    ///      что дальше); F по БОРТУ — испечённый: все скорлупки сразу, иначе — взять противень.
+    ///   4. v23.70: ЛКМ пустой рукой по скорлупке на противне — она сразу в руке (по одной, без вылета и физики),
+    ///      каждая со своим размером и оценкой. Последнюю достали — противень снова пуст.
+    ///      F — всегда взять противень (испечённые скорлупки едут на нём как часть противня).
     ///
     /// ═══ НА КОРНЕ ═══ NetworkObject · NetworkTransform · Rigidbody · этот компонент (он же «в руки») ·
     /// коллайдеры листа и колец. Кольца (центры, радиус) записывает меню «Макарон → 5».
     /// Духовка считает противень «пекущимся» (давление, как у хлеба).
     /// </summary>
-    public sealed class MacaronTray : PickupItem, IOvenBaking, IAimedInteract
+    public sealed class MacaronTray : PickupItem, IOvenBaking
     {
         [Header("Что печём (пусто — по названию)")]
         [SerializeField] private ProductDef _batter;
@@ -225,7 +226,7 @@ namespace CatCooks.Food
         {
             Resolve();
             why = null;
-            if (State != TrayState.Raw) { why = State == TrayState.Baking ? "противень печётся" : "противень готов — F, чтобы достать скорлупки"; return false; }
+            if (State != TrayState.Raw) { why = State == TrayState.Baking ? "противень печётся" : "противень готов — ЛКМ пустой рукой по скорлупке, чтобы достать"; return false; }
             if ((_batter != null && product == _batter.Id) || (_batterOver != null && product == _batterOver.Id)) return true;
             why = "в кольца — только «Тесто для макарон»";
             return false;
@@ -264,8 +265,10 @@ namespace CatCooks.Food
             if (base.IsServerInitialized)
             {
                 ServerTick(Time.deltaTime);
+                if (_resting.Count > 0) ServerTickResting();      // v23.71
                 if (base.IsClientInitialized) TestKeys();         // хост: тестовая клавиша
             }
+            if (base.IsClientInitialized) ClientTakeInput();     // v23.70: ЛКМ пустой рукой — взять скорлупку
         }
 
         /// <summary>
@@ -394,26 +397,46 @@ namespace CatCooks.Food
             }
             _state.Value = (byte)TrayState.Baked;
             if (_log) Debug.Log($"[Противень] «{name}»: СКОРЛУПКИ ГОТОВЫ — {total} шт.: с юбочкой {feet}, треснули {cracked}, растеклись {spread}, " +
-                                $"маленькие {small}, подгорели {burnt}. F по противню — достать", this);
+                                $"маленькие {small}, подгорели {burnt}. ЛКМ пустой рукой по скорлупке — достать", this);
         }
 
-        /// <summary>F: готовые скорлупки — выпадают предметами; иначе — взять противень.</summary>
-        public override void ServerInteract(PlayerInteractor interactor)
+        // v23.70: F — обычный PickupItem (взять противень всегда); скорлупки — ЛКМ пустой рукой (ClientTakeInput).
+
+        private static PlayerInteractor _localPlayer;
+
+        private static PlayerInteractor LocalPlayer()
         {
-            if (State == TrayState.Baked) { ServerPop(); return; }
-            base.ServerInteract(interactor);
+            if (_localPlayer != null && _localPlayer.IsOwner) return _localPlayer;
+            _localPlayer = null;
+            foreach (PlayerInteractor pi in FindObjectsByType<PlayerInteractor>(FindObjectsSortMode.None))
+                if (pi != null && pi.IsOwner) { _localPlayer = pi; break; }
+            return _localPlayer;
         }
 
-        /// <summary>
-        /// v23.67: F с точкой прицела. По диску в кольце: испечён — выпадает ЭТА скорлупка; сырой или печётся —
-        /// противень НЕ поднимается (подсказка над диском, что делать). По борту — как раньше.
-        /// </summary>
-        public void ServerInteractAt(PlayerInteractor interactor, Vector3 hitPoint)
+        /// <summary>v23.70: у каждого игрока — ЛКМ пустой рукой по скорлупке на испечённом противне → просим сервер её отлепить
+        /// (v23.71: не в руку — остаётся лежать в своём кольце отдельной скорлупкой).</summary>
+        private void ClientTakeInput()
         {
-            int disc = DiscAt(hitPoint);
-            if (disc < 0) { ServerInteract(interactor); return; }
-            if (State == TrayState.Baked) { ServerPopOne(disc); return; }
-            if (_log) Debug.Log($"[Противень] «{name}»: F по диску {disc + 1} — {DiscHint(disc)}", this);
+            if (State != TrayState.Baked || !Input.GetMouseButtonDown(0) || UiModal.AnyOpen) return;
+            PlayerInteractor pi = LocalPlayer();
+            if (pi == null || pi.Hand == null || pi.Hand.HasItem) return;
+            Transform o = pi.AimOrigin;
+            if (!Physics.Raycast(o.position, o.forward, out RaycastHit h, pi.Reach, pi.InteractMask, QueryTriggerInteraction.Ignore)) return;
+            if (h.collider.GetComponentInParent<MacaronTray>() != this) return;
+            int disc = DiscAt(h.point);
+            if (disc < 0) return;
+            CmdTakeShell((byte)disc, pi.NetworkObject);
+        }
+
+        [ServerRpc(RequireOwnership = false)]
+        private void CmdTakeShell(byte ring, NetworkObject player, NetworkConnection conn = null)
+        {
+            if (player == null || player.Owner != conn) return;
+            PlayerInteractor pi = player.GetComponent<PlayerInteractor>();
+            if (pi == null || pi.Hand == null || pi.Hand.HasItem) return;
+            if (State != TrayState.Baked || ring >= RingCount) return;
+            if (Vector3.Distance(player.transform.position, RingWorld(ring)) > pi.Reach + 2f) return;
+            ServerPopOne(ring, null, true);                                    // v23.71: просто отлипает — лежит в своём кольце
         }
 
         /// <summary>v23.67: диск (кольцо с тестом/скорлупкой) под точкой мира; −1 — борт или пустое кольцо.</summary>
@@ -437,25 +460,25 @@ namespace CatCooks.Food
             switch (State)
             {
                 case TrayState.Baked:
-                    return "F — достать скорлупку · F по борту — все сразу";
+                    return "ЛКМ пустой рукой — отлепить скорлупку · F — взять противень";
                 case TrayState.Baking:
-                    return $"печётся {_bake.Value / 255f * 100f:0}% — жди, F по борту — взять противень";
+                    return $"печётся {_bake.Value / 255f * 100f:0}% — жди · F — взять противень";
                 default:
                     float skin = Skin01;
                     if (skin < _skinNeeded)
-                        return $"сырое тесто: подсыхает {skin / Mathf.Max(0.01f, _skinNeeded) * 100f:0}% — потом в духовку от {_bakeFromC:0} °C · F по борту — взять противень";
-                    return $"корочка схватилась — в духовку от {_bakeFromC:0} °C (~{_bakeSeconds:0} с) · F по борту — взять противень";
+                        return $"сырое тесто: подсыхает {skin / Mathf.Max(0.01f, _skinNeeded) * 100f:0}% — потом в духовку от {_bakeFromC:0} °C · F — взять противень";
+                    return $"корочка схватилась — в духовку от {_bakeFromC:0} °C (~{_bakeSeconds:0} с) · F — взять противень";
             }
         }
 
-        /// <summary>v23.67: одна скорлупка из кольца i. Последняя — противень снова пуст (можно отсаживать).</summary>
+        /// <summary>v23.67: одна скорлупка из кольца i (v23.70: сразу в руку hand). Последняя — противень снова пуст (можно отсаживать).</summary>
         [Server]
-        private void ServerPopOne(int i)
+        private void ServerPopOne(int i, PlayerHand hand = null, bool rest = false)
         {
             Resolve();
             if (_shellPrefab == null) { Debug.LogError($"[Противень] «{name}»: не задан Shell Prefab — скорлупки не достать", this); return; }
             if (i < 0 || i >= RingCount) return;
-            if (FillOf(i) >= 0.1f) SpawnShell(i);
+            if (FillOf(i) >= 0.1f) SpawnShell(i, hand, rest);
             else { _fill[i] = 0; _result[i] = 0; }                            // крошка, а не скорлупка — просто счищается
             for (int k = 0; k < RingCount; k++) if (FillOf(k) >= 0.1f) return;   // остались ещё скорлупки
             for (int k = 0; k < RingCount; k++) { _fill[k] = 0; _result[k] = 0; }
@@ -483,7 +506,7 @@ namespace CatCooks.Food
 
         /// <summary>Скорлупка из кольца i выпадает предметом (размер и оценка — по наливу и выпечке); кольцо пустеет. Сервер.</summary>
         [Server]
-        private void SpawnShell(int i)
+        private void SpawnShell(int i, PlayerHand hand = null, bool rest = false)
         {
             float f = FillOf(i);
             byte fl = _result[i];
@@ -496,9 +519,47 @@ namespace CatCooks.Food
             FoodPiece fp = go.GetComponent<FoodPiece>();
             if (fp != null) fp.ServerPreset(_shell, FoodState.Baked, 100, 100, _quality[i]);
             base.Spawn(go);
-            Rigidbody rb = go.GetComponent<Rigidbody>();
-            if (rb != null) rb.AddForce(Vector3.up * 1.2f + Random.insideUnitSphere * 0.4f, ForceMode.VelocityChange);
             _fill[i] = 0; _result[i] = 0;
+            if (rest)
+            {
+                // v23.71: отлипла и лежит ровно в своём кольце, низом на листе. Без физики (не толкает противень),
+                // пока противень стоит; сдвинули или взяли противень — скорлупка снова обычная, физическая.
+                Rigidbody rrb = go.GetComponent<Rigidbody>();
+                if (rrb != null) { rrb.isKinematic = true; rrb.linearVelocity = Vector3.zero; rrb.angularVelocity = Vector3.zero; }
+                go.transform.rotation = transform.rotation * Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
+                Physics.SyncTransforms();
+                Collider c = go.GetComponentInChildren<Collider>();
+                float off = c != null ? Mathf.Max(0f, Vector3.Dot(go.transform.position - c.bounds.center, transform.up) + c.bounds.extents.y) : 0f;
+                go.transform.position = RingWorld(i) + transform.up * (off + 0.002f);
+                if (rrb != null) _resting.Add(new Resting { Rb = rrb, Piece = fp, TrayPos = transform.position, TrayRot = transform.rotation });
+                return;
+            }
+            // v23.70: сразу в руку — без вылета и физики (раньше вылетали и толкали противень)
+            InteractableItem it = go.GetComponent<InteractableItem>();
+            if (hand != null && it != null && hand.ServerTryHold(it)) return;
+            if (hand == null)
+            {
+                Rigidbody rb = go.GetComponent<Rigidbody>();
+                if (rb != null) rb.AddForce(Vector3.up * 1.2f + Random.insideUnitSphere * 0.4f, ForceMode.VelocityChange);
+            }
+        }
+
+        // v23.71: отлепленные скорлупки, лежащие в кольцах без физики (сервер)
+        private struct Resting { public Rigidbody Rb; public FoodPiece Piece; public Vector3 TrayPos; public Quaternion TrayRot; }
+        private readonly List<Resting> _resting = new List<Resting>();
+
+        /// <summary>v23.71: противень сдвинули/взяли — лежащие скорлупки снова физические (падают как обычно).</summary>
+        private void ServerTickResting()
+        {
+            for (int k = _resting.Count - 1; k >= 0; k--)
+            {
+                Resting r = _resting[k];
+                if (r.Rb == null || (r.Piece != null && (!r.Piece.IsSpawned || r.Piece.IsHeld))) { _resting.RemoveAt(k); continue; }
+                bool moved = (transform.position - r.TrayPos).sqrMagnitude > 0.0004f || Quaternion.Angle(transform.rotation, r.TrayRot) > 2f;
+                if (!moved) continue;
+                r.Rb.isKinematic = false;
+                _resting.RemoveAt(k);
+            }
         }
 
         // ───────────────────────── v23.67: подсказка над диском (у каждого игрока своя) ─────────────────────────
@@ -751,7 +812,7 @@ namespace CatCooks.Food
 
         // ───────── тестовая клавиша (хост) ─────────
         //   P (смотришь на противень) — залить все кольца идеально и сразу подсушить (можно в духовку);
-        //   Shift+P — испечь сразу (F — достать скорлупки).
+        //   Shift+P — испечь сразу (ЛКМ пустой рукой — достать скорлупку).
         [Header("Тест (хост)")]
         [Tooltip("Клавиша: смотришь на противень — залить кольца и подсушить; с Shift — испечь сразу")]
         [SerializeField] private KeyCode _testKey = KeyCode.P;
@@ -764,7 +825,7 @@ namespace CatCooks.Food
             if (!Physics.Raycast(cam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f)), out RaycastHit h, 6f, ~0, QueryTriggerInteraction.Collide)) return;
             if (!h.collider.transform.IsChildOf(transform)) return;
             bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
-            if (State == TrayState.Baked) { Debug.Log($"[Противень] «{name}»: тест — уже испечено, F — достать скорлупки", this); return; }
+            if (State == TrayState.Baked) { Debug.Log($"[Противень] «{name}»: тест — уже испечено, ЛКМ пустой рукой — достать скорлупку", this); return; }
             if (State == TrayState.Raw && !AnyBatter()) TestFillAll();
             if (shift) TestBake();
             else
@@ -797,7 +858,7 @@ namespace CatCooks.Food
             if (!AnyBatter()) { Debug.LogWarning($"[Противень] «{name}»: тест — в кольцах нет теста, сначала «залить все кольца»", this); return; }
             _skinAtBake = Mathf.Max(_skinT, _skinNeeded); _maxT = 160f;
             Finish();
-            Debug.Log($"[Противень] «{name}»: тест — испечено сразу. F по противню — скорлупки выпадут", this);
+            Debug.Log($"[Противень] «{name}»: тест — испечено сразу. ЛКМ пустой рукой по скорлупке — достать", this);
         }
 
 #if UNITY_EDITOR

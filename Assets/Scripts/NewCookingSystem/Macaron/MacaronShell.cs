@@ -166,10 +166,36 @@ namespace CatCooks.Food
             float f = Filling01;
             float use = Mathf.Min(amount, _maxFilling - f);
             if (use <= 0f) { why = "начинки уже с горкой"; return 0f; }
+            ServerStandUpright();                                               // v23.71: лежит криво или вверх дном — встаёт ровно, плоской стороной вверх
             _fillProduct.Value = product;
             float nf = f + use;
             _filling.Value = (byte)Mathf.Clamp(Mathf.RoundToInt(nf / _maxFilling * 255f), 0, 255);
             return use;
+        }
+
+        /// <summary>
+        /// v23.71: под начинку скорлупка встаёт ровно: корень — вертикально вверх (поворот вокруг оси сохраняется),
+        /// низ — на той же высоте, что был; скорость гасится. Вид «перевёрнута плоской стороной вверх» рисует ApplyLook
+        /// относительно корня — раньше, если скорлупка упала боком или куполом вниз, начинка оказывалась сбоку или снизу.
+        /// </summary>
+        [Server]
+        private void ServerStandUpright()
+        {
+            if (Vector3.Dot(transform.up, Vector3.up) > 0.985f) return;
+            Collider c = GetComponentInChildren<Collider>();
+            float minBefore = c != null ? c.bounds.min.y : transform.position.y;
+            Vector3 fwd = Vector3.ProjectOnPlane(transform.forward, Vector3.up);
+            if (fwd.sqrMagnitude < 1e-4f) fwd = Vector3.ProjectOnPlane(transform.up, Vector3.up);
+            if (fwd.sqrMagnitude < 1e-4f) fwd = Vector3.forward;
+            transform.rotation = Quaternion.LookRotation(fwd.normalized, Vector3.up);
+            Physics.SyncTransforms();
+            if (c != null) transform.position += Vector3.up * (minBefore - c.bounds.min.y + 0.001f);
+            Rigidbody rb = GetComponent<Rigidbody>();
+            if (rb != null)
+            {
+                rb.position = transform.position; rb.rotation = transform.rotation;
+                if (!rb.isKinematic) { rb.linearVelocity = Vector3.zero; rb.angularVelocity = Vector3.zero; }
+            }
         }
 
         // ───────────────────────── СБОРКА (ЛКМ скорлупкой в руке) ─────────────────────────

@@ -37,6 +37,8 @@ namespace CatCooks.Food
     public static class CarcassModel
     {
         public const int PartCount = 13;
+        /// <summary>Версия формы (видно в логе меню 8).</summary>
+        public const string ShapeVersion = "v28 цельная: прямые стыки, перекрытие, без канавок";
         public const int CellN = 6;
         public const short NoSlab = short.MinValue;
 
@@ -59,7 +61,7 @@ namespace CatCooks.Food
         {
             public MeatSpecies Kind;
             public float S;                         // масштаб от свиньи
-            public float Voxel, Gap, K, KLeg, KLegBody, Round, Wave;
+            public float Voxel, Gap, K, KLeg, KLegBody, Round, Wave, Join;
             public float Yc, Top, HalfW, XFront;
             public Ell[] Torso;
             public Leg[] Legs;                      // FL, FR, HL, HR
@@ -84,7 +86,9 @@ namespace CatCooks.Food
             {
                 Kind = kind, S = S,
                 Voxel = beef ? 0.018f : 0.012f, Gap = 0.002f * S, K = 0.07f * S, KLeg = 0.025f * S, KLegBody = 0.06f * S,
-                Round = 0.016f * S, Wave = 0.032f * S,
+                // v28: туша ЦЕЛЬНАЯ — швов не видно: части прямые (без волны), чуть заходят друг в друга (Join < 0),
+                // фаска маленькая и прячется под соседом. Где пилить — показывает разметка FoodCarcass.
+                Round = (beef ? 0.018f : 0.012f) * 0.4f, Wave = 0f, Join = -(beef ? 0.018f : 0.012f) * 0.8f,
                 Yc = 0.52f * S, Top = 0.76f * S, HalfW = 0.215f * S, XFront = 0.57f * S,
                 XFrontEnd = 0.16f * S, XRear = -0.20f * S, ZInnerF = 0.04f * S, HoofH = 0.045f * S,
                 SpineR = 0.022f * S, RibSpacing = 0.05f * S, RibR = 0.009f * S, FatCap = 0.028f * S, FatSide = 0.012f * S,
@@ -259,7 +263,7 @@ namespace CatCooks.Food
                 hi = Vector3.Max(hi, new Vector3(l.B.X1, l.B.Y1, l.B.Z1));
             }
             // волнистый шов может зайти за плоскость — запас
-            Vector3 w = Vector3.one * (s.Wave * 1.3f);
+            Vector3 w = Vector3.one * Mathf.Max(s.Wave * 1.3f, -s.Join + s.Voxel);
             lo = Vector3.Max(lo - w, s.Lo); hi = Vector3.Min(hi + w, s.Hi);
         }
 
@@ -363,6 +367,7 @@ namespace CatCooks.Food
         private static Vector3 Warp(Sp s, Vector3 p)
         {
             float w = s.Wave, k = 1f / s.S;
+            if (w <= 0f) return Vector3.zero;
             return new Vector3(w * Mathf.Sin(p.y * 7.3f * k + p.z * 3.1f * k + 0.4f),
                                w * 0.8f * Mathf.Sin(p.x * 5.2f * k + 0.7f) + w * 0.4f * Mathf.Sin(p.z * 9f * k),
                                0f);
@@ -374,7 +379,7 @@ namespace CatCooks.Food
             float best = Big;
             foreach (Leaf l in s.Parts[(int)part]) best = Mathf.Min(best, l.B.Sdf(q));
             // шея срезана ровно (срез, а не шкура)
-            return Mathf.Max(best + s.Gap, p.x - s.XFront);
+            return Mathf.Max(best + s.Join, p.x - s.XFront);
         }
 
         private static float Sq(float x) => x * x;
@@ -543,7 +548,7 @@ namespace CatCooks.Food
             {
                 float r = Region(s, part, p);
                 if (slab) { float t = axis == 0 ? p.x : p.y; r = Mathf.Max(r, Mathf.Max(a + s.Gap - t, t - b + s.Gap)); }
-                return SMax(Body(s, p), r, s.Round);          // края кусков скруглены — аккуратные «мультяшные» куски
+                return s.Round > 1e-5f ? SMax(Body(s, p), r, s.Round) : Mathf.Max(Body(s, p), r);   // v28: фаска чуть-чуть — под соседом не видно
             };
             PartBox(sp, part, out Vector3 lo, out Vector3 hi);
             if (slab)
@@ -576,6 +581,140 @@ namespace CatCooks.Food
                 else { lo.y = Mathf.Max(lo.y, a); hi.y = Mathf.Min(hi.y, b); }
             }
             return (lo + hi) * 0.5f;
+        }
+
+
+        // ───────────────────────── v28: ЛИНИИ РАСПИЛА (швы на поверхности) ─────────────────────────
+        //
+        // Части — коробки, стыки между ними — плоскости. Шов = где плоскость стыка выходит на поверхность
+        // ОСТАВШЕЙСЯ туши (на шкуру или на срез уже отпиленного куска). Точки шва — через каждые SeamStep,
+        // с нормалью поверхности и касательной вдоль шва. Одинаково на сервере и у клиентов.
+
+        public struct SeamPt { public Vector3 P, N, T; public byte A, B; }
+
+        private sealed class PlaneGrid
+        {
+            public int Axis, U, W, Nu, Nw; public float Val, D; public Vector3 Lo;
+            public float[] Body; public sbyte[] PA, PB;
+        }
+
+        private static readonly Dictionary<int, List<PlaneGrid>> _planes = new Dictionary<int, List<PlaneGrid>>();
+
+        /// <summary>Шаг точек шва (оси туши).</summary>
+        public static float SeamStep(MeatSpecies sp) => 0.01f * Of(sp).S;
+
+        private static int PartAtRaw(Sp s, Vector3 q)
+        {
+            if (q.x > s.XFront + 0.1f * s.S) return -1;
+            for (int i = 0; i < PartCount; i++)
+                foreach (Leaf l in s.Parts[i]) if (l.B.Sdf(q) <= 0f) return i;
+            return -1;
+        }
+
+        private static List<PlaneGrid> Planes(MeatSpecies sp)
+        {
+            lock (_planes) { if (_planes.TryGetValue((int)sp, out var have)) return have; }
+            Sp s = Of(sp);
+            var vals = new List<Vector2>();   // (ось, значение)
+            for (int i = 0; i < PartCount; i++)
+                foreach (Leaf l in s.Parts[i])
+                {
+                    float[] v = { l.B.X0, l.B.X1, l.B.Y0, l.B.Y1, l.B.Z0, l.B.Z1 };
+                    for (int k = 0; k < 6; k++)
+                    {
+                        if (Mathf.Abs(v[k]) > Big * 0.5f) continue;
+                        var c = new Vector2(k / 2, v[k]);
+                        bool dup = false;
+                        foreach (Vector2 o in vals) if (o.x == c.x && Mathf.Abs(o.y - c.y) < 1e-5f) { dup = true; break; }
+                        if (!dup) vals.Add(c);
+                    }
+                }
+            float d = SeamStep(sp), eps = d * 0.25f;
+            var list = new List<PlaneGrid>();
+            foreach (Vector2 pv in vals)
+            {
+                int ax = (int)pv.x, u = (ax + 1) % 3, w = (ax + 2) % 3;
+                float val = pv.y;
+                if (val < s.Lo[ax] || val > s.Hi[ax]) continue;
+                var g = new PlaneGrid { Axis = ax, U = u, W = w, Val = val, D = d };
+                g.Nu = Mathf.CeilToInt((s.Hi[u] - s.Lo[u]) / d) + 1; g.Nw = Mathf.CeilToInt((s.Hi[w] - s.Lo[w]) / d) + 1;
+                g.Lo = s.Lo; g.Lo[ax] = val;
+                int n = g.Nu * g.Nw;
+                g.Body = new float[n]; g.PA = new sbyte[n]; g.PB = new sbyte[n];
+                Vector3 nrm = Vector3.zero; nrm[ax] = 1f;
+                for (int j = 0; j < g.Nw; j++)
+                    for (int i = 0; i < g.Nu; i++)
+                    {
+                        Vector3 p = g.Lo; p[u] += i * d; p[w] += j * d;
+                        int id = j * g.Nu + i;
+                        g.Body[id] = Mathf.Max(Body(s, p), p.x - s.XFront);
+                        g.PA[id] = (sbyte)PartAtRaw(s, p - nrm * eps);
+                        g.PB[id] = (sbyte)PartAtRaw(s, p + nrm * eps);
+                    }
+                list.Add(g);
+            }
+            lock (_planes) _planes[(int)sp] = list;
+            return list;
+        }
+
+        /// <summary>Швы туши, у которой отпилены части removed (бит = MeatPart). Только стыки двух ОСТАВШИХСЯ частей.</summary>
+        public static List<SeamPt> Seams(MeatSpecies sp, ulong removed)
+        {
+            Sp s = Of(sp);
+            var res = new List<SeamPt>();
+            foreach (PlaneGrid g in Planes(sp))
+            {
+                Vector3 pn = Vector3.zero; pn[g.Axis] = 1f;
+                int n = g.Nu * g.Nw;
+                var ins = new bool[n]; var outOk = new bool[n];
+                for (int id = 0; id < n; id++)
+                {
+                    int a = g.PA[id], b = g.PB[id];
+                    bool sa = a >= 0 && (removed & (1UL << a)) == 0, sb = b >= 0 && (removed & (1UL << b)) == 0;
+                    ins[id] = sa && sb && a != b && g.Body[id] < 0f;
+                    outOk[id] = g.Body[id] >= 0f || !sa || !sb;      // снаружи туши или в пустоте отпиленного (не внутренний стык трёх частей)
+                }
+                for (int j = 0; j < g.Nw; j++)
+                    for (int i = 0; i < g.Nu; i++)
+                    {
+                        int id = j * g.Nu + i;
+                        for (int dir = 0; dir < 2; dir++)
+                        {
+                            int i2 = dir == 0 ? i + 1 : i, j2 = dir == 0 ? j : j + 1;
+                            if (i2 >= g.Nu || j2 >= g.Nw) continue;
+                            int id2 = j2 * g.Nu + i2;
+                            if (ins[id] == ins[id2]) continue;
+                            int inn = ins[id] ? id : id2, outn = ins[id] ? id2 : id;
+                            if (!outOk[outn]) continue;
+                            Vector3 pi = PointOf(g, inn), po = PointOf(g, outn);
+                            bool samePair = g.PA[inn] == g.PA[outn] && g.PB[inn] == g.PB[outn];
+                            Vector3 p, nrm;
+                            if (samePair && g.Body[outn] >= 0f)
+                            {
+                                // выход на шкуру — точно по полю тела
+                                float t = g.Body[inn] / (g.Body[inn] - g.Body[outn]);
+                                p = Vector3.Lerp(pi, po, Mathf.Clamp01(t));
+                                nrm = Grad(q => Mathf.Max(Body(s, q), q.x - s.XFront), p, g.D * 0.35f).normalized;
+                            }
+                            else
+                            {
+                                // край среза отпиленного куска — посередине, нормаль наружу по плоскости
+                                p = (pi + po) * 0.5f;
+                                nrm = (po - pi).normalized;
+                            }
+                            Vector3 tan = Vector3.Cross(pn, nrm);
+                            if (tan.sqrMagnitude < 1e-4f) continue;
+                            res.Add(new SeamPt { P = p, N = nrm, T = tan.normalized, A = (byte)g.PA[inn], B = (byte)g.PB[inn] });
+                        }
+                    }
+            }
+            return res;
+        }
+
+        private static Vector3 PointOf(PlaneGrid g, int id)
+        {
+            Vector3 p = g.Lo; p[g.U] += (id % g.Nu) * g.D; p[g.W] += (id / g.Nu) * g.D;
+            return p;
         }
 
         private static readonly int[] EdgeA = { 0, 2, 4, 6, 0, 1, 4, 5, 0, 1, 2, 3 };

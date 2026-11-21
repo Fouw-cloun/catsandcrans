@@ -65,6 +65,7 @@ public class CraneState : NetworkBehaviour
     [Server]
     public void ServerToggle()
     {
+        if (!_deployed.Value && TryGetComponent<CCWorkshopCraneChassis>(out var workshop) && !workshop.CanDeploy()) return;
         _deployed.Value = !_deployed.Value;
     }
 }

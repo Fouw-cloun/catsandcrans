@@ -58,6 +58,9 @@ public abstract class InteractableItem : NetworkBehaviour
 
     public bool CanPickup => _canPickup;
 
+    /// <summary>v25.6: сервер — предмет нельзя взять в руку (пила застряла в туше). Ставит тот, кто держит предмет.</summary>
+    public bool PickupLocked { get; set; }
+
     protected virtual void Awake()
     {
         _rb = GetComponent<Rigidbody>();

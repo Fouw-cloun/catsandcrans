@@ -72,7 +72,7 @@ namespace CatCooks.SiteTools
                     Undo.DestroyObjectImmediate(fitting.gameObject);
                     continue;
                 }
-                if(fitting.line==0) CCColdPipeSetup.Configure(fitting.transform,Vector3Int.zero);
+                CCColdPipeSetup.Configure(fitting.transform,Vector3Int.zero,fitting.line);
                 OrientMount(fitting.transform,fitting.line,fitting.mountingAngles,true);
                 fitting.transform.localPosition=centers[i,fitting.line];
                 fitting.transform.localRotation=Quaternion.FromToRotation(Vector3.forward,tangents[i]);
@@ -208,8 +208,8 @@ namespace CatCooks.SiteTools
                     outlet.transform.localRotation=Quaternion.Euler(0,0,-90);
                 }
             }
-            if (line==0 && parent.GetComponentInParent<CCPipeRun>()!=null)
-                CCColdPipeSetup.Configure(f,Vector3Int.zero);
+            if (parent.GetComponentInParent<CCPipeRun>()!=null)
+                CCColdPipeSetup.Configure(f,Vector3Int.zero,line);
             return f;
         }
     }
